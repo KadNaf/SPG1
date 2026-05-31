@@ -290,14 +290,13 @@ splash_ui <- function() {
           shiny::div(
             class = "spg-hero-desc",
             "A versatile, user-friendly and multi-OS application to analyse
-             population genetic data — import, explore, and run descriptive
-             statistics in a few clicks."
+             population genetic data"
           ),
           shiny::div(
             class = "spg-authors-block",
             shiny::div(class = "arow",
               shiny::tags$strong("Programming"),
-              " Vincent Manzanilla & Naffiou Kaderi"),
+              " Vincent Manzanilla & Naffiou Kadiri"),
             shiny::div(class = "arow",
               shiny::tags$strong("Conception"),
               " Thierry de Mee\u00fbs"),
@@ -318,8 +317,6 @@ splash_ui <- function() {
           shiny::div(
             class = "spg-stats-grid",
             stat_card("th-large",        "10",    "Analysis modules"),
-            stat_card("upload",          "500 MB", "Upload limit"),
-            stat_card("project-diagram", "WC84",   "F-statistics"),
             stat_card("desktop",         "Multi",  "OS compatible")
           ),
           shiny::div(
