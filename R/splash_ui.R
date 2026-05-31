@@ -1,309 +1,373 @@
 #' Splash Screen UI
 #'
-#' Landing page shown before the main application.
-#' Matches the screenshot: dark blue background, title, authors,
-#' institution logos, Documentation button and Launch button.
+#' Professional landing page shown before the main application.
+#' Dark navy design with stats grid, module chips, partner logos bar.
 #'
-#' @return A \code{shiny::fluidPage} object.
+#' @return A \code{shiny::tagList} wrapped in a \code{shiny::fluidPage}.
 #' @export
 splash_ui <- function() {
 
-  # Resource paths (same as app_ui so logos resolve whether called first or not)
   shiny::addResourcePath(
     "spg_www",
     system.file("app/www", package = "shinypopgen")
   )
 
-  logos <- spg_logo_uris()   # bundled base64 helpers already in the package
+  logos <- spg_logo_uris()
+
+  # ── Helper: a logo pill (image or text fallback) ─────────────────────────
+  logo_pill <- function(href, img_src, alt, fallback_text,
+                        fallback_color = "#FFFFFF") {
+    content <- if (!is.null(img_src))
+      shiny::tags$img(src = img_src, alt = alt,
+                      style = "max-height:36px; max-width:140px;
+                               object-fit:contain; filter:brightness(1.15);")
+    else
+      shiny::tags$span(
+        style = paste0("font-size:13px; font-weight:700; letter-spacing:.5px;
+                        color:", fallback_color, ";"),
+        fallback_text)
+    shiny::tags$a(
+      href = href, target = "_blank",
+      style = "text-decoration:none;",
+      shiny::div(
+        class = "spg-logo-pill",
+        content
+      )
+    )
+  }
+
+  # ── Helper: stat card ────────────────────────────────────────────────────
+  stat_card <- function(icon_name, value, label) {
+    shiny::div(
+      class = "spg-stat-card",
+      shiny::icon(icon_name,
+                  style = "font-size:1.2rem; color:rgba(79,195,247,0.35);
+                           float:right; margin-top:-2px;"),
+      shiny::div(class = "spg-stat-num",   value),
+      shiny::div(class = "spg-stat-label", label)
+    )
+  }
+
+  # ── Helper: module chip ──────────────────────────────────────────────────
+  mod_chip <- function(icon_name, label) {
+    shiny::div(
+      class = "spg-chip",
+      shiny::icon(icon_name), label
+    )
+  }
+
+  # ── CSS ──────────────────────────────────────────────────────────────────
+  splash_css <- shiny::HTML("
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #0b1a3d;
+      font-family: 'Helvetica Neue', 'Segoe UI', Arial, sans-serif;
+      color: #FFFFFF;
+      overflow-x: hidden;
+    }
+    .container-fluid { padding: 0 !important; }
+
+    /* ── Full-viewport wrapper ── */
+    .spg-splash-root {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 100vh;
+      background: #0b1a3d;
+    }
+
+    /* ── Top bar ── */
+    .spg-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 48px 0;
+    }
+    .spg-logo-mark {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .spg-logo-hex {
+      width: 38px; height: 38px; border-radius: 8px;
+      background: rgba(79,195,247,0.12);
+      border: 1.5px solid rgba(79,195,247,0.35);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.15rem; color: #4fc3f7;
+    }
+    .spg-appname {
+      font-size: 17px; font-weight: 600; color: #e8f4fd; letter-spacing: .3px;
+    }
+    .spg-doc-btn {
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(0,229,200,0.10);
+      border: 1.5px solid rgba(0,229,200,0.38) !important;
+      border-radius: 6px !important;
+      color: #00e5c8 !important;
+      font-size: 13px; font-weight: 600 !important;
+      padding: 7px 16px !important;
+      text-decoration: none !important;
+      transition: background .18s;
+    }
+    .spg-doc-btn:hover {
+      background: rgba(0,229,200,0.20) !important;
+      color: #00e5c8 !important;
+      text-decoration: none !important;
+    }
+
+    /* ── Main 2-col grid ── */
+    .spg-main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      padding: 36px 48px 28px;
+      align-items: center;
+    }
+    @media (max-width: 860px) {
+      .spg-main { grid-template-columns: 1fr; }
+      .spg-hero-right { padding-left: 0; margin-top: 32px; }
+    }
+
+    /* ── Left: hero ── */
+    .spg-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(79,195,247,0.10);
+      border: 1px solid rgba(79,195,247,0.26);
+      border-radius: 20px;
+      font-size: 11px; font-weight: 600; color: #4fc3f7;
+      padding: 4px 13px; letter-spacing: .8px; text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .spg-hero-title {
+      font-size: 2.6rem; font-weight: 700; color: #fff;
+      line-height: 1.15; margin-bottom: 4px;
+    }
+    .spg-hero-title .accent { color: #4fc3f7; }
+    .spg-hero-version {
+      font-size: .95rem; color: rgba(79,195,247,.65);
+      font-weight: 500; margin-bottom: 18px; letter-spacing: .5px;
+    }
+    .spg-hero-desc {
+      font-size: 1rem; font-weight: 400; color: #b8d4ef;
+      line-height: 1.65; margin-bottom: 24px; max-width: 420px;
+    }
+    .spg-authors-block {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 8px; padding: 14px 18px;
+      margin-bottom: 30px; max-width: 420px;
+    }
+    .spg-authors-block .arow {
+      display: flex; align-items: baseline; gap: 8px;
+      font-size: 13px; color: #8ab4d4; line-height: 1.9;
+    }
+    .spg-authors-block .arow strong { color: #c8dff0; font-weight: 600; }
+    .spg-authors-block .ainst {
+      font-size: 12px; color: rgba(138,180,212,.70);
+      margin-top: 6px; padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+
+    /* Launch button — styled via class, not inline, for cleanness */
+    .btn.spg-launch-btn,
+    .spg-launch-btn {
+      display: inline-flex !important; align-items: center !important; gap: 10px !important;
+      background: #00e5c8 !important;
+      border: none !important; border-radius: 8px !important;
+      color: #0b1a3d !important; font-size: 1rem !important; font-weight: 700 !important;
+      padding: 13px 36px !important;
+      box-shadow: 0 0 28px rgba(0,229,200,0.16);
+      transition: background .18s, transform .12s;
+    }
+    .btn.spg-launch-btn:hover,
+    .spg-launch-btn:hover {
+      background: #00ffdc !important;
+      transform: translateY(-2px);
+      color: #0b1a3d !important;
+    }
+
+    /* ── Right: stats + chips ── */
+    .spg-hero-right {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 22px;
+      padding-left: 28px;
+    }
+    .spg-stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; width: 100%; max-width: 340px;
+    }
+    .spg-stat-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px; padding: 16px 18px;
+    }
+    .spg-stat-num   { font-size: 1.55rem; font-weight: 700; color: #4fc3f7; margin-bottom: 3px; }
+    .spg-stat-label {
+      font-size: 11px; color: #8ab4d4; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .7px;
+    }
+    .spg-module-list { width: 100%; max-width: 340px; }
+    .spg-module-list .mtitle {
+      font-size: 11px; font-weight: 600; color: #5a8aaa;
+      text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px;
+    }
+    .spg-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .spg-chip {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 5px; font-size: 12px; color: #b8d4ef;
+      padding: 5px 11px; display: flex; align-items: center; gap: 5px;
+    }
+    .spg-chip .fa { font-size: .8rem; color: rgba(79,195,247,0.55); }
+
+    /* ── Partner logos bar ── */
+    .spg-logos-bar {
+      background: rgba(0,0,0,0.22);
+      border-top: 1px solid rgba(255,255,255,0.07);
+      padding: 18px 48px;
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 16px;
+      flex-wrap: wrap;
+    }
+    .spg-logos-label {
+      font-size: 11px; color: rgba(138,180,212,.55);
+      font-weight: 600; letter-spacing: .9px; text-transform: uppercase;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .spg-logo-items { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .spg-logo-pill {
+      background: rgba(255,255,255,0.09);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 7px; padding: 8px 18px;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 48px; min-width: 80px;
+      transition: background .18s;
+    }
+    .spg-logo-pill:hover { background: rgba(255,255,255,0.16); }
+  ")
 
   shiny::fluidPage(
-    title = "ShinyPopGen",
-
-    # ── Head: reset + dark-blue full-viewport background ─────────────────────
     shiny::tags$head(
       shiny::tags$title("ShinyPopGen"),
       shiny::tags$meta(charset = "UTF-8"),
       shiny::tags$meta(name = "viewport",
                        content = "width=device-width, initial-scale=1"),
-      shiny::tags$style(shiny::HTML("
-
-        /* ── Reset & full-viewport dark-blue background ── */
-        html, body {
-          margin: 0; padding: 0;
-          width: 100%; height: 100%;
-          background-color: #0d1b3e;
-          font-family: 'Helvetica Neue', 'Segoe UI', Arial, sans-serif;
-          color: #FFFFFF;
-          overflow: hidden;           /* single viewport, no scroll */
-        }
-        .container-fluid { padding: 0 !important; }
-
-        /* ── Outer wrapper: full viewport, flex column ── */
-        .spg-splash {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          align-items: stretch;
-          width: 100vw;
-          height: 100vh;
-          padding: 36px 48px 28px 48px;
-          box-sizing: border-box;
-          background: linear-gradient(160deg, #0a1530 0%, #0d1b3e 55%, #112255 100%);
-        }
-
-        /* ── Top section: title block + icon ── */
-        .spg-splash-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-        }
-        .spg-splash-title-block { flex: 1; }
-
-        .spg-splash-title {
-          font-size: 2.4rem;
-          font-weight: 700;
-          color: #4fc3f7;
-          margin: 0 0 18px 0;
-          line-height: 1.15;
-        }
-        .spg-splash-subtitle {
-          font-size: 1.25rem;
-          font-weight: 500;
-          color: #4fc3f7;
-          margin: 0 0 28px 0;
-          line-height: 1.5;
-          max-width: 540px;
-        }
-        .spg-splash-authors {
-          font-size: 0.95rem;
-          color: #7ec8e3;
-          line-height: 2.0;
-          margin: 0;
-        }
-
-        /* ── Top-right: app icon + Documentation button ── */
-        .spg-splash-right {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 14px;
-          flex-shrink: 0;
-          margin-left: 32px;
-        }
-        .spg-splash-appicon {
-          width: 120px;
-          height: 120px;
-          border-radius: 50%;
-          background: rgba(79, 195, 247, 0.15);
-          border: 2px solid rgba(79, 195, 247, 0.35);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 3.2rem;
-          color: #4fc3f7;
-        }
-        .spg-splash-doc-btn {
-          background: #00e5c8 !important;
-          color: #0d1b3e !important;
-          border: none !important;
-          border-radius: 6px !important;
-          font-weight: 700 !important;
-          font-size: 0.95rem !important;
-          padding: 8px 18px !important;
-          cursor: pointer !important;
-          text-decoration: none !important;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          transition: background 0.18s, transform 0.12s;
-          white-space: nowrap;
-        }
-        .spg-splash-doc-btn:hover {
-          background: #FFFFFF !important;
-          transform: translateY(-1px);
-          color: #0d1b3e !important;
-          text-decoration: none !important;
-        }
-        /* PDF icon below doc button */
-        .spg-splash-pdf-icon {
-          font-size: 2.4rem;
-          color: rgba(255,255,255,0.20);
-        }
-
-        /* ── Middle: partner logos ── */
-        .spg-splash-logos {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-wrap: wrap;
-          gap: 32px;
-          padding: 0 16px;
-        }
-        .spg-splash-logos img {
-          max-height: 60px;
-          max-width: 180px;
-          object-fit: contain;
-          filter: brightness(1.0);
-        }
-        /* Text fallback when logo image unavailable */
-        .spg-logo-text {
-          font-size: 1.4rem;
-          font-weight: 800;
-          letter-spacing: 1px;
-          color: #FFFFFF;
-        }
-
-        /* ── Bottom: Launch button ── */
-        .spg-splash-bottom {
-          display: flex;
-          align-items: center;
-          justify-content: flex-start;
-        }
-        .spg-launch-btn {
-          background: #00e5c8 !important;
-          color: #0d1b3e !important;
-          border: none !important;
-          border-radius: 6px !important;
-          font-weight: 700 !important;
-          font-size: 1.1rem !important;
-          padding: 12px 36px !important;
-          cursor: pointer !important;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
-          box-shadow: 0 4px 18px rgba(0, 229, 200, 0.25);
-        }
-        .spg-launch-btn:hover {
-          background: #FFFFFF !important;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 28px rgba(0, 229, 200, 0.35);
-          color: #0d1b3e !important;
-        }
-        .spg-launch-btn .fa { font-size: 1.1rem; }
-
-      "))
+      shiny::tags$style(splash_css)
     ),
 
-    # ── Splash layout ─────────────────────────────────────────────────────────
     shiny::div(
-      class = "spg-splash",
+      class = "spg-splash-root",
 
-      # ── TOP: title block (left) + icon/doc (right) ─────────────────────────
+      # ── TOP BAR ──────────────────────────────────────────────────────────
       shiny::div(
-        class = "spg-splash-top",
-
-        # Left: title, subtitle, authors
+        class = "spg-top-bar",
         shiny::div(
-          class = "spg-splash-title-block",
-          shiny::tags$h1(class = "spg-splash-title",
-            "ShinyPopGen V1 (SPG)"
-          ),
-          shiny::tags$p(class = "spg-splash-subtitle",
-            "A Versatile, user-friendly and multi-OS application",
+          class = "spg-logo-mark",
+          shiny::div(class = "spg-logo-hex", shiny::icon("dna")),
+          shiny::span(class = "spg-appname", "ShinyPopGen")
+        ),
+        shiny::tags$a(
+          class = "spg-doc-btn",
+          href  = "https://forge.ird.fr/intertryp/shiny_pop_gen",
+          target = "_blank",
+          shiny::icon("file-alt"), " Documentation"
+        )
+      ),
+
+      # ── MAIN ─────────────────────────────────────────────────────────────
+      shiny::div(
+        class = "spg-main",
+
+        # Left column
+        shiny::div(
+          shiny::div(class = "spg-badge", shiny::icon("flask"),
+                     " Population genetics"),
+          shiny::div(
+            class = "spg-hero-title",
+            "ShinyPopGen",
             shiny::tags$br(),
-            "to analyse population genetic data"
+            shiny::tags$span(class = "accent", "V1")
           ),
-          shiny::tags$p(class = "spg-splash-authors",
-            shiny::HTML(paste0(
-              "Programming: Vincent Manzanilla and Naffiou Kaderi<br>",
-              "Conception: Thierry de Mee\u00fbs<br>",
-              "Intertryp, Univ Montpellier, Cirad, IRD, Montpellier, France"
-            ))
+          shiny::div(class = "spg-hero-version",
+                     "SPG \u00b7 Interactive Analysis Suite"),
+          shiny::div(
+            class = "spg-hero-desc",
+            "A versatile, user-friendly and multi-OS application to analyse
+             population genetic data — import, explore, and run descriptive
+             statistics in a few clicks."
+          ),
+          shiny::div(
+            class = "spg-authors-block",
+            shiny::div(class = "arow",
+              shiny::tags$strong("Programming"),
+              " Vincent Manzanilla & Naffiou Kaderi"),
+            shiny::div(class = "arow",
+              shiny::tags$strong("Conception"),
+              " Thierry de Mee\u00fbs"),
+            shiny::div(class = "ainst",
+              "Intertryp \u00b7 Univ. Montpellier \u00b7 Cirad \u00b7
+               IRD \u00b7 Montpellier, France")
+          ),
+          shiny::actionButton(
+            inputId = "btn_launch",
+            label   = shiny::tagList(shiny::icon("rocket"), " Launch application"),
+            class   = "spg-launch-btn"
           )
         ),
 
-        # Right: round icon + Documentation button + PDF icon
+        # Right column
         shiny::div(
-          class = "spg-splash-right",
-
-          # Round icon (uses package logo if available, else DNA icon)
+          class = "spg-hero-right",
           shiny::div(
-            class = "spg-splash-appicon",
-            if (!is.null(logos$intertryp))
-              shiny::tags$img(src = logos$intertryp, height = "80px",
-                              alt = "ShinyPopGen",
-                              style = "border-radius:50%; object-fit:cover;")
-            else
-              shiny::icon("dna")
+            class = "spg-stats-grid",
+            stat_card("th-large",        "10",    "Analysis modules"),
+            stat_card("upload",          "500 MB", "Upload limit"),
+            stat_card("project-diagram", "WC84",   "F-statistics"),
+            stat_card("desktop",         "Multi",  "OS compatible")
           ),
-
-          # Documentation button (links to package vignette / PDF if bundled)
-          shiny::tags$a(
-            class  = "spg-splash-doc-btn",
-            href   = "https://forge.ird.fr/intertryp/shiny_pop_gen",
-            target = "_blank",
-            shiny::icon("file-pdf"), "Documentation"
-          ),
-
-          # Subtle PDF icon below button
           shiny::div(
-            class = "spg-splash-pdf-icon",
-            shiny::icon("file-pdf")
+            class = "spg-module-list",
+            shiny::div(class = "mtitle", "Available modules"),
+            shiny::div(
+              class = "spg-chips",
+              mod_chip("upload",        "Data import"),
+              mod_chip("chart-pie",     "Allele freq."),
+              mod_chip("table",         "General stats"),
+              mod_chip("flask",         "Local panmixia"),
+              mod_chip("globe",         "Global panmixia"),
+              mod_chip("sitemap",       "Subdivision"),
+              mod_chip("chart-line",    "Diversities"),
+              mod_chip("link",          "LD"),
+              mod_chip("circle-notch",  "Null alleles"),
+              mod_chip("map-marker-alt","IBD")
+            )
           )
         )
       ),
 
-      # ── MIDDLE: partner logos ──────────────────────────────────────────────
+      # ── LOGOS BAR ────────────────────────────────────────────────────────
       shiny::div(
-        class = "spg-splash-logos",
-
-        # Intertryp
-        shiny::tags$a(
-          href = "https://umr-intertryp.cirad.fr/en", target = "_blank",
-          style = "text-decoration:none;",
-          if (!is.null(logos$intertryp))
-            shiny::tags$img(src = logos$intertryp, alt = "Intertryp")
-          else
-            shiny::tags$span(class = "spg-logo-text", "INTERTRYP")
-        ),
-
-        # IRD
-        shiny::tags$a(
-          href = "https://www.ird.fr/en", target = "_blank",
-          style = "text-decoration:none;",
-          if (!is.null(logos$ird))
-            shiny::tags$img(src = logos$ird, alt = "IRD")
-          else
-            shiny::tags$span(class = "spg-logo-text", "IRD")
-        ),
-
-        # Université de Montpellier (use bundled asset if present, else text)
-        if (!is.null(logos$um))
-          shiny::tags$a(
-            href = "https://www.umontpellier.fr/en/", target = "_blank",
-            style = "text-decoration:none;",
-            shiny::tags$img(src = logos$um, alt = "Université de Montpellier")
-          )
-        else
-          shiny::tags$a(
-            href = "https://www.umontpellier.fr/en/", target = "_blank",
-            style = "text-decoration:none;",
-            shiny::tags$span(class = "spg-logo-text",
-              style = "color:#E63946;",
-              "UNIVERSIT\u00c9 DE MONTPELLIER")
+        class = "spg-logos-bar",
+        shiny::span(class = "spg-logos-label", "Partners"),
+        shiny::div(
+          class = "spg-logo-items",
+          logo_pill(
+            "https://umr-intertryp.cirad.fr/en",
+            logos$intertryp, "Intertryp", "INTERTRYP"
           ),
-
-        # CIRAD
-        shiny::tags$a(
-          href = "https://www.cirad.fr/en", target = "_blank",
-          style = "text-decoration:none;",
-          if (!is.null(logos$cirad))
-            shiny::tags$img(src = logos$cirad, alt = "CIRAD")
-          else
-            shiny::tags$span(class = "spg-logo-text", "CIRAD")
-        )
-      ),
-
-      # ── BOTTOM: Launch button ──────────────────────────────────────────────
-      shiny::div(
-        class = "spg-splash-bottom",
-        shiny::actionButton(
-          inputId = "btn_launch",
-          label   = shiny::tagList(shiny::icon("rocket"), " Launch"),
-          class   = "spg-launch-btn"
+          logo_pill(
+            "https://www.ird.fr/en",
+            logos$ird, "IRD", "IRD", "#e8c44a"
+          ),
+          # Université de Montpellier — add logos$um to spg_logo_uris() if available
+          logo_pill(
+            "https://www.umontpellier.fr/en/",
+            logos[["um"]], "Université de Montpellier",
+            "UNIVERSIT\u00c9 DE MONTPELLIER", "#e05050"
+          ),
+          logo_pill(
+            "https://www.cirad.fr/en",
+            logos$cirad, "CIRAD", "CIRAD", "#7cc576"
+          )
         )
       )
-    )
+    ) # end spg-splash-root
   )
 }
