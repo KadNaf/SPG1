@@ -141,11 +141,11 @@ splash_ui <- function() {
     }
     .spg-hero-title .accent { color: #4fc3f7; }
     .spg-hero-version {
-      font-size: .95rem; color: rgba(79,195,247,.65);
+      font-size: 2.6rem; color: rgba(79,195,247,.65);
       font-weight: 500; margin-bottom: 18px; letter-spacing: .5px;
     }
     .spg-hero-desc {
-      font-size: .95rem; font-weight: 400; color: #b8d4ef;
+      font-size: .95rem; font-weight: 500; color: #b8d4ef;
       margin-bottom: 18px; letter-spacing: .5px;
     }
     .spg-authors-block {
