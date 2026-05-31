@@ -146,7 +146,7 @@ splash_ui <- function() {
     }
     .spg-hero-desc {
       font-size: .95rem; font-weight: 400; color: #b8d4ef;
-      line-height: 1.65; margin-bottom: 24px; max-width: 420px;
+      margin-bottom: 18px; letter-spacing: .5px;
     }
     .spg-authors-block {
       background: rgba(255,255,255,0.05);
