@@ -145,7 +145,7 @@ splash_ui <- function() {
       font-weight: 500; margin-bottom: 18px; letter-spacing: .5px;
     }
     .spg-hero-desc {
-      font-size: 1rem; font-weight: 400; color: #b8d4ef;
+      font-size: .95rem; font-weight: 400; color: #b8d4ef;
       line-height: 1.65; margin-bottom: 24px; max-width: 420px;
     }
     .spg-authors-block {
@@ -261,7 +261,7 @@ splash_ui <- function() {
         shiny::div(
           class = "spg-logo-mark",
           shiny::div(class = "spg-logo-hex", shiny::icon("dna")),
-          shiny::span(class = "spg-appname", "ShinyPopGen")
+          shiny::span(class = "spg-appname", "SPG V1")
         ),
         shiny::tags$a(
           class = "spg-doc-btn",
@@ -281,12 +281,9 @@ splash_ui <- function() {
                      " Population genetics"),
           shiny::div(
             class = "spg-hero-title",
-            "ShinyPopGen",
-            shiny::tags$br(),
-            shiny::tags$span(class = "accent", "V1")
+            "ShinyPopGen V1",
+            shiny::tags$br()
           ),
-          shiny::div(class = "spg-hero-version",
-                     "SPG \u00b7 Interactive Analysis Suite"),
           shiny::div(
             class = "spg-hero-desc",
             "A versatile, user-friendly and multi-OS application to analyse
@@ -295,10 +292,10 @@ splash_ui <- function() {
           shiny::div(
             class = "spg-authors-block",
             shiny::div(class = "arow",
-              shiny::tags$strong("Programming"),
+              shiny::tags$strong("Programming:"),
               " Vincent Manzanilla & Naffiou Kadiri"),
             shiny::div(class = "arow",
-              shiny::tags$strong("Conception"),
+              shiny::tags$strong("Conception:"),
               " Thierry de Mee\u00fbs"),
             shiny::div(class = "ainst",
               "Intertryp \u00b7 Univ. Montpellier \u00b7 Cirad \u00b7
