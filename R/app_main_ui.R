@@ -1,7 +1,5 @@
-# =========================================================
-# 2. APP UI PRINCIPALE (TON APP_UI ACTUELLE)
-# =========================================================
-
+#' Main Application UI
+#' @export
 main_app_ui <- function() {
 
   # -- Resource paths --------------------------------------------------------
@@ -1235,5 +1233,4 @@ main_app_ui <- function() {
       bslib::input_dark_mode(id = "color_mode")
     )
   )
-
 }

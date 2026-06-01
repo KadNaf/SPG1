@@ -1,11 +1,7 @@
-# =========================================================
-# 3. NOUVEAU app_ui GLOBAL
-# =========================================================
-
+#' Application UI
+#' @export
 app_ui <- function() {
-
   shiny::fluidPage(
-
-    shiny::uiOutput("app_launcher_ui")
+    shiny::uiOutput("app_content")
   )
 }
