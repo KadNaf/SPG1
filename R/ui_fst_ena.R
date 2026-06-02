@@ -1,6 +1,6 @@
 # module/ui_fst_ena.R
-# FST-ENA (correction allèles nuls pour Fst) et DCSE-INA (distance Cavalli-Sforza & Edwards corrigée)
-# Algorithmes ENA et INA — Chapuis & Estoup (2007) / FreeNA
+# FST-ENA (null allele correction for Fst) and DCSE-INA (corrected Cavalli-Sforza & Edwards distance)
+# ENA and INA algorithms — Chapuis & Estoup (2007) / FreeNA
 
 fst_ena_UI <- function(id) {
   ns <- NS(id)
@@ -188,18 +188,18 @@ fst_ena_UI <- function(id) {
     tags$div(class = "fe-header",
       tags$div(class = "fe-header-title",
         icon("project-diagram"),
-        " FST-ENA \u00b7 Distance DCSE-INA — Correction allèles nuls"),
+        " FST-ENA \u00b7 DCSE-INA distance — Null allele correction"),
       tags$div(class = "fe-header-sub",
-        "Algorithmes ENA et INA \u00b7 Chapuis & Estoup (2007) \u00b7 FreeNA \u00b7 Weir (1996) \u00b7 Cavalli-Sforza & Edwards (1967)"),
+        "ENA and INA algorithms \u00b7 Chapuis & Estoup (2007) \u00b7 FreeNA \u00b7 Weir (1996) \u00b7 Cavalli-Sforza & Edwards (1967)"),
       tags$div(class = "fe-badges",
         tags$span(class = "fe-badge fe-badge-teal",
-          "ENA \u2014 FST corrigé allèles nuls"),
+          "ENA \u2014 FST corrected for null alleles"),
         tags$span(class = "fe-badge fe-badge-green",
-          "INA \u2014 Distance DCSE corrigée"),
+          "INA \u2014 Corrected DCSE distance"),
         tags$span(class = "fe-badge fe-badge-amber",
-          "FST brut \u2014 Weir (1996)"),
+          "Raw FST \u2014 Weir (1996)"),
         tags$span(class = "fe-badge fe-badge-blue",
-          "DCSE brute \u2014 Cavalli-Sforza & Edwards (1967)")
+          "Raw DCSE \u2014 Cavalli-Sforza & Edwards (1967)")
       )
     ),
 
@@ -220,7 +220,7 @@ fst_ena_UI <- function(id) {
       tags$div(class = "fe-vbox",
         tags$div(class = "fe-vbox-icon",
           style = "background:#fef9c3; color:#854d0e;", icon("chart-bar")),
-        tags$div(tags$div(class = "fe-vbox-label", "FST brut"),
+        tags$div(tags$div(class = "fe-vbox-label", "Raw FST"),
                  tags$div(class = "fe-vbox-val", uiOutput(ns("vb_fst_raw"))))
       ),
       tags$div(class = "fe-vbox",
@@ -232,7 +232,7 @@ fst_ena_UI <- function(id) {
       tags$div(class = "fe-vbox",
         tags$div(class = "fe-vbox-icon",
           style = "background:#e0f2fe; color:#0369a1;", icon("ruler")),
-        tags$div(tags$div(class = "fe-vbox-label", "DCSE-INA (moy.)"),
+        tags$div(tags$div(class = "fe-vbox-label", "DCSE-INA (mean)"),
                  tags$div(class = "fe-vbox-val", uiOutput(ns("vb_dc_ina"))))
       )
     ),
@@ -242,45 +242,45 @@ fst_ena_UI <- function(id) {
       id = ns("fe_tabs"), type = "tabs",
 
       # ════════════════════════════════════════════════════════ #
-      # TAB 1 — FST global (multilocus)                         #
+      # TAB 1 — Global FST (multilocus)                         #
       # ════════════════════════════════════════════════════════ #
       tabPanel(
-        title = tagList(icon("globe"), " FST global (multilocus)"),
+        title = tagList(icon("globe"), " Global FST (multilocus)"),
         value = "tab_fst_global",
         br(),
 
         tags$div(class = "fe-info",
           icon("info-circle"),
           tags$div(
-            tags$strong("FST global multilocus"), " — Weir (1996) / méthode Genepop.",
+            tags$strong("Multilocus global FST"), " — Weir (1996) / Genepop method.",
             tags$br(),
-            tags$strong("FST brut"), " : calculé sur les fréquences alléliques observées (allèles nuls exclus du dénominateur).",
+            tags$strong("Raw FST"), " : calculated on observed allele frequencies (null alleles excluded from denominator).",
             tags$br(),
-            tags$strong("FST-ENA"), " : calculé sur les fréquences alléliques corrigées par l'algorithme EM ",
+            tags$strong("FST-ENA"), " : calculated on allele frequencies corrected by the EM algorithm ",
             tags$em("(Excluding Null Alleles)"), "."
           )
         ),
 
         tags$div(class = "fe-formula",
-          tags$strong("Formule Weir (1996) :"),
+          tags$strong("Weir (1996) formula :"),
           tags$br(),
-          "FST = S1 / S3   où   S1 = Σ_loci [ s²P × nc ]   et   S3 = Σ_loci [ (s²P + s²I + s²G) × nc ]",
+          "FST = S1 / S3   where   S1 = Σ_loci [ s²P × nc ]   and   S3 = Σ_loci [ (s²P + s²I + s²G) × nc ]",
           tags$br(),
-          "nc = (N_tot − N_tot² / N_tot) / (r − 1)   ;   r = nombre de populations effectives",
+          "nc = (N_tot − N_tot² / N_tot) / (r − 1)   ;   r = number of effective populations",
           tags$br(),
-          tags$strong("ENA : fréquences corrigées = corrdgenefreq[locus, pop, allèle]   (issues de l'EM-FreeNA)")
+          tags$strong("ENA : corrected frequencies = corrdgenefreq[locus, pop, allele]   (from EM-FreeNA)")
         ),
 
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("sliders-h"), " Paramètres")),
+              icon("sliders-h"), " Parameters")),
           tags$div(class = "fe-panel-body",
             fluidRow(
               column(4,
                 tags$div(style = "margin-top:25px;",
                   actionButton(ns("run_fst_global"),
-                    label = tagList(icon("play"), tags$strong(" Calculer")),
+                    label = tagList(icon("play"), tags$strong(" Calculate")),
                     class = "fe-btn btn")))
             )
           )
@@ -289,18 +289,18 @@ fst_ena_UI <- function(id) {
         tags$div(class = "fe-compare-grid",
           tags$div(class = "fe-compare-card",
             tags$div(class = "fe-compare-head fe-compare-head-uncorr",
-              icon("table"), " FST brut — Weir (1996)"),
+              icon("table"), " Raw FST — Weir (1996)"),
             tags$div(class = "fe-compare-body",
-              "Fréquences alléliques observées, allèles nuls exclus du dénominateur.",
-              tags$br(), "Peut être biaisé par la présence d'allèles nuls."
+              "Observed allele frequencies, null alleles excluded from denominator.",
+              tags$br(), "May be biased by the presence of null alleles."
             )
           ),
           tags$div(class = "fe-compare-card",
             tags$div(class = "fe-compare-head fe-compare-head-corr",
               icon("check-circle"), " FST-ENA — Chapuis & Estoup (2007)"),
             tags$div(class = "fe-compare-body",
-              "Fréquences corrigées par l'algorithme EM. Les allèles nuls sont réintégrés,",
-              tags$br(), "le biais dû aux homozygotes nuls est corrigé."
+              "Frequencies corrected by the EM algorithm. Null alleles are reintegrated,",
+              tags$br(), "the bias due to null homozygotes is corrected."
             )
           )
         ),
@@ -308,7 +308,7 @@ fst_ena_UI <- function(id) {
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("list"), " FST global multilocus — par locus")),
+              icon("list"), " Global FST multilocus — per locus")),
           tags$div(class = "fe-panel-body",
             DT::DTOutput(ns("dt_fst_global")),
             xbtn("dl_fst_global_csv", "dl_fst_global_txt")
@@ -317,41 +317,41 @@ fst_ena_UI <- function(id) {
       ),
 
       # ════════════════════════════════════════════════════════ #
-      # TAB 2 — FST pairwise                                    #
+      # TAB 2 — Pairwise FST                                    #
       # ════════════════════════════════════════════════════════ #
       tabPanel(
-        title = tagList(icon("exchange-alt"), " FST pairwise"),
+        title = tagList(icon("exchange-alt"), " Pairwise FST"),
         value = "tab_fst_pair",
         br(),
 
         tags$div(class = "fe-info",
           icon("info-circle"),
           tags$div(
-            tags$strong("FST pairwise"), " — Weir (1996) pour chaque paire de populations.",
+            tags$strong("Pairwise FST"), " — Weir (1996) for each population pair.",
             tags$br(),
-            "Le tableau inférieur est affiché : FST brut (sans correction) et FST-ENA (avec correction ENA).",
+            "The lower triangle is displayed: raw FST (without correction) and FST-ENA (with ENA correction).",
             tags$br(),
-            tags$strong("NA"), " : calcul non applicable (effectif insuffisant pour la paire)."
+            tags$strong("NA"), " : calculation not applicable (insufficient sample size for the pair)."
           )
         ),
 
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("sliders-h"), " Paramètres")),
+              icon("sliders-h"), " Parameters")),
           tags$div(class = "fe-panel-body",
             fluidRow(
               column(4,
-                radioButtons(ns("fst_pair_type"), "Afficher :",
+                radioButtons(ns("fst_pair_type"), "Display:",
                   choices = c(
-                    "FST brut (sans correction)" = "raw",
-                    "FST-ENA (corrigé)"           = "ena",
-                    "Les deux côte à côte"        = "both"
+                    "Raw FST (without correction)" = "raw",
+                    "FST-ENA (corrected)"           = "ena",
+                    "Both side by side"              = "both"
                   ), selected = "both", inline = FALSE)),
               column(3,
                 tags$div(style = "margin-top:25px;",
                   actionButton(ns("run_fst_pair"),
-                    label = tagList(icon("play"), tags$strong(" Calculer")),
+                    label = tagList(icon("play"), tags$strong(" Calculate")),
                     class = "fe-btn btn")))
             )
           )
@@ -360,7 +360,7 @@ fst_ena_UI <- function(id) {
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("th"), " Matrice FST pairwise — triangle inférieur")),
+              icon("th"), " Pairwise FST matrix — lower triangle")),
           tags$div(class = "fe-panel-body",
             uiOutput(ns("ui_fst_pair_matrix")),
             xbtn("dl_fst_pair_csv", "dl_fst_pair_txt")
@@ -370,7 +370,7 @@ fst_ena_UI <- function(id) {
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("list"), " FST pairwise — format tabulaire long")),
+              icon("list"), " Pairwise FST — long table format")),
           tags$div(class = "fe-panel-body",
             DT::DTOutput(ns("dt_fst_pair")),
             xbtn("dl_fst_pair_long_csv", "dl_fst_pair_long_txt")
@@ -379,53 +379,53 @@ fst_ena_UI <- function(id) {
       ),
 
       # ════════════════════════════════════════════════════════ #
-      # TAB 3 — Distance DCSE pairwise                          #
+      # TAB 3 — Pairwise DCSE distance                          #
       # ════════════════════════════════════════════════════════ #
       tabPanel(
-        title = tagList(icon("ruler-combined"), " Distance DCSE pairwise"),
+        title = tagList(icon("ruler-combined"), " Pairwise DCSE distance"),
         value = "tab_dc",
         br(),
 
         tags$div(class = "fe-info",
           icon("info-circle"),
           tags$div(
-            tags$strong("Distance génétique de Cavalli-Sforza & Edwards (1967)"),
+            tags$strong("Cavalli-Sforza & Edwards (1967) genetic distance"),
             " — DCSE pairwise.",
             tags$br(),
-            tags$strong("DCSE brute"), " : calculée sur les fréquences observées (allèles nuls exclus).",
+            tags$strong("Raw DCSE"), " : calculated on observed frequencies (null alleles excluded).",
             tags$br(),
-            tags$strong("DCSE-INA"), " : calculée en incluant l'allèle nul dans les fréquences corrigées ",
+            tags$strong("DCSE-INA"), " : calculated by including the null allele in the corrected frequencies ",
             tags$em("(Including Null Alleles)"), "."
           )
         ),
 
         tags$div(class = "fe-formula",
-          tags$strong("Formule Cavalli-Sforza & Edwards (1967) :"),
+          tags$strong("Cavalli-Sforza & Edwards (1967) formula :"),
           tags$br(),
           "DCSE(i,j) = (2/π) × √[ 2 × (1 − Σ_k √(p_ik × p_jk)) ]",
           tags$br(),
-          "Distance moyenne sur les loci : mean(DCSE_locus)  pour les loci valides (CSprod ≤ 1)",
+          "Mean distance over loci: mean(DCSE_locus) for valid loci (CSprod ≤ 1)",
           tags$br(),
-          tags$strong("INA :"), " fréquences corrigées + allèle nul ajouté comme état supplémentaire (freq = rd[locus, pop])"
+          tags$strong("INA :"), " corrected frequencies + null allele added as an additional state (freq = rd[locus, pop])"
         ),
 
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("sliders-h"), " Paramètres")),
+              icon("sliders-h"), " Parameters")),
           tags$div(class = "fe-panel-body",
             fluidRow(
               column(4,
-                radioButtons(ns("dc_type"), "Afficher :",
+                radioButtons(ns("dc_type"), "Display:",
                   choices = c(
-                    "DCSE brute (sans correction)" = "raw",
-                    "DCSE-INA (corrigée)"          = "ina",
-                    "Les deux côte à côte"         = "both"
+                    "Raw DCSE (without correction)" = "raw",
+                    "DCSE-INA (corrected)"          = "ina",
+                    "Both side by side"             = "both"
                   ), selected = "both", inline = FALSE)),
               column(3,
                 tags$div(style = "margin-top:25px;",
                   actionButton(ns("run_dc"),
-                    label = tagList(icon("play"), tags$strong(" Calculer")),
+                    label = tagList(icon("play"), tags$strong(" Calculate")),
                     class = "fe-btn btn")))
             )
           )
@@ -434,7 +434,7 @@ fst_ena_UI <- function(id) {
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("th"), " Matrice DCSE pairwise — triangle inférieur")),
+              icon("th"), " Pairwise DCSE matrix — lower triangle")),
           tags$div(class = "fe-panel-body",
             uiOutput(ns("ui_dc_matrix")),
             xbtn("dl_dc_csv", "dl_dc_txt")
@@ -444,7 +444,7 @@ fst_ena_UI <- function(id) {
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("list"), " DCSE pairwise — format tabulaire long")),
+              icon("list"), " Pairwise DCSE — long table format")),
           tags$div(class = "fe-panel-body",
             DT::DTOutput(ns("dt_dc")),
             xbtn("dl_dc_long_csv", "dl_dc_long_txt")
@@ -453,42 +453,42 @@ fst_ena_UI <- function(id) {
       ),
 
       # ════════════════════════════════════════════════════════ #
-      # TAB 4 — FST par locus × paire                           #
+      # TAB 4 — FST per locus × pair                            #
       # ════════════════════════════════════════════════════════ #
       tabPanel(
-        title = tagList(icon("table"), " FST par locus × paire"),
+        title = tagList(icon("table"), " FST per locus × pair"),
         value = "tab_fst_locus",
         br(),
 
         tags$div(class = "fe-info",
           icon("info-circle"),
           tags$div(
-            tags$strong("FST par locus"), " pour chaque paire de populations.",
+            tags$strong("Per-locus FST"), " for each population pair.",
             tags$br(),
-            "Permet d'identifier les loci outliers et de comparer",
-            " les estimations brutes et corrigées ENA locus par locus."
+            "Allows identification of outlier loci and comparison",
+            " of raw and ENA-corrected estimates locus by locus."
           )
         ),
 
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("sliders-h"), " Filtres")),
+              icon("sliders-h"), " Filters")),
           tags$div(class = "fe-panel-body",
             fluidRow(
               column(3,
-                selectInput(ns("fl_locus"), "Locus :",
-                  choices = c("Tous les loci" = "all"), selected = "all")),
+                selectInput(ns("fl_locus"), "Locus:",
+                  choices = c("All loci" = "all"), selected = "all")),
               column(3,
-                selectInput(ns("fl_pop1"), "Population 1 :",
-                  choices = c("Toutes les paires" = "all"), selected = "all")),
+                selectInput(ns("fl_pop1"), "Population 1:",
+                  choices = c("All pairs" = "all"), selected = "all")),
               column(3,
-                selectInput(ns("fl_pop2"), "Population 2 :",
-                  choices = c("Toutes les paires" = "all"), selected = "all")),
+                selectInput(ns("fl_pop2"), "Population 2:",
+                  choices = c("All pairs" = "all"), selected = "all")),
               column(3,
                 tags$div(style = "margin-top:25px;",
                   actionButton(ns("run_fst_locus"),
-                    label = tagList(icon("play"), tags$strong(" Calculer")),
+                    label = tagList(icon("play"), tags$strong(" Calculate")),
                     class = "fe-btn btn")))
             )
           )
@@ -497,7 +497,7 @@ fst_ena_UI <- function(id) {
         tags$div(class = "fe-panel",
           tags$div(class = "fe-panel-head",
             tags$div(class = "fe-panel-title",
-              icon("list"), " FST par locus × paire (brut et ENA)")),
+              icon("list"), " FST per locus × pair (raw and ENA)")),
           tags$div(class = "fe-panel-body",
             DT::DTOutput(ns("dt_fst_locus")),
             xbtn("dl_fst_locus_csv", "dl_fst_locus_txt")

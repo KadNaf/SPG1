@@ -1,12 +1,12 @@
 # module/server_fst_ena.R
-# FST-ENA (correction allèles nuls) et DCSE-INA (distance Cavalli-Sforza & Edwards corrigée)
-# Traduction exacte des algorithmes FreeNA Pascal — Chapuis & Estoup (2007)
+# FST-ENA (null allele correction) and DCSE-INA (corrected Cavalli-Sforza & Edwards distance)
+# Exact translation of FreeNA Pascal algorithms — Chapuis & Estoup (2007)
 #
-# Références :
-#   Weir (1996)                    — Méthode Genepop pour FST
-#   Cavalli-Sforza & Edwards (1967) — Distance génétique DCSE
-#   Chapuis & Estoup (2007)        — Algorithmes ENA et INA, correction allèles nuls
-#   Dempster, Laird & Rubin (1977) — Algorithme EM (estimation fréquence allèles nuls)
+# References:
+#   Weir (1996)                    — Genepop method for FST
+#   Cavalli-Sforza & Edwards (1967) — DCSE genetic distance
+#   Chapuis & Estoup (2007)        — ENA and INA algorithms, null allele correction
+#   Dempster, Laird & Rubin (1977) — EM algorithm (null allele frequency estimation)
 
 server_fst_ena <- function(id, rv) {
   moduleServer(id, function(input, output, session) {
@@ -42,8 +42,8 @@ server_fst_ena <- function(id, rv) {
       db_tick(); con <- con_r()
       shiny::req(isTRUE(rv$db_ready))
       shiny::validate(
-        shiny::need(DBI::dbExistsTable(con, tbl_meta_r()), "DuckDB meta table manquante."),
-        shiny::need(DBI::dbExistsTable(con, tbl_hf_r()),   "DuckDB hf table manquante.")
+        shiny::need(DBI::dbExistsTable(con, tbl_meta_r()), "Missing DuckDB meta table."),
+        shiny::need(DBI::dbExistsTable(con, tbl_hf_r()),   "Missing DuckDB hf table.")
       )
       TRUE
     })
@@ -74,7 +74,7 @@ server_fst_ena <- function(id, rv) {
       if (all(c("indiv_id","locus_id","gt") %in% cols))
         return(list(ind_col="indiv_id",   locus_col="locus_id", gt_col="gt"))
       shiny::validate(shiny::need(FALSE,
-        "hf doit contenir (individual,locus,g) ou (indiv_id,locus_id,gt)."))
+        "hf must contain (individual,locus,g) or (indiv_id,locus_id,gt)."))
     })
 
     meta_schema_r <- reactive({
@@ -84,10 +84,10 @@ server_fst_ena <- function(id, rv) {
       cols    <- info$name
       ind_col <- if ("individual" %in% cols) "individual"
                  else if ("indiv_id" %in% cols) "indiv_id"
-                 else shiny::validate(shiny::need(FALSE, "Pas de colonne individual dans meta."))
+                 else shiny::validate(shiny::need(FALSE, "No individual column in meta."))
       pop_col <- c("Population","population","pop","pop_code")[
         c("Population","population","pop","pop_code") %in% cols][1]
-      shiny::validate(shiny::need(!is.na(pop_col), "Pas de colonne population dans meta."))
+      shiny::validate(shiny::need(!is.na(pop_col), "No population column in meta."))
       list(ind_col=ind_col, pop_col=pop_col)
     })
 
@@ -96,7 +96,7 @@ server_fst_ena <- function(id, rv) {
   SELECT CAST(%s AS VARCHAR) AS _lo_marker, MIN(rowid) AS _lo_rank
   FROM %s GROUP BY CAST(%s AS VARCHAR))", hl_q, hf_tbl_q, hl_q)
 
-    # ── Listes markers / populations ──────────────────────────────────────
+    # ── Lists markers / populations ──────────────────────────────────────
     pops_r <- reactive({
       db_ready(); con <- con_r(); ms <- meta_schema_r()
       as.character(DBI::dbGetQuery(con, sprintf(
@@ -121,39 +121,39 @@ server_fst_ena <- function(id, rv) {
     observe({
       markers <- markers_r(); pops <- pops_r()
       updateSelectInput(session, "fl_locus",
-        choices  = c("Tous les loci"="all", stats::setNames(markers,markers)),
+        choices  = c("All loci"="all", stats::setNames(markers,markers)),
         selected = "all")
       updateSelectInput(session, "fl_pop1",
-        choices  = c("Toutes les paires"="all", stats::setNames(pops,pops)),
+        choices  = c("All pairs"="all", stats::setNames(pops,pops)),
         selected = "all")
       updateSelectInput(session, "fl_pop2",
-        choices  = c("Toutes les paires"="all", stats::setNames(pops,pops)),
+        choices  = c("All pairs"="all", stats::setNames(pops,pops)),
         selected = "all")
     })
 
     # ══════════════════════════════════════════════════════════════════════
-    #  EM ALGORITHM — Traduction exacte de rDempster_per_locus (Pascal FreeNA)
+    #  EM ALGORITHM — Exact translation of rDempster_per_locus (Pascal FreeNA)
     #
-    #  N = efpop[pop] - absentgeno (individus valides, null homos inclus)
-    #  rd initialisation :
-    #    si nnullhomo > 0 : rd = sqrt(nnullhomo / N)
-    #    sinon            : rd = sqrt(1 / (N + 1))
+    #  N = efpop[pop] - absentgeno (valid individuals, null homos included)
+    #  rd initialization:
+    #    if nnullhomo > 0 : rd = sqrt(nnullhomo / N)
+    #    otherwise        : rd = sqrt(1 / (N + 1))
     #
-    #  Boucle EM :
+    #  EM loop:
     #    corrdgenefreq_new[a] = (p_a + rd) / (p_a + 2*rd) * (H_aa / N)
     #                         + H_aX / (2*N)
     #    rd_new = Σ_a [ rd / (p_a + 2*rd) * (H_aa / N) ]
-    #           + 2*nnullhomo / (2*N)          ← contribution des null homos
+    #           + 2*nnullhomo / (2*N)          ← contribution from null homos
     #
-    #  Retourne :
-    #    $rd     : fréquence allèle nul par population
-    #    $pfreq  : fréquences alléliques corrigées (vecteur nommé par allèle)
-    #    $efpop  : effectif total pop (avec null homos)
-    #    $absent : nombre de génotypes absents
-    #    $nnullhomo : nombre de null homozygotes
+    #  Returns:
+    #    $rd     : null allele frequency per population
+    #    $pfreq  : corrected allele frequencies (named vector by allele)
+    #    $efpop  : total population size (with null homos)
+    #    $absent : number of absent genotypes
+    #    $nnullhomo : number of null homozygotes
     # ══════════════════════════════════════════════════════════════════════
     em_freena <- function(gt_vec, base) {
-      # gt_vec : vecteur d'entiers codés (base×a1 + a2), 0/NA = absent
+      # gt_vec : vector of coded integers (base×a1 + a2), 0/NA = absent
       efpop     <- length(gt_vec)
       absent_mask <- is.na(gt_vec) | gt_vec <= 0L
       n_absent  <- sum(absent_mask)
@@ -166,42 +166,42 @@ server_fst_ena <- function(id, rv) {
       a1_all <- floor(valid_gt / base)
       a2_all <- valid_gt %% base
 
-      # Allèle nul = valeur maximale (99 ou 999 selon base)
+      # Null allele = maximum value (99 or 999 depending on base)
       null_code <- if (base >= 1000L) 999L else 99L
 
-      # Null homozygotes : les deux allèles sont null_code
+      # Null homozygotes: both alleles are null_code
       null_homo_mask <- (a1_all == null_code) & (a2_all == null_code)
       n_null_homo    <- sum(null_homo_mask)
 
-      # Génotypes valides (ni absents, ni null homos)
+      # Valid genotypes (neither absent nor null homos)
       valid_a1 <- a1_all[!null_homo_mask]
       valid_a2 <- a2_all[!null_homo_mask]
       all_alleles <- sort(unique(c(valid_a1, valid_a2)))
       all_alleles <- all_alleles[all_alleles >= 0L & all_alleles != null_code]
 
-      N <- efpop - n_absent   # individus sans absent (null homos inclus)
+      N <- efpop - n_absent   # individuals without absent (null homos included)
 
       if (N == 0L || length(all_alleles) == 0L)
         return(list(rd=0.0, pfreq=numeric(0), efpop=efpop,
                     absent=n_absent, nnullhomo=n_null_homo, alleles=integer(0)))
 
-      # Fréquences alléliques observées (dénominateur = 2*(N - n_null_homo))
+      # Observed allele frequencies (denominator = 2*(N - n_null_homo))
       n_valid_geno <- N - n_null_homo
       genefreq <- sapply(all_alleles, function(a)
         (sum(valid_a1==a) + sum(valid_a2==a)) / (2L * n_valid_geno))
 
-      # Initialisation rd (Pascal : rDempster_per_locus)
+      # rd initialization (Pascal: rDempster_per_locus)
       rd <- if (n_null_homo > 0L) sqrt(n_null_homo / N)
             else                  sqrt(1.0 / (N + 1.0))
 
-      # Comptages homozygotes et hétérozygotes par allèle
+      # Homozygote and heterozygote counts per allele
       H_ii <- sapply(all_alleles, function(a)
         sum(valid_a1==a & valid_a2==a))
       H_iX <- sapply(all_alleles, function(a)
         sum((valid_a1==a & valid_a2!=a) | (valid_a2==a & valid_a1!=a)))
       hotot <- sum(H_ii)
 
-      # Initialisation corrdgenefreq (cpt=0, Pascal exact)
+      # corrdgenefreq initialization (cpt=0, exact Pascal)
       p <- numeric(length(all_alleles))
       for (ai in seq_along(all_alleles)) {
         if (genefreq[ai] <= 0) { p[ai] <- 0.0; next }
@@ -217,7 +217,7 @@ server_fst_ena <- function(id, rv) {
         p[ai] <- 1.0 - sqrt(max(0.0, X / Y))
       }
 
-      # Boucle EM (Pascal : repeat … until re=0)
+      # EM loop (Pascal: repeat … until re=0)
       for (iter in seq_len(5000L)) {
         new_p <- numeric(length(all_alleles))
         rdi   <- 0.0; re <- 0L
@@ -232,7 +232,7 @@ server_fst_ena <- function(id, rv) {
           new_p[ai] <- p_new
           if (abs(p_new - pa) > 1e-6) re <- re + 1L
         }
-        # Pascal : rd = rdi + 2*nnullhomo / (2*N)
+        # Pascal: rd = rdi + 2*nnullhomo / (2*N)
         rd_new <- rdi + (2.0 * n_null_homo) / (2.0 * N)
         if (abs(rd_new - rd) > 1e-6) re <- re + 1L
         p  <- new_p
@@ -250,10 +250,10 @@ server_fst_ena <- function(id, rv) {
     }
 
     # ══════════════════════════════════════════════════════════════════════
-    #  FST (WEIR 1996) — Traduction de loc_gFst_Genepop / loc_pFst_Genepop
-    #  et de loc_gFst_Genepop_correction / loc_pFst_Genepop_correction
+    #  FST (WEIR 1996) — Translation of loc_gFst_Genepop / loc_pFst_Genepop
+    #  and of loc_gFst_Genepop_correction / loc_pFst_Genepop_correction
     #
-    #  Composantes par allèle :
+    #  Per-allele components:
     #    MSG = (0.5*ΣnA - ΣAA) / N_tot
     #    MSI = (0.5*ΣnA + ΣAA - Σ(nA²/n)) / (N_tot - r)
     #    MSP = (Σ(nA²/n) - 0.5*ΣnA²/N_tot) / (r - 1)
@@ -261,14 +261,14 @@ server_fst_ena <- function(id, rv) {
     #    nc  = (N_tot − Σni²/N_tot) / (r − 1)
     #  FST_locus = S1 / S3 = ΣS²P / Σ(S²P + S²I + S²G)
     #
-    #  ENA : nA = corrdgenefreq * 2*ni  ;  AA_corr = AA * p/(p + 2r)
-    #        ni = efpop - absentgeno   (null homos inclus dans N)
-    #  Brut : nA = genefreq_obs * 2*ni  ;  AA non corrigé
-    #         ni = efpop - absent - nnullhomo
+    #  ENA: nA = corrdgenefreq * 2*ni  ;  AA_corr = AA * p/(p + 2r)
+    #       ni = efpop - absentgeno   (null homos included in N)
+    #  Raw: nA = genefreq_obs * 2*ni  ;  AA uncorrected
+    #       ni = efpop - absent - nnullhomo
     # ══════════════════════════════════════════════════════════════════════
 
-    # Calcule S1 et S3 pour un allèle, une paire/ensemble de pops
-    # pop_data = liste de listes : $ni, $nA, $AA, [optionnel $AA_corr]
+    # Calculate S1 and S3 for one allele, one pair/set of pops
+    # pop_data = list of lists: $ni, $nA, $AA, [optional $AA_corr]
     weir_fst_allele <- function(pop_data, use_corr = FALSE) {
       r      <- length(pop_data)
       N_tot  <- sum(sapply(pop_data, `[[`, "ni"))
@@ -294,11 +294,11 @@ server_fst_ena <- function(id, rv) {
     }
 
     # ══════════════════════════════════════════════════════════════════════
-    #  DISTANCE CAVALLI-SFORZA & EDWARDS (1967) — prod_CS / prod_CS_correction
+    #  CAVALLI-SFORZA & EDWARDS (1967) DISTANCE — prod_CS / prod_CS_correction
     #
-    #  CSprod(i,j) = Σ_k √(p_ik × p_jk)      k = allèles
-    #  DCSE(i,j)   = (2/π) × √(2 × (1 − CSprod))   si CSprod ≤ 1
-    #  INA : k inclut l'allèle nul (freq = rd[pop])
+    #  CSprod(i,j) = Σ_k √(p_ik × p_jk)      k = alleles
+    #  DCSE(i,j)   = (2/π) × √(2 × (1 − CSprod))   if CSprod ≤ 1
+    #  INA : k includes the null allele (freq = rd[pop])
     # ══════════════════════════════════════════════════════════════════════
     cs_distance <- function(freq_i, freq_j) {
       alleles <- union(names(freq_i), names(freq_j))
@@ -309,12 +309,12 @@ server_fst_ena <- function(id, rv) {
         if (!is.na(pi) && !is.na(pj) && pi > 0 && pj > 0)
           csprod <- csprod + sqrt(pi * pj)
       }
-      if (csprod > 1.0) return(NA_real_)  # non applicable (arrondi numérique)
+      if (csprod > 1.0) return(NA_real_)  # not applicable (numerical rounding)
       (2.0 / pi) * sqrt(2.0 * (1.0 - csprod))
     }
 
     # ══════════════════════════════════════════════════════════════════════
-    #  EXTRACTION DES DONNÉES + CALCUL EM PAR LOCUS × POPULATION
+    #  DATA EXTRACTION + EM CALCULATION PER LOCUS × POPULATION
     # ══════════════════════════════════════════════════════════════════════
     fetch_em_results <- reactive({
       db_ready()
@@ -350,7 +350,7 @@ server_fst_ena <- function(id, rv) {
       markers <- markers_r()
       pops    <- pops_r()
 
-      # Résultats EM : em_res[[locus]][[pop]] = sortie de em_freena()
+      # EM results: em_res[[locus]][[pop]] = output of em_freena()
       em_res <- list()
       for (loc in markers) {
         em_res[[loc]] <- list()
@@ -370,27 +370,27 @@ server_fst_ena <- function(id, rv) {
     })
 
     # ══════════════════════════════════════════════════════════════════════
-    #  CALCUL FST GLOBAL MULTILOCUS (brut + ENA) — sum_stats + sum_stats_correction
+    #  GLOBAL FST CALCULATION (raw + ENA) — sum_stats + sum_stats_correction
     # ══════════════════════════════════════════════════════════════════════
     compute_fst_global <- function(em_res) {
       markers <- names(em_res)
       pops    <- names(em_res[[markers[1]]])
       n_pops  <- length(pops)
 
-      # s1, s3 (brut) et s1_corr, s3_corr (ENA), accumulateurs sur loci
+      # s1, s3 (raw) and s1_corr, s3_corr (ENA), accumulators over loci
       s1 <- s3 <- s1c <- s3c <- 0.0
       rows <- vector("list", length(markers))
 
       for (li in seq_along(markers)) {
         loc     <- markers[li]
         em_loc  <- em_res[[loc]]
-        # Allèles observés à ce locus (union sur pops)
+        # Observed alleles at this locus (union over pops)
         alleles_obs  <- sort(unique(unlist(lapply(em_loc, function(e) e$alleles))))
-        alleles_corr <- alleles_obs  # même liste ; null ajouté séparément pour INA
+        alleles_corr <- alleles_obs  # same list; null added separately for INA
 
-        # ── Effectifs ──────────────────────────────────────────────────
-        # Brut  : ni = efpop - absent - nnullhomo
-        # Corr  : ni = efpop - absent   (null homos inclus)
+        # ── Sample sizes ──────────────────────────────────────────────────
+        # Raw  : ni = efpop - absent - nnullhomo
+        # Corr  : ni = efpop - absent   (null homos included)
         ni_raw  <- sapply(pops, function(p) {
           e <- em_loc[[p]]
           max(0L, e$efpop - e$absent - e$nnullhomo)
@@ -400,7 +400,7 @@ server_fst_ena <- function(id, rv) {
           max(0L, e$efpop - e$absent)
         })
 
-        # Populations effectives (≥ 1 individu)
+        # Effective populations (≥ 1 individual)
         r_raw  <- sum(ni_raw  > 0L)
         r_corr <- sum(ni_corr > 0L)
 
@@ -412,7 +412,7 @@ server_fst_ena <- function(id, rv) {
 
         s1l <- s3l <- s1lc <- s3lc <- 0.0
 
-        # ── Loop allèles brut ──────────────────────────────────────────
+        # ── Loop over alleles raw ──────────────────────────────────────────
         for (a in alleles_obs) {
           a_chr <- as.character(a)
           pop_data <- lapply(pops, function(p) {
@@ -428,7 +428,7 @@ server_fst_ena <- function(id, rv) {
           s1l <- s1l + cmp$s1; s3l <- s3l + cmp$s3
         }
 
-        # ── Loop allèles ENA (corrdgenefreq) ──────────────────────────
+        # ── Loop over alleles ENA (corrdgenefreq) ──────────────────────────
         for (a in alleles_obs) {
           a_chr <- as.character(a)
           pop_data_c <- lapply(pops, function(p) {
@@ -439,7 +439,7 @@ server_fst_ena <- function(id, rv) {
             rd <- e$rd
             nA <- pf * 2L * ni
             AA <- if (!is.null(e$H_ii) && a_chr %in% names(e$H_ii)) e$H_ii[a_chr] else 0L
-            # AA_corr = AA * p/(p + 2r)   (Pascal : cAA)
+            # AA_corr = AA * p/(p + 2r)   (Pascal: cAA)
             denom <- pf + 2.0 * rd
             AA_c  <- if (AA > 0 && denom > 0) AA * (pf / denom) else 0.0
             list(ni=ni, nA=nA, AA=AA, AA_corr=AA_c)
@@ -451,7 +451,7 @@ server_fst_ena <- function(id, rv) {
         fst_loc  <- if (s3l  != 0) s1l  / s3l  else NA_real_
         fst_locc <- if (s3lc != 0) s1lc / s3lc else NA_real_
 
-        # Accumulation multilocus pondérée par nc (Pascal : sum_stats)
+        # Multilocus accumulation weighted by nc (Pascal: sum_stats)
         if (!is.na(fst_loc)  && nc_raw  > 0)
           { s1 <- s1 + s1l * nc_raw;   s3 <- s3 + s3l * nc_raw }
         if (!is.na(fst_locc) && nc_corr > 0)
@@ -459,10 +459,10 @@ server_fst_ena <- function(id, rv) {
 
         rows[[li]] <- data.frame(
           Locus          = loc,
-          FST_brut       = round(fst_loc,  6),
+          FST_raw        = round(fst_loc,  6),
           FST_ENA        = round(fst_locc, 6),
           Delta_FST      = round(fst_locc - fst_loc, 6),
-          N_pops_eff_brut  = r_raw,
+          N_pops_eff_raw  = r_raw,
           N_pops_eff_ENA   = r_corr,
           stringsAsFactors = FALSE
         )
@@ -480,7 +480,7 @@ server_fst_ena <- function(id, rv) {
     }
 
     # ══════════════════════════════════════════════════════════════════════
-    #  FST PAIRWISE (brut + ENA) — loc_pFst + loc_pFst_correction
+    #  PAIRWISE FST (raw + ENA) — loc_pFst + loc_pFst_correction
     # ══════════════════════════════════════════════════════════════════════
     compute_fst_pairwise <- function(em_res) {
       markers <- names(em_res)
@@ -488,7 +488,7 @@ server_fst_ena <- function(id, rv) {
       n_pops  <- length(pops)
       if (n_pops < 2L) return(list(matrix_raw=NULL, matrix_ena=NULL, long=data.frame()))
 
-      # Initialiser accumulateurs pairwise
+      # Initialize pairwise accumulators
       s12p  <- matrix(0.0, n_pops, n_pops, dimnames=list(pops,pops))
       s32p  <- matrix(0.0, n_pops, n_pops, dimnames=list(pops,pops))
       s12pc <- matrix(0.0, n_pops, n_pops, dimnames=list(pops,pops))
@@ -508,7 +508,7 @@ server_fst_ena <- function(id, rv) {
             ni_c_i   <- max(0L, ei$efpop - ei$absent)
             ni_c_j   <- max(0L, ej$efpop - ej$absent)
 
-            # ── Brut ──────────────────────────────────────────────────
+            # ── Raw ──────────────────────────────────────────────────
             if (ni_raw_i > 0L && ni_raw_j > 0L) {
               for (a in alleles_obs) {
                 a_chr <- as.character(a)
@@ -558,7 +558,7 @@ server_fst_ena <- function(id, rv) {
         }
       }
 
-      # Matrices finales
+      # Final matrices
       mat_raw <- matrix(NA_real_, n_pops, n_pops, dimnames=list(pops,pops))
       mat_ena <- matrix(NA_real_, n_pops, n_pops, dimnames=list(pops,pops))
       for (ii in seq_len(n_pops - 1L)) {
@@ -568,13 +568,13 @@ server_fst_ena <- function(id, rv) {
         }
       }
 
-      # Format long
+      # Long format
       long_rows <- list()
       for (ii in seq_len(n_pops - 1L)) {
         for (jj in seq(ii + 1L, n_pops)) {
           long_rows[[length(long_rows)+1]] <- data.frame(
             Pop1      = pops[ii], Pop2 = pops[jj],
-            FST_brut  = round(mat_raw[jj,ii], 6),
+            FST_raw  = round(mat_raw[jj,ii], 6),
             FST_ENA   = round(mat_ena[jj,ii], 6),
             Delta_FST = round(mat_ena[jj,ii] - mat_raw[jj,ii], 6),
             stringsAsFactors = FALSE
@@ -587,7 +587,7 @@ server_fst_ena <- function(id, rv) {
     }
 
     # ══════════════════════════════════════════════════════════════════════
-    #  DISTANCE DCSE PAIRWISE (brut + INA) — prod_CS + prod_CS_correction
+    #  PAIRWISE DCSE DISTANCE (raw + INA) — prod_CS + prod_CS_correction
     # ══════════════════════════════════════════════════════════════════════
     compute_dc_pairwise <- function(em_res) {
       markers <- names(em_res)
@@ -595,7 +595,7 @@ server_fst_ena <- function(id, rv) {
       n_pops  <- length(pops)
       if (n_pops < 2L) return(list(matrix_raw=NULL, matrix_ina=NULL, long=data.frame()))
 
-      # Accumulateurs DCSE
+      # DCSE accumulators
       dc_sum_raw  <- matrix(0.0, n_pops, n_pops, dimnames=list(pops,pops))
       dc_sum_ina  <- matrix(0.0, n_pops, n_pops, dimnames=list(pops,pops))
       nloc_eff_raw <- matrix(length(markers), n_pops, n_pops, dimnames=list(pops,pops))
@@ -612,7 +612,7 @@ server_fst_ena <- function(id, rv) {
             ni_raw_i <- ei$efpop - ei$absent - ei$nnullhomo
             ni_raw_j <- ej$efpop - ej$absent - ej$nnullhomo
 
-            # ── DCSE brute (genefreq_obs, allèles nuls exclus) ────────
+            # ── Raw DCSE (genefreq_obs, null alleles excluded) ────────
             if (ni_raw_i > 0L && ni_raw_j > 0L &&
                 !is.null(ei$genefreq_obs) && !is.null(ej$genefreq_obs)) {
               d_raw <- cs_distance(ei$genefreq_obs, ej$genefreq_obs)
@@ -622,12 +622,12 @@ server_fst_ena <- function(id, rv) {
               nloc_eff_raw[jj, ii] <- nloc_eff_raw[jj, ii] - 1L
             }
 
-            # ── DCSE-INA (corrdgenefreq + allèle nul comme état supp) ─
+            # ── DCSE-INA (corrdgenefreq + null allele as additional state) ─
             ni_c_i <- ei$efpop - ei$absent
             ni_c_j <- ej$efpop - ej$absent
             if (ni_c_i > 0L && ni_c_j > 0L &&
                 !is.null(ei$pfreq) && !is.null(ej$pfreq)) {
-              # Ajout de l'allèle nul avec freq = rd  (Pascal : ajustement_r)
+              # Add null allele with freq = rd (Pascal: ajustement_r)
               freq_ina_i <- c(ei$pfreq, `null`=ei$rd)
               freq_ina_j <- c(ej$pfreq, `null`=ej$rd)
               d_ina <- cs_distance(freq_ina_i, freq_ina_j)
@@ -640,7 +640,7 @@ server_fst_ena <- function(id, rv) {
         }
       }
 
-      # Matrices finales (moyennes sur loci valides)
+      # Final matrices (means over valid loci)
       mat_raw <- matrix(NA_real_, n_pops, n_pops, dimnames=list(pops,pops))
       mat_ina <- matrix(NA_real_, n_pops, n_pops, dimnames=list(pops,pops))
       for (ii in seq_len(n_pops - 1L)) {
@@ -657,7 +657,7 @@ server_fst_ena <- function(id, rv) {
         for (jj in seq(ii + 1L, n_pops)) {
           long_rows[[length(long_rows)+1]] <- data.frame(
             Pop1      = pops[ii], Pop2 = pops[jj],
-            DCSE_brut = round(mat_raw[jj,ii], 6),
+            DCSE_raw = round(mat_raw[jj,ii], 6),
             DCSE_INA  = round(mat_ina[jj,ii], 6),
             Delta_DCSE = round(mat_ina[jj,ii] - mat_raw[jj,ii], 6),
             stringsAsFactors = FALSE
@@ -670,7 +670,7 @@ server_fst_ena <- function(id, rv) {
     }
 
     # ══════════════════════════════════════════════════════════════════════
-    #  FST PAR LOCUS × PAIRE
+    #  FST PER LOCUS × PAIR
     # ══════════════════════════════════════════════════════════════════════
     compute_fst_per_locus_pair <- function(em_res, sel_locus="all",
                                            sel_pop1="all", sel_pop2="all") {
@@ -708,7 +708,7 @@ server_fst_ena <- function(id, rv) {
 
           for (a in alleles_obs) {
             a_chr <- as.character(a)
-            # Brut
+            # Raw
             pf_i_obs <- if (!is.null(ei$genefreq_obs) && a_chr %in% names(ei$genefreq_obs)) ei$genefreq_obs[a_chr] else 0.0
             pf_j_obs <- if (!is.null(ej$genefreq_obs) && a_chr %in% names(ej$genefreq_obs)) ej$genefreq_obs[a_chr] else 0.0
             AA_i <- if (!is.null(ei$H_ii) && a_chr %in% names(ei$H_ii)) ei$H_ii[a_chr] else 0L
@@ -741,9 +741,9 @@ server_fst_ena <- function(id, rv) {
 
           rows[[length(rows)+1]] <- data.frame(
             Locus    = loc, Pop1 = pi_n, Pop2 = pj_n,
-            FST_brut = fst_r, FST_ENA = fst_c,
+            FST_raw = fst_r, FST_ENA = fst_c,
             Delta    = round(fst_c - fst_r, 6),
-            N_i_brut = ni_raw_i, N_j_brut = ni_raw_j,
+            N_i_raw = ni_raw_i, N_j_raw = ni_raw_j,
             N_i_ENA  = ni_c_i,   N_j_ENA  = ni_c_j,
             stringsAsFactors = FALSE
           )
@@ -754,11 +754,11 @@ server_fst_ena <- function(id, rv) {
     }
 
     # ══════════════════════════════════════════════════════════════════════
-    #  REACTIVES PRINCIPAUX
+    #  MAIN REACTIVES
     # ══════════════════════════════════════════════════════════════════════
     em_r <- reactive({
       db_ready()
-      withProgress(message = "EM FreeNA — calcul fréquences allèles nuls...", value=0.1, {
+      withProgress(message = "EM FreeNA — calculating null allele frequencies...", value=0.1, {
         res <- fetch_em_results()
         setProgress(1); res
       })
@@ -766,7 +766,7 @@ server_fst_ena <- function(id, rv) {
 
     fst_global_r <- eventReactive(input$run_fst_global, {
       req(length(em_r()) > 0)
-      withProgress(message = "Calcul FST global (ENA)...", value=0.2, {
+      withProgress(message = "Calculating global FST (ENA)...", value=0.2, {
         res <- compute_fst_global(em_r())
         setProgress(1); res
       })
@@ -774,7 +774,7 @@ server_fst_ena <- function(id, rv) {
 
     fst_pair_r <- eventReactive(input$run_fst_pair, {
       req(length(em_r()) > 0)
-      withProgress(message = "Calcul FST pairwise (ENA)...", value=0.2, {
+      withProgress(message = "Calculating pairwise FST (ENA)...", value=0.2, {
         res <- compute_fst_pairwise(em_r())
         setProgress(1); res
       })
@@ -782,7 +782,7 @@ server_fst_ena <- function(id, rv) {
 
     dc_r <- eventReactive(input$run_dc, {
       req(length(em_r()) > 0)
-      withProgress(message = "Calcul DCSE pairwise (INA)...", value=0.2, {
+      withProgress(message = "Calculating pairwise DCSE (INA)...", value=0.2, {
         res <- compute_dc_pairwise(em_r())
         setProgress(1); res
       })
@@ -790,7 +790,7 @@ server_fst_ena <- function(id, rv) {
 
     fst_locus_r <- eventReactive(input$run_fst_locus, {
       req(length(em_r()) > 0)
-      withProgress(message = "Calcul FST par locus × paire...", value=0.2, {
+      withProgress(message = "Calculating FST per locus × pair...", value=0.2, {
         res <- compute_fst_per_locus_pair(em_r(),
           sel_locus = safe_choice(input$fl_locus, "all"),
           sel_pop1  = safe_choice(input$fl_pop1,  "all"),
@@ -833,7 +833,7 @@ server_fst_ena <- function(id, rv) {
       }, error=function(e) tags$span("\u2014"))
     })
 
-    # ── Helper matrice HTML ────────────────────────────────────────────────
+    # ── Helper HTML matrix ────────────────────────────────────────────────
     render_matrix_html <- function(mat, fmt=6, color_thresh=c(0.05,0.15,0.25),
                                    colors=c("#f0fdf4","#dcfce7","#fefce8","#fef2f2")) {
       pops <- rownames(mat)
@@ -845,7 +845,7 @@ server_fst_ena <- function(id, rv) {
         if (i < j || is.na(v))
           return('<td style="color:#cbd5e1;">·</td>')
         bg <- colors[findInterval(v, color_thresh) + 1L]
-        sprintf('<td style="background:%s;">%s</td>', bg, round(v, fmt))
+        sprintf('<td style="background:%s;">%s%s', bg, round(v, fmt), '</td>')
       }
       thead <- paste0('<tr><th></th>',
         paste(sprintf('<th>%s</th>', pops[-n]), collapse=""), '</tr>')
@@ -859,47 +859,47 @@ server_fst_ena <- function(id, rv) {
                    thead, tbody))
     }
 
-    # ── Tab FST global ─────────────────────────────────────────────────────
+    # ── Tab Global FST ─────────────────────────────────────────────────────
     output$dt_fst_global <- DT::renderDT({
       r <- fst_global_r()
       d <- r$per_locus
-      shiny::validate(shiny::need(nrow(d) > 0, "Aucune donnée. Cliquez sur Calculer."))
+      shiny::validate(shiny::need(nrow(d) > 0, "No data. Click Calculate."))
 
-      # Ligne résumé multilocus
+      # Multilocus summary row
       summary_row <- data.frame(
-        Locus          = paste0("[Multilocus FST brut=", round(r$global_raw,6),
+        Locus          = paste0("[Multilocus FST_raw=", round(r$global_raw,6),
                                 " | FST-ENA=", round(r$global_ena,6), "]"),
-        FST_brut       = r$global_raw,
+        FST_raw       = r$global_raw,
         FST_ENA        = r$global_ena,
         Delta_FST      = r$global_ena - r$global_raw,
-        N_pops_eff_brut  = NA_integer_,
+        N_pops_eff_raw  = NA_integer_,
         N_pops_eff_ENA   = NA_integer_,
         stringsAsFactors = FALSE
       )
       disp <- rbind(summary_row, d)
-      names(disp) <- c("Locus","FST brut","FST-ENA","ΔFST (ENA−brut)",
-                       "N pops eff. (brut)","N pops eff. (ENA)")
+      names(disp) <- c("Locus","FST raw","FST-ENA","ΔFST (ENA−raw)",
+                       "N eff. pops (raw)","N eff. pops (ENA)")
 
       DT::datatable(disp, rownames=FALSE,
         options=list(pageLength=25, scrollX=TRUE, dom="lftip",
           columnDefs=list(list(className="dt-right", targets=1:5))),
         class="compact hover stripe") |>
-        DT::formatRound("FST brut",        6) |>
+        DT::formatRound("FST raw",        6) |>
         DT::formatRound("FST-ENA",         6) |>
-        DT::formatRound("ΔFST (ENA−brut)", 6) |>
+        DT::formatRound("ΔFST (ENA−raw)", 6) |>
         DT::formatStyle("FST-ENA",
           backgroundColor=DT::styleInterval(c(0.05,0.15,0.25),
             c("#f0fdf4","#dcfce7","#fefce8","#fef2f2"))) |>
         DT::formatStyle("Locus", fontWeight="600", color="#0f172a")
     }, server=TRUE)
 
-    # ── Tab FST pairwise ───────────────────────────────────────────────────
+    # ── Tab Pairwise FST ───────────────────────────────────────────────────
     output$ui_fst_pair_matrix <- renderUI({
       r <- fst_pair_r(); typ <- input$fst_pair_type
-      shiny::validate(shiny::need(!is.null(r$matrix_raw), "Cliquez sur Calculer."))
+      shiny::validate(shiny::need(!is.null(r$matrix_raw), "Click Calculate."))
       if (identical(typ, "both")) {
         tags$div(
-          tags$strong("FST brut"),
+          tags$strong("Raw FST"),
           render_matrix_html(r$matrix_raw),
           tags$br(),
           tags$strong("FST-ENA"),
@@ -915,15 +915,15 @@ server_fst_ena <- function(id, rv) {
     output$dt_fst_pair <- DT::renderDT({
       r <- fst_pair_r()
       d <- r$long
-      shiny::validate(shiny::need(nrow(d) > 0, "Aucune donnée."))
-      names(d) <- c("Pop 1","Pop 2","FST brut","FST-ENA","ΔFST (ENA−brut)")
+      shiny::validate(shiny::need(nrow(d) > 0, "No data."))
+      names(d) <- c("Pop 1","Pop 2","FST raw","FST-ENA","ΔFST (ENA−raw)")
       DT::datatable(d, rownames=FALSE,
         options=list(pageLength=20, scrollX=TRUE, dom="lftip",
           columnDefs=list(list(className="dt-right", targets=2:4))),
         class="compact hover stripe") |>
-        DT::formatRound("FST brut",        6) |>
+        DT::formatRound("FST raw",        6) |>
         DT::formatRound("FST-ENA",         6) |>
-        DT::formatRound("ΔFST (ENA−brut)", 6) |>
+        DT::formatRound("ΔFST (ENA−raw)", 6) |>
         DT::formatStyle("FST-ENA",
           backgroundColor=DT::styleInterval(c(0.05,0.15,0.25),
             c("#f0fdf4","#dcfce7","#fefce8","#fef2f2")))
@@ -932,12 +932,12 @@ server_fst_ena <- function(id, rv) {
     # ── Tab DCSE ───────────────────────────────────────────────────────────
     output$ui_dc_matrix <- renderUI({
       r <- dc_r(); typ <- input$dc_type
-      shiny::validate(shiny::need(!is.null(r$matrix_raw), "Cliquez sur Calculer."))
+      shiny::validate(shiny::need(!is.null(r$matrix_raw), "Click Calculate."))
       clr <- c("#eff6ff","#dbeafe","#fef9c3","#fef2f2")
       thr <- c(0.1, 0.25, 0.4)
       if (identical(typ, "both")) {
         tags$div(
-          tags$strong("DCSE brute"),
+          tags$strong("Raw DCSE"),
           render_matrix_html(r$matrix_raw, color_thresh=thr, colors=clr),
           tags$br(),
           tags$strong("DCSE-INA"),
@@ -952,28 +952,28 @@ server_fst_ena <- function(id, rv) {
 
     output$dt_dc <- DT::renderDT({
       r <- dc_r(); d <- r$long
-      shiny::validate(shiny::need(nrow(d) > 0, "Aucune donnée."))
-      names(d) <- c("Pop 1","Pop 2","DCSE brute","DCSE-INA","ΔDCSE (INA−brut)")
+      shiny::validate(shiny::need(nrow(d) > 0, "No data."))
+      names(d) <- c("Pop 1","Pop 2","DCSE raw","DCSE-INA","ΔDCSE (INA−raw)")
       DT::datatable(d, rownames=FALSE,
         options=list(pageLength=20, scrollX=TRUE, dom="lftip",
           columnDefs=list(list(className="dt-right", targets=2:4))),
         class="compact hover stripe") |>
-        DT::formatRound("DCSE brute",       6) |>
+        DT::formatRound("DCSE raw",       6) |>
         DT::formatRound("DCSE-INA",         6) |>
-        DT::formatRound("ΔDCSE (INA−brut)", 6)
+        DT::formatRound("ΔDCSE (INA−raw)", 6)
     }, server=TRUE)
 
-    # ── Tab FST par locus ──────────────────────────────────────────────────
+    # ── Tab FST per locus ──────────────────────────────────────────────────
     output$dt_fst_locus <- DT::renderDT({
       d <- fst_locus_r()
-      shiny::validate(shiny::need(nrow(d) > 0, "Aucune donnée."))
-      names(d) <- c("Locus","Pop 1","Pop 2","FST brut","FST-ENA",
-                    "ΔFST","N_i brut","N_j brut","N_i ENA","N_j ENA")
+      shiny::validate(shiny::need(nrow(d) > 0, "No data."))
+      names(d) <- c("Locus","Pop 1","Pop 2","FST raw","FST-ENA",
+                    "ΔFST","N_i raw","N_j raw","N_i ENA","N_j ENA")
       DT::datatable(d, rownames=FALSE,
         options=list(pageLength=25, scrollX=TRUE, dom="lftip",
           columnDefs=list(list(className="dt-right", targets=3:9))),
         class="compact hover stripe") |>
-        DT::formatRound("FST brut", 6) |>
+        DT::formatRound("FST raw", 6) |>
         DT::formatRound("FST-ENA",  6) |>
         DT::formatRound("ΔFST",     6) |>
         DT::formatStyle("FST-ENA",
@@ -1004,13 +1004,13 @@ server_fst_ena <- function(id, rv) {
       )
     }
 
-    # FST global
+    # Global FST
     dl_fg <- dl_helper(function() fst_global_r()$per_locus, "fst_global_ena",
-      c("Locus","FST_brut","FST_ENA","Delta_FST","N_pops_eff_brut","N_pops_eff_ENA"))
+      c("Locus","FST_raw","FST_ENA","Delta_FST","N_pops_eff_raw","N_pops_eff_ENA"))
     output$dl_fst_global_csv <- dl_fg$csv
     output$dl_fst_global_txt <- dl_fg$txt
 
-    # FST pairwise matrice
+    # Pairwise FST matrix
     output$dl_fst_pair_csv <- downloadHandler(
       filename = function() paste0("fst_pairwise_ena_", Sys.Date(), ".csv"),
       content  = function(file) {
@@ -1031,11 +1031,11 @@ server_fst_ena <- function(id, rv) {
     )
 
     dl_fp <- dl_helper(function() fst_pair_r()$long, "fst_pairwise_long_ena",
-      c("Pop1","Pop2","FST_brut","FST_ENA","Delta_FST"))
+      c("Pop1","Pop2","FST_raw","FST_ENA","Delta_FST"))
     output$dl_fst_pair_long_csv <- dl_fp$csv
     output$dl_fst_pair_long_txt <- dl_fp$txt
 
-    # DCSE matrice
+    # DCSE matrix
     output$dl_dc_csv <- downloadHandler(
       filename = function() paste0("dcse_ina_", Sys.Date(), ".csv"),
       content  = function(file) {
@@ -1054,13 +1054,13 @@ server_fst_ena <- function(id, rv) {
     )
 
     dl_dc <- dl_helper(function() dc_r()$long, "dcse_pairwise_long_ina",
-      c("Pop1","Pop2","DCSE_brut","DCSE_INA","Delta_DCSE"))
+      c("Pop1","Pop2","DCSE_raw","DCSE_INA","Delta_DCSE"))
     output$dl_dc_long_csv <- dl_dc$csv
     output$dl_dc_long_txt <- dl_dc$txt
 
     dl_fl <- dl_helper(function() fst_locus_r(), "fst_per_locus_pair_ena",
-      c("Locus","Pop1","Pop2","FST_brut","FST_ENA","Delta_FST",
-        "N_i_brut","N_j_brut","N_i_ENA","N_j_ENA"))
+      c("Locus","Pop1","Pop2","FST_raw","FST_ENA","Delta_FST",
+        "N_i_raw","N_j_raw","N_i_ENA","N_j_ENA"))
     output$dl_fst_locus_csv <- dl_fl$csv
     output$dl_fst_locus_txt <- dl_fl$txt
 
