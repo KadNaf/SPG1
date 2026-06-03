@@ -776,6 +776,17 @@ app_ui <- function() {
         else
           shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "IRD")
       ),
+      # UCAD
+      shiny::tags$a(
+        href = "https://www.ucad.sn", target = "_blank",
+        style = "text-decoration:none;",
+        if (!is.null(logos$ucad))
+          shiny::tags$img(src = logos$ucad, height = "52px",
+            alt = "UCAD", title = "Université Cheikh Anta Diop de Dakar",
+            style = "opacity:0.9;")
+        else
+          shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "UCAD")
+      ),
       # CIRAD
       shiny::tags$a(
         href = "https://www.cirad.fr/en", target = "_blank",
@@ -1216,13 +1227,6 @@ app_ui <- function() {
       value = "null_alleles",
       null_alleles_UI("null_alleles")
     ),
-    bslib::nav_panel(
-      title = "FST-ENA",
-      icon  = shiny::icon("circle-notch"),
-      value = "fst_ena",
-      fst_ena_UI("fst_ena")
-    )
-    ,
     bslib::nav_panel(
       title = HTML('IBD <span style="display:inline-block;font-size:0.65em;font-weight:700;color:#fff;background:#E1AF00;border-radius:3px;padding:1px 5px;vertical-align:middle;line-height:1.5;">🚧</span>'),
       icon  = shiny::icon("map-marker-alt"),
