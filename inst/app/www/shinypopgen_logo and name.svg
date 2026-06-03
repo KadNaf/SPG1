@@ -153,11 +153,17 @@
      rx="36"
      fill="url(#bg)"
      id="rect12"
-     style="fill:#1a1f3a;fill-opacity:1" />
+     style="fill:#333a43;fill-opacity:1" />
   <!-- icon scaffold -->
   <g
      transform="translate(20,40)"
      id="g56">
+    <!-- inter-population links -->
+    <!-- gene flow mesh -->
+    <!-- population halos -->
+    <!-- individuals within populations -->
+    <!-- differentiated sample -->
+    <!-- shared genetic core -->
     <g
        id="g65"
        transform="matrix(1.43,0,0,1.43,-60.550429,-43.697222)">
@@ -169,7 +175,7 @@
          stroke="#26306b"
          stroke-width="2"
          id="circle12"
-         style="fill:#1a1f3a;fill-opacity:1;stroke:#17b08b;stroke-opacity:1" />
+         style="fill:#333a43;fill-opacity:1;stroke:#17b08b;stroke-opacity:1" />
       <circle
          cx="280"
          cy="285"
@@ -300,6 +306,7 @@
       <g
          fill="#a9f0d8"
          id="g41">
+        <!-- top -->
         <line
            x1="256"
            y1="72"
@@ -348,6 +355,7 @@
            r="14"
            filter="url(#softGlow)"
            id="circle31" />
+        <!-- left -->
         <line
            x1="146"
            y1="390"
@@ -396,6 +404,7 @@
            r="14"
            filter="url(#softGlow)"
            id="circle36" />
+        <!-- right -->
         <line
            x1="446"
            y1="202"
@@ -584,7 +593,7 @@
        font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
        font-weight="300"
        letter-spacing="-1.5"
-       id="text56">SPG V1</text>
+       id="text56">Shiny</text>
     <text
        x="0"
        y="112"
@@ -593,7 +602,7 @@
        font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
        font-weight="500"
        letter-spacing="-2"
-       id="text57">ShinyPopGen V1</text>
+       id="text57">PopGen</text>
     <line
        x1="0"
        y1="152"
@@ -610,7 +619,7 @@
        font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
        font-weight="400"
        letter-spacing="7.5"
-       id="text58">A Versatile, user-friendly and multi-OS application to analyse population genetic data</text>
+       id="text58">POPULATION GENETICS</text>
     <g
        transform="translate(2 272)"
        id="g63">
@@ -665,31 +674,13 @@
     </g>
     <text
        x="2"
-       y="340"
+       y="370"
        fill="#787BD3"
-       font-size="26"
+       font-size="28"
        font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
        font-weight="400"
        letter-spacing="2.8"
-       id="text64">Programming: Vincent Manzanilla and Naffiou Kadiri</text>
-    <text
-       x="2"
-       y="380"
-       fill="#787BD3"
-       font-size="26"
-       font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
-       font-weight="400"
-       letter-spacing="2.8"
-       id="text65">Conception: Thierry de Meeûs</text>
-    <text
-       x="2"
-       y="420"
-       fill="#787BD3"
-       font-size="26"
-       font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
-       font-weight="400"
-       letter-spacing="2.8"
-       id="text66">Intertryp, Univ Montpellier, Cirad, IRD, Montpellier, France</text>
+       id="text63">IRD · CIRAD · INTERTRYP</text>
   </g>
   <metadata
      id="metadata65">
