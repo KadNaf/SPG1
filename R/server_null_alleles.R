@@ -1122,7 +1122,27 @@ server_null_alleles <- function(id, rv) {
         }
       }
     )
-    output$dl_file4_csv <- output$dl_file4_txt  # same content
+    # File 4 CSV — same tab-separated content as TXT (half-matrices are not
+    # really comma-friendly so we use tab for both; .csv extension for convenience)
+    output$dl_file4_csv <- downloadHandler(
+      filename = function() paste0("per_locus_half_matrices_", Sys.Date(), ".csv"),
+      content  = function(file) {
+        d <- file4_data()
+        writeLines(d$header, con = file)
+        for (loc in d$markers) {
+          for (sc in c("FST_raw","FST_ENA")) {
+            ln <- half_matrix_txt(d$fst_df, sc, d$pops, loc)
+            write(ln, file = file, append = TRUE)
+            write("", file = file, append = TRUE)
+          }
+          for (sc in c("DCSE_raw","DCSE_INA")) {
+            ln <- half_matrix_txt(d$dc_df, sc, d$pops, loc)
+            write(ln, file = file, append = TRUE)
+            write("", file = file, append = TRUE)
+          }
+        }
+      }
+    )
 
     # ── Download buttons UI ────────────────────────────────────────────────────
     make_dl_ui <- function(csv_id, txt_id) {
@@ -1136,11 +1156,7 @@ server_null_alleles <- function(id, rv) {
     output$ui_dl_file1 <- make_dl_ui("dl_file1_csv", "dl_file1_txt")
     output$ui_dl_file2 <- make_dl_ui("dl_file2_csv", "dl_file2_txt")
     output$ui_dl_file3 <- make_dl_ui("dl_file3_csv", "dl_file3_txt")
-    output$ui_dl_file4 <- renderUI({
-      req(results_r())
-      tags$div(class="na-dl-row",
-        downloadButton(ns("dl_file4_txt"), ".txt", class="btn btn-default btn-xs"))
-    })
+    output$ui_dl_file4 <- make_dl_ui("dl_file4_csv", "dl_file4_txt")
 
     # ── Run status ─────────────────────────────────────────────────────────────
     output$ui_run_status <- renderUI({
