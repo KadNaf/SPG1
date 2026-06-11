@@ -1103,7 +1103,8 @@ server_null_alleles <- function(id, rv) {
       lines
     }
 
-    output$dl_file4_txt <- downloadHandler(
+    # Single download handler for file 4 (TXT format only)
+    output$dl_file4 <- downloadHandler(
       filename = function() paste0("per_locus_half_matrices_", Sys.Date(), ".txt"),
       content  = function(file) {
         d <- file4_data()
@@ -1122,17 +1123,31 @@ server_null_alleles <- function(id, rv) {
         }
       }
     )
-    output$dl_file4_csv <- output$dl_file4_txt  # same content
+
+    # Also add CSV version if desired
+    output$dl_file4_csv <- downloadHandler(
+      filename = function() paste0("per_locus_half_matrices_", Sys.Date(), ".csv"),
+      content  = function(file) {
+        d <- file4_data()
+        writeLines(d$header, con=file)
+        write("# FST matrices (per locus)", file=file, append=TRUE)
+        write.table(d$fst_df, file=file, sep=",", row.names=FALSE, 
+                    quote=FALSE, append=TRUE)
+        write("", file=file, append=TRUE)
+        write("# DCSE matrices (per locus)", file=file, append=TRUE)
+        write.table(d$dc_df, file=file, sep=",", row.names=FALSE, 
+                    quote=FALSE, append=TRUE)
+      }
+    )
 
     # ── Download buttons UI ────────────────────────────────────────────────────
-    make_dl_ui <- function(csv_id, txt_id) {
-      renderUI({
-        req(results_r())
-        tags$div(class="na-dl-row",
-          downloadButton(ns(csv_id), ".csv", class="btn btn-default btn-xs"),
-          downloadButton(ns(txt_id), ".txt", class="btn btn-default btn-xs"))
-      })
-    }
+    output$ui_dl_file4 <- renderUI({
+      req(results_r())
+      tags$div(class="na-dl-row",
+        downloadButton(ns("dl_file4"), ".txt", class="btn btn-default btn-xs"),
+        downloadButton(ns("dl_file4_csv"), ".csv", class="btn btn-default btn-xs")
+      )
+    })
     output$ui_dl_file1 <- make_dl_ui("dl_file1_csv", "dl_file1_txt")
     output$ui_dl_file2 <- make_dl_ui("dl_file2_csv", "dl_file2_txt")
     output$ui_dl_file3 <- make_dl_ui("dl_file3_csv", "dl_file3_txt")
