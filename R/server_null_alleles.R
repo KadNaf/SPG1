@@ -1145,12 +1145,15 @@ server_null_alleles <- function(id, rv) {
     )
 
     # ── Download buttons UI ────────────────────────────────────────────────────
+    # ns must be captured explicitly — renderUI runs in a reactive context
+    # where the moduleServer enclosure may not be directly visible
     make_dl_ui <- function(csv_id, txt_id) {
+      ns_local <- session$ns   # capture ns from session, always available
       renderUI({
         req(results_r())
         tags$div(class="na-dl-row",
-          downloadButton(ns(csv_id), ".csv", class="btn btn-default btn-xs"),
-          downloadButton(ns(txt_id), ".txt", class="btn btn-default btn-xs"))
+          downloadButton(ns_local(csv_id), ".csv", class="btn btn-default btn-xs"),
+          downloadButton(ns_local(txt_id), ".txt", class="btn btn-default btn-xs"))
       })
     }
     output$ui_dl_file1 <- make_dl_ui("dl_file1_csv", "dl_file1_txt")
