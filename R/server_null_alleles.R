@@ -855,16 +855,25 @@ server_null_alleles <- function(id, rv) {
         setProgress(0.95, detail = "Assembling results...")
 
         # p_nulls tables
+        # N = efpop = total individuals (genotyped + missing), as per FreeNA
+        # N_exp_blanks = efpop * p_nulls^2 (expected null homozygotes)
+        # p_nulls_x_N  = efpop * p_nulls   (expected null allele copies)
+        # N_absent     = number of missing genotypes in this pop x locus
         t1_rows <- list()
         for (loc in markers) {
           for (pop in pops) {
-            e <- em_res[[loc]][[pop]]
-            n_exp <- e$N * (e$rd^2)
+            e       <- em_res[[loc]][[pop]]
+            n_total <- as.integer(e$efpop)          # total indiv (genotyped + missing)
+            n_exp   <- n_total * (e$rd^2)           # N_total * p^2
             t1_rows[[length(t1_rows)+1L]] <- data.frame(
-              Locus=loc, Population=pop,
-              Coding=as.character(treats[loc] %||% "absent"),
-              p_nulls=round(e$rd,6), N=as.integer(e$N),
-              N_exp_blanks=round(n_exp,6),
+              Locus        = loc,
+              Population   = pop,
+              Coding       = as.character(treats[loc] %||% "absent"),
+              p_nulls      = round(e$rd, 6),
+              N            = n_total,               # FIX: total (genotyped + missing)
+              N_absent     = as.integer(e$n_absent),# missing genotypes
+              N_exp_blanks = round(n_exp, 6),        # FIX: uses efpop
+              p_nulls_x_N  = round(e$rd * n_total, 6), # FIX: uses efpop
               stringsAsFactors=FALSE)
           }
         }
@@ -873,16 +882,25 @@ server_null_alleles <- function(id, rv) {
         t1 <- t1[order(t1$Locus, t1$Population),]
         t1$Locus <- as.character(t1$Locus)
 
-        # Global weighted mean per locus
+        # Global weighted mean per locus — uses N = efpop
         t2_rows <- lapply(markers, function(loc) {
           sub  <- t1[t1$Locus==loc,,drop=FALSE]
           vidx <- !is.na(sub$p_nulls)
-          av_p <- if (any(vidx)&&sum(sub$N[vidx])>0)
-            sum(sub$p_nulls[vidx]*sub$N[vidx])/sum(sub$N[vidx]) else NA_real_
-          av_n <- sum(sub$N*(sub$p_nulls^2), na.rm=TRUE)
-          data.frame(Locus=loc, Coding=as.character(treats[loc] %||% "absent"),
-                     Av_p_nulls=round(av_p,6), Av_N_exp=round(av_n,6),
-                     N_tot=sum(sub$N), stringsAsFactors=FALSE)
+          n_tot    <- sum(sub$N)                    # sum of efpop across pops
+          n_blanks <- sum(sub$N_absent)             # total missing genotypes
+          av_p  <- if (any(vidx)&&sum(sub$N[vidx])>0)
+            sum(sub$p_nulls[vidx]*sub$N[vidx]) / sum(sub$N[vidx]) else NA_real_
+          av_n  <- sum(sub$N*(sub$p_nulls^2), na.rm=TRUE) # Av(N_exp_blanks)
+          f_exp <- if (!is.na(av_n)&&n_tot>0) av_n/n_tot else NA_real_
+          data.frame(
+            Locus        = loc,
+            Coding       = as.character(treats[loc] %||% "absent"),
+            Av_p_nulls   = round(av_p,  6),
+            Av_N_exp     = round(av_n,  6),
+            N_tot        = n_tot,
+            N_blanks     = n_blanks,
+            f_expBlanks  = round(f_exp, 6),
+            stringsAsFactors=FALSE)
         })
         t2 <- do.call(rbind, t2_rows)
 
