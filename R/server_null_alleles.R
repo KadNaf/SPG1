@@ -1234,32 +1234,47 @@ server_null_alleles <- function(id, rv) {
     })
 
     # ── Tab 1: null allele frequencies DTs ────────────────────────────────────
+    # t1 columns: Locus, Population, Coding, p_nulls, N, N_absent,
+    #             N_exp_blanks, p_nulls_x_N
     output$dt_t1 <- DT::renderDT({
       r <- results_r()
       shiny::validate(shiny::need(nrow(r$t1)>0, "No data yet. Click Compute."))
-      d <- r$t1; names(d) <- c("Locus","Population","Coding","p_nulls","N","N_exp_blanks")
+      d <- r$t1
+      names(d) <- c("Locus","Population","Coding","p_nulls",
+                    "N (total)","N absent","N_exp_blanks","p_nulls\u00d7N")
       DT::datatable(d, rownames=FALSE,
-        options=list(pageLength=20,scrollX=TRUE,dom="lftip",
-          columnDefs=list(list(className="dt-right",targets=3:5))),
+        options=list(pageLength=20, scrollX=TRUE, dom="lftip",
+          columnDefs=list(list(className="dt-right", targets=3:7))),
         class="compact hover stripe") |>
-        DT::formatRound("p_nulls",6) |> DT::formatRound("N_exp_blanks",6) |>
-        DT::formatStyle("p_nulls",backgroundColor=DT::styleInterval(
-          c(0.05,0.10,0.20,0.30),c("#f0fdf4","#dcfce7","#fefce8","#fff7ed","#fef2f2"))) |>
-        DT::formatStyle("Locus",fontWeight="600",color="#0f172a")
+        DT::formatRound("p_nulls",           6) |>
+        DT::formatRound("N_exp_blanks",       6) |>
+        DT::formatRound("p_nulls\u00d7N",     6) |>
+        DT::formatStyle("p_nulls",
+          backgroundColor = DT::styleInterval(
+            c(0.05,0.10,0.20,0.30),
+            c("#f0fdf4","#dcfce7","#fefce8","#fff7ed","#fef2f2"))) |>
+        DT::formatStyle("Locus", fontWeight="600", color="#0f172a")
     }, server=TRUE)
 
+    # t2 columns: Locus, Coding, Av_p_nulls, Av_N_exp, N_tot, N_blanks, f_expBlanks
     output$dt_t2 <- DT::renderDT({
       r <- results_r()
       shiny::validate(shiny::need(nrow(r$t2)>0, "No data yet. Click Compute."))
-      d <- r$t2; names(d) <- c("Locus","Coding","Av(p_nulls)","Av(N_exp_blanks)","N_tot")
+      d <- r$t2
+      names(d) <- c("Locus","Coding","Av(p_nulls)","Av(N_exp_blanks)",
+                    "N_tot","N_blanks","f(expBlanks)")
       DT::datatable(d, rownames=FALSE,
-        options=list(pageLength=20,scrollX=TRUE,dom="lftip",
-          columnDefs=list(list(className="dt-right",targets=2:4))),
+        options=list(pageLength=20, scrollX=TRUE, dom="lftip",
+          columnDefs=list(list(className="dt-right", targets=2:6))),
         class="compact hover stripe") |>
-        DT::formatRound("Av(p_nulls)",6) |> DT::formatRound("Av(N_exp_blanks)",6) |>
-        DT::formatStyle("Av(p_nulls)",backgroundColor=DT::styleInterval(
-          c(0.05,0.10,0.20),c("#f0fdf4","#dcfce7","#fefce8","#fef2f2"))) |>
-        DT::formatStyle("Locus",fontWeight="600",color="#0f172a")
+        DT::formatRound("Av(p_nulls)",     6) |>
+        DT::formatRound("Av(N_exp_blanks)",6) |>
+        DT::formatRound("f(expBlanks)",    6) |>
+        DT::formatStyle("Av(p_nulls)",
+          backgroundColor = DT::styleInterval(
+            c(0.05,0.10,0.20),
+            c("#f0fdf4","#dcfce7","#fefce8","#fef2f2"))) |>
+        DT::formatStyle("Locus", fontWeight="600", color="#0f172a")
     }, server=TRUE)
 
     # ── Tab 2: FST DTs ─────────────────────────────────────────────────────────
