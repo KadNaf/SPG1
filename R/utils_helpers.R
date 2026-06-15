@@ -261,33 +261,63 @@ module_banner <- function(icon_name, title, subtitle, accent = "#6B64EF") {
   invisible(TRUE)
 }
 
-
-
 infer_base_from_marker_strings <- function(marker_df, sep = "/", sample_n = 5000L, default_base = 1000L) {
-  # marker_df: data.frame of character-ish genotype strings
   x <- unlist(marker_df, use.names = FALSE)
   x <- x[!is.na(x)]
   x <- trimws(as.character(x))
   x <- x[nzchar(x)]
   if (!length(x)) return(as.integer(default_base))
-  
-  # sample to keep it cheap
+
   if (length(x) > sample_n) x <- sample(x, sample_n)
-  
-  # keep only strings with sep and digits
-  x <- x[grepl("/", x, fixed = TRUE)]
-  if (!length(x)) return(as.integer(default_base))
-  
-  a <- suppressWarnings(as.integer(sub("/.*$", "", x)))
-  b <- suppressWarnings(as.integer(sub("^.*/", "", x)))
-  v <- max(c(a, b), na.rm = TRUE)
-  if (!is.finite(v) || v <= 0) return(as.integer(default_base))
-  
-  # base must be > max allele. your previous logic used 10^width, which is fine.
-  width <- nchar(as.character(v))
-  as.integer(10L ^ width)
+
+  # ── Cas 1 : format "a1/a2" (fichiers string diploid) ─────────────────────
+  x_sep <- x[grepl("/", x, fixed = TRUE)]
+  if (length(x_sep)) {
+    a <- suppressWarnings(as.integer(sub("/.*$",  "", x_sep)))
+    b <- suppressWarnings(as.integer(sub("^.*/", "", x_sep)))
+    v <- max(c(a, b), na.rm = TRUE)
+    if (is.finite(v) && v > 0) {
+      return(as.integer(10L ^ nchar(as.character(v))))
+    }
+  }
+
+  # ── Cas 2 : entiers bruts (fichiers Create/Genetix, paired columns) ───────
+  x_int <- suppressWarnings(as.integer(x))
+  x_int <- x_int[!is.na(x_int) & x_int > 0]
+  if (length(x_int)) {
+    v <- max(x_int)
+    if (is.finite(v)) {
+      return(as.integer(10L ^ nchar(as.character(v))))
+    }
+  }
+
+  as.integer(default_base)
 }
 
+# infer_base_from_marker_strings <- function(marker_df, sep = "/", sample_n = 5000L, default_base = 1000L) {
+#   # marker_df: data.frame of character-ish genotype strings
+#   x <- unlist(marker_df, use.names = FALSE)
+#   x <- x[!is.na(x)]
+#   x <- trimws(as.character(x))
+#   x <- x[nzchar(x)]
+#   if (!length(x)) return(as.integer(default_base))
+  
+#   # sample to keep it cheap
+#   if (length(x) > sample_n) x <- sample(x, sample_n)
+  
+#   # keep only strings with sep and digits
+#   x <- x[grepl("/", x, fixed = TRUE)]
+#   if (!length(x)) return(as.integer(default_base))
+  
+#   a <- suppressWarnings(as.integer(sub("/.*$", "", x)))
+#   b <- suppressWarnings(as.integer(sub("^.*/", "", x)))
+#   v <- max(c(a, b), na.rm = TRUE)
+#   if (!is.finite(v) || v <= 0) return(as.integer(default_base))
+  
+#   # base must be > max allele. your previous logic used 10^width, which is fine.
+#   width <- nchar(as.character(v))
+#   as.integer(10L ^ width)
+# }
 
 parse_col_index_ranges <- function(x, n_max) {
   if (is.null(x) || !nzchar(trimws(x))) return(integer(0))
@@ -616,41 +646,101 @@ reset_downstream_state <- function(rv) {
     leaflet::clearShapes()
 }
 
+# .duckdb_import_raw <- function(con, tbl_raw, file_path, sep, header) {
+#   stopifnot(!is.null(con), nzchar(tbl_raw))
+#   if (!nzchar(file_path) || !file.exists(file_path)) {
+#     stop("duckdb import: file_path missing or does not exist")
+#   }
+  
+#   DBI::dbExecute(con, sprintf("DROP TABLE IF EXISTS %s;", .sql_ident(tbl_raw)))
+  
+#   q_file <- DBI::dbQuoteString(con, normalizePath(file_path, winslash = "/"))
+#   q_sep  <- DBI::dbQuoteString(con, sep)
+#   hdr    <- if (isTRUE(header)) "true" else "false"
+  
+#   sql <- sprintf(
+#     "CREATE TABLE %s AS
+#      SELECT * FROM read_csv_auto(%s,
+#         delim=%s,
+#         header=%s,
+#         all_varchar=true,
+#         ignore_errors=true,
+#         parallel=true
+#      );",
+#     .sql_ident(tbl_raw), q_file, q_sep, hdr
+#   )
+
+#   # parallel=true is a DuckDB >= 0.9 hint; fall back silently if unsupported
+#   tryCatch(
+#     DBI::dbExecute(con, sql),
+#     error = function(e) {
+#       sql_fallback <- sprintf(
+#         "CREATE TABLE %s AS
+#          SELECT * FROM read_csv_auto(%s,
+#             delim=%s,
+#             header=%s,
+#             all_varchar=true,
+#             ignore_errors=true
+#          );",
+#         .sql_ident(tbl_raw), q_file, q_sep, hdr
+#       )
+#       DBI::dbExecute(con, sql_fallback)
+#     }
+#   )
+#   TRUE
+# }
+
+# REMPLACER la fonction .duckdb_import_raw() en entier
+
 .duckdb_import_raw <- function(con, tbl_raw, file_path, sep, header) {
   stopifnot(!is.null(con), nzchar(tbl_raw))
   if (!nzchar(file_path) || !file.exists(file_path)) {
     stop("duckdb import: file_path missing or does not exist")
   }
-  
+
   DBI::dbExecute(con, sprintf("DROP TABLE IF EXISTS %s;", .sql_ident(tbl_raw)))
-  
-  q_file <- DBI::dbQuoteString(con, normalizePath(file_path, winslash = "/"))
+
+  # ── Pré-traitement : normalisation encodage + en-têtes dupliqués ──────────
+  raw_lines <- tryCatch(
+    readLines(file_path, encoding = "UTF-8",   warn = FALSE),
+    error = function(e)
+      readLines(file_path, encoding = "latin1", warn = FALSE)
+  )
+
+  if (isTRUE(header) && length(raw_lines) >= 1L) {
+    raw_header   <- strsplit(raw_lines[1L], sep, fixed = TRUE)[[1L]]
+    clean_header <- make.unique(raw_header, sep = "_")
+    if (!identical(raw_header, clean_header)) {
+      raw_lines[1L] <- paste(clean_header, collapse = sep)
+    }
+  }
+
+  tmp_file <- tempfile(fileext = ".txt")
+  on.exit(unlink(tmp_file), add = TRUE)
+  # Écrire en UTF-8 : DuckDB lit toujours en UTF-8
+  writeLines(raw_lines, tmp_file, useBytes = FALSE)
+  # ── Fin pré-traitement ────────────────────────────────────────────────────
+
+  q_file <- DBI::dbQuoteString(con, normalizePath(tmp_file, winslash = "/"))
   q_sep  <- DBI::dbQuoteString(con, sep)
   hdr    <- if (isTRUE(header)) "true" else "false"
-  
+
   sql <- sprintf(
     "CREATE TABLE %s AS
      SELECT * FROM read_csv_auto(%s,
-        delim=%s,
-        header=%s,
-        all_varchar=true,
-        ignore_errors=true,
-        parallel=true
+        delim=%s, header=%s,
+        all_varchar=true, ignore_errors=true, parallel=true
      );",
     .sql_ident(tbl_raw), q_file, q_sep, hdr
   )
-
-  # parallel=true is a DuckDB >= 0.9 hint; fall back silently if unsupported
   tryCatch(
     DBI::dbExecute(con, sql),
     error = function(e) {
       sql_fallback <- sprintf(
         "CREATE TABLE %s AS
          SELECT * FROM read_csv_auto(%s,
-            delim=%s,
-            header=%s,
-            all_varchar=true,
-            ignore_errors=true
+            delim=%s, header=%s,
+            all_varchar=true, ignore_errors=true
          );",
         .sql_ident(tbl_raw), q_file, q_sep, hdr
       )
@@ -873,30 +963,18 @@ reset_downstream_state <- function(rv) {
 .is_pop_name <- function(x) {
   if (length(x) != 1L || is.na(x)) return(FALSE)
   nm <- tolower(trimws(as.character(x)))
-  
-  # common variants in your app / popgen datasets
+
   patterns <- c(
-    "^pop$",
-    "^population$",
-    "^populations$",
-    "^pop_id$",
-    "^popid$",
-    "^deme$",
-    "^site$",
-    "^locality$",
-    "^location$",
-    "^sampling_site$",
-    "^samplinglocation$",
-    "^group$",
-    "^cluster$",
-    "^subpop$",
-    "^subpopulation$",
-    "^strata$",
-    "^stratum$",
-    "^region$",
-    "^zone$"
+    "^pop$", "^population$", "^populations$", "^pop_id$", "^popid$",
+    "^deme$", "^site$", "^locality$", "^location$", "^sampling_site$",
+    "^samplinglocation$", "^group$", "^cluster$", "^subpop$",
+    "^subpopulation$", "^strata$", "^stratum$", "^region$", "^zone$",
+    # ── termes Create / Genetix / Fstat ──────────────────────────────
+    "^area$", "^areas$", "^local$", "^localite$", "^localité$",
+    "^provenance$", "^village$", "^pays$", "^collection$",
+    "^origin$", "^origine$", "^habitat$", "^patch$"
   )
-  
+
   any(vapply(patterns, function(p) grepl(p, nm, perl = TRUE), logical(1)))
 }
 
@@ -933,7 +1011,7 @@ detect_columns_auto <- function(df, missing_info) {
   
   # --- population
   pop_candidates <- which(vapply(cn, .is_pop_name, logical(1)))
-  
+    
   pop_col <- NA_character_
   if (length(pop_candidates)) {
     nonnum <- pop_candidates[!vapply(pop_candidates, function(i) .is_mostly_numeric(df[[i]]), logical(1))]
@@ -993,9 +1071,7 @@ detect_columns_auto <- function(df, missing_info) {
   idlike_idxs <- setdiff(idlike_idxs, match(pop_col, cn))
   
   marker_idxs <- setdiff(marker_idxs, idlike_idxs)
-  
-  
-  
+     
   # --- force population-code columns (numeric) out of markers
   popcode_idxs <- which(vapply(cn, .is_popcode_name, logical(1)))
   
