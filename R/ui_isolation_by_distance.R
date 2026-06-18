@@ -5,7 +5,7 @@
 # population pairs, with 95% CI by bootstrap over loci (FSTAT convention).
 # Mantel test on rectangular column-format matrices via label permutation.
 
-genetic_distances_UI <- function(id) {
+isolation_by_distance_UI <- function(id) {
   ns <- NS(id)
 
   fluidPage(

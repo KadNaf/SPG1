@@ -451,7 +451,7 @@
 # SECTION 2 – Module server
 # ============================================================
 
-server_genetic_distances <- function(id, rv) {
+server_isolation_by_distance <- function(id, rv) {
   moduleServer(id, function(input, output, session) {
 
     `%||%` <- function(x, y)
