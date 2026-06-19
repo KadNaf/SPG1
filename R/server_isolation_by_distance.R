@@ -285,7 +285,7 @@
 
   for (i in seq_len(np - 1L)) {
     for (j in (i + 1L):np) {
-      pi <- pops[i]; pj <- pops[j]
+      popi <- pops[i]; popj <- pops[j]
 
       # Per-locus: WC84 a/b/c (std + ENA) and DCSE u (std + ENA)
       abc_std <- matrix(NA_real_, L, 3L)
@@ -296,20 +296,20 @@
       for (li in seq_len(L)) {
         l <- loci[li]
         # Standard
-        ab <- .gd_wc84_std_locus(parsed_cache[[pi]][[l]],
-                                  parsed_cache[[pj]][[l]])
+        ab <- .gd_wc84_std_locus(parsed_cache[[popi]][[l]],
+                                  parsed_cache[[popj]][[l]])
         if (!is.null(ab)) {
           abc_std[li, ] <- c(ab$a, ab$b, ab$c)
-          u_std[li]     <- .gd_dcse_u_std(parsed_cache[[pi]][[l]],
-                                           parsed_cache[[pj]][[l]])
+          u_std[li]     <- .gd_dcse_u_std(parsed_cache[[popi]][[l]],
+                                           parsed_cache[[popj]][[l]])
         }
         # ENA-corrected
-        ab_e <- .gd_wc84_ena_locus(em_cache[[pi]][[l]],
-                                    em_cache[[pj]][[l]])
+        ab_e <- .gd_wc84_ena_locus(em_cache[[popi]][[l]],
+                                    em_cache[[popj]][[l]])
         if (!is.null(ab_e)) {
           abc_ena[li, ] <- c(ab_e$a, ab_e$b, ab_e$c)
-          u_ena[li]     <- .gd_dcse_u_ena(em_cache[[pi]][[l]],
-                                           em_cache[[pj]][[l]])
+          u_ena[li]     <- .gd_dcse_u_ena(em_cache[[popi]][[l]],
+                                           em_cache[[popj]][[l]])
         }
       }
 
@@ -355,8 +355,8 @@
       # Geographic distance
       dist_km <- NA_real_
       if (use_gps && !is.null(coords)) {
-        ri <- coords[coords$Population == pi, ]
-        rj <- coords[coords$Population == pj, ]
+        ri <- coords[coords$Population == popi, ]
+        rj <- coords[coords$Population == popj, ]
         if (nrow(ri) >= 1L && nrow(rj) >= 1L)
           dist_km <- .hav_km(ri$Latitude[1L], ri$Longitude[1L],
                              rj$Latitude[1L], rj$Longitude[1L])
@@ -364,7 +364,7 @@
 
       # Linearised FST values (for Rousset IBD / Mantel export)
       result[[k]] <- data.frame(
-        Pop1         = pi,  Pop2           = pj,
+        Pop1         = popi,Pop2           = popj,
         Dist_km      = dist_km,
         n_loci_std   = L_std, n_loci_ena   = L_ena,
         FST          = fst_obs,
