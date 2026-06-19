@@ -1,390 +1,478 @@
-# module/server_mantel_test.R
-# Mantel test on rectangular column-format matrices.
-#
-# NO genetic distance is recomputed here. This module reads:
-#   rv$na_pairwise_table  — produced by server_null_alleles.R (see integration
-#                            snippet below) — Pop1, Pop2, FST_raw, FST_ENA,
-#                            DCSE_raw, DCSE_INA (+ bootstrap CI columns)
-# or an externally uploaded column file (RT / Fstat 2.9.4 layout:
-#   Pop1, Pop2, dist1, dist2, ...).
-#
-# ── Integration snippet to add inside server_null_alleles.R ────────────────
-#
-#   observeEvent(results_r(), {
-#     rv$na_pairwise_table <- file3_data()$data
-#   }, ignoreInit = TRUE)
-#
-# Add this anywhere after `file3_data` is defined (e.g. right after the
-# file3_data <- reactive({...}) block). It publishes the same merged
-# long-format pairwise table used for File 3 download, so the Mantel module
-# can consume it without recalculating anything.
-# ─────────────────────────────────────────────────────────────────────────
-#
-# Mantel test: LABEL permutation (not raw-value shuffling). Population
-# labels are randomly permuted; the genetic distance for each *original*
-# pair is then looked up at the *permuted* pair position. Pairs whose
-# permuted partner has no corresponding entry (because the input table is
-# RECTANGULAR / incomplete) are simply skipped for that replicate — this is
-# what makes the permutation valid on rectangular matrices.
+# server_isolation_by_distance.R
+# Tab 1 — Geographic distances (Haversine, km), bootstrap CI over individuals.
+# Tab 2 — Mantel test: uploaded Matrix 1 (square or long/rectangular) vs.
+#         internal Dgeo / ln(Dgeo). Joint row/column permutation — valid on
+#         rectangular (incomplete) matrices.
+
+# ============================================================
+# File-local helpers
+# ============================================================
+
+.iod_haversine_km <- function(lat1, lon1, lat2, lon2) {
+  R    <- 6371.0
+  dlat <- (lat2 - lat1) * pi / 180
+  dlon <- (lon2 - lon1) * pi / 180
+  a    <- sin(dlat / 2)^2 +
+    cos(lat1 * pi / 180) * cos(lat2 * pi / 180) * sin(dlon / 2)^2
+  2 * R * asin(sqrt(a))
+}
+
+# Continuous-gradient colored half-matrix (HTML), NA-safe.
+.iod_render_mat_html <- function(mat, digits = 2,
+                                  low_col = "#eff6ff", high_col = "#1e3a8a") {
+  labs <- rownames(mat); n <- length(labs)
+  vals <- mat[lower.tri(mat)]
+  vals <- vals[is.finite(vals)]
+  rng  <- if (length(vals) >= 1L) range(vals) else c(0, 1)
+  if (diff(rng) <= 0) rng <- c(rng[1] - 1, rng[1] + 1)
+  ramp <- grDevices::colorRampPalette(c(low_col, high_col))(100)
+  col_for <- function(v) {
+    if (!is.finite(v)) return(NULL)
+    idx <- round(99 * (v - rng[1]) / diff(rng)) + 1L
+    idx <- max(1L, min(100L, idx))
+    ramp[idx]
+  }
+  cell <- function(i, j) {
+    if (i == j)  return('<td style="background:#f1f5f9;color:#94a3b8;text-align:center;">\u2014</td>')
+    if (i < j)   return('<td style="color:#cbd5e1;text-align:center;">\u00b7</td>')
+    v <- mat[i, j]
+    if (!is.finite(v)) return('<td style="color:#94a3b8;text-align:center;">NA</td>')
+    bg <- col_for(v)
+    txt_col <- if (!is.null(bg) && (v - rng[1]) / diff(rng) > 0.6) "#ffffff" else "#0f172a"
+    sprintf('<td style="background:%s;color:%s;text-align:right;padding:4px 9px;">%s</td>',
+            bg, txt_col, round(v, digits))
+  }
+  thead <- paste0('<tr><th></th>',
+                  paste(sprintf('<th style="padding:4px 9px;">%s</th>', labs[-n]), collapse = ""),
+                  '</tr>')
+  tbody <- paste(sapply(seq_len(n), function(i) {
+    if (i == 1L) return("")
+    paste0('<tr><td style="font-weight:700;white-space:nowrap;padding:4px 9px;">', labs[i], '</td>',
+           paste(sapply(seq_len(n), function(j) cell(i, j)), collapse = ""), '</tr>')
+  }), collapse = "")
+  HTML(sprintf(
+    '<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:11px;width:100%%;">
+       <thead>%s</thead><tbody>%s</tbody></table></div>', thead, tbody))
+}
+
+# Mantel test via JOINT row/column permutation of Matrix 2.
+# mat1, mat2 : square matrices with population-name dimnames; NA allowed
+#              (rectangular / incomplete matrices supported on either side).
+.iod_mantel_matrix <- function(mat1, mat2, n_perm = 9999L, stat = "r") {
+  common <- intersect(rownames(mat1), rownames(mat2))
+  if (length(common) < 3L)
+    return(list(stat_obs = NA_real_, p_value = NA_real_, n_pairs = 0L,
+                n_perm_valid = 0L, slope = NA_real_, intercept = NA_real_,
+                r2 = NA_real_, x = numeric(0), y = numeric(0), common = common))
+
+  m1 <- mat1[common, common, drop = FALSE]
+  m2 <- mat2[common, common, drop = FALSE]
+  n  <- length(common)
+  lower_idx <- which(lower.tri(matrix(TRUE, n, n)))
+  x_all <- m1[lower_idx]
+  y_all <- m2[lower_idx]
+
+  stat_fn <- function(xx, yy) {
+    ok <- is.finite(xx) & is.finite(yy)
+    if (sum(ok) < 3L) return(NA_real_)
+    if (stat == "b") unname(coef(lm(yy[ok] ~ xx[ok]))[2L])
+    else             suppressWarnings(cor(xx[ok], yy[ok]))
+  }
+
+  ok_obs   <- is.finite(x_all) & is.finite(y_all)
+  stat_obs <- stat_fn(x_all, y_all)
+
+  perm_stats <- vapply(seq_len(n_perm), function(.b) {
+    perm <- sample.int(n)
+    m2p  <- m2[perm, perm, drop = FALSE]
+    yp   <- m2p[lower_idx]
+    stat_fn(x_all, yp)
+  }, numeric(1L))
+
+  perm_fin <- perm_stats[is.finite(perm_stats)]
+  p_value  <- if (length(perm_fin) > 0L && is.finite(stat_obs))
+                mean(perm_fin >= stat_obs) else NA_real_
+
+  lm0 <- tryCatch(lm(y_all[ok_obs] ~ x_all[ok_obs]), error = function(e) NULL)
+  slp <- if (!is.null(lm0)) unname(coef(lm0)[2L]) else NA_real_
+  icp <- if (!is.null(lm0)) unname(coef(lm0)[1L]) else NA_real_
+  r2  <- if (!is.null(lm0)) summary(lm0)$r.squared else NA_real_
+
+  list(stat_obs = stat_obs, p_value = p_value, n_pairs = sum(ok_obs),
+       n_perm_valid = length(perm_fin), slope = slp, intercept = icp, r2 = r2,
+       x = x_all[ok_obs], y = y_all[ok_obs], common = common)
+}
+
+# ============================================================
+# Module server
+# ============================================================
 
 server_isolation_by_distance <- function(id, rv) {
   moduleServer(id, function(input, output, session) {
 
-    `%||%` <- function(a, b) if (!is.null(a)) a else b
+    `%||%` <- function(x, y)
+      if (is.null(x) || length(x) == 0L || all(is.na(x))) y else x
 
-    # ══════════════════════════════════════════════════════════════════════
-    # Helpers
-    # ══════════════════════════════════════════════════════════════════════
+    # ── DB plumbing ────────────────────────────────────────────────────────
+    db_tick    <- reactive({ rv$db_tick })
+    con_r      <- reactive({ shiny::req(rv$con); rv$con })
+    tbl_meta_r <- reactive({ rv$tbl_meta %||% "meta" })
 
-    # Order-independent pair key, vectorised
-    .mt_key <- function(a, b) {
-      a <- as.character(a); b <- as.character(b)
-      ifelse(a <= b, paste(a, b, sep = "__"), paste(b, a, sep = "__"))
-    }
+    db_ready <- reactive({
+      db_tick(); con <- con_r()
+      shiny::req(isTRUE(rv$db_ready))
+      shiny::validate(shiny::need(DBI::dbExistsTable(con, tbl_meta_r()),
+                                   "DuckDB meta table missing."))
+      TRUE
+    })
 
-    # Read an uploaded delimited file
-    .mt_read_file <- function(fileinfo, sep, header) {
-      df <- tryCatch(
-        read.table(fileinfo$datapath, header = header, sep = sep,
-                   stringsAsFactors = FALSE, check.names = FALSE,
-                   fill = TRUE, quote = "\""),
-        error = function(e) NULL)
-      shiny::validate(shiny::need(!is.null(df) && nrow(df) >= 3L,
-        "Could not parse the file. Check separator / header settings."))
+    # ── Individual-level GPS coordinates ───────────────────────────────────
+    ind_coords_r <- reactive({
+      db_ready()
+      con  <- con_r()
+      cols <- DBI::dbGetQuery(con, sprintf(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = '%s'",
+        tbl_meta_r()))$column_name
+      shiny::validate(shiny::need(
+        all(c("Latitude", "Longitude") %in% cols),
+        "No GPS data found. Re-import your dataset and assign Latitude/Longitude columns."))
+
+      ms_ind <- if ("individual" %in% tolower(cols)) cols[tolower(cols) == "individual"][1L] else "individual"
+      df <- DBI::dbGetQuery(con, sprintf(
+        "SELECT Population,
+                CAST(%s AS VARCHAR)   AS Individual,
+                CAST(Latitude  AS DOUBLE) AS Latitude,
+                CAST(Longitude AS DOUBLE) AS Longitude
+         FROM %s
+         WHERE Population IS NOT NULL
+           AND Latitude IS NOT NULL AND Longitude IS NOT NULL",
+        sql_ident(con, ms_ind), sql_ident(con, tbl_meta_r())))
+      shiny::validate(shiny::need(
+        length(unique(df$Population)) >= 2L,
+        "At least 2 populations with GPS coordinates are required."))
       df
-    }
+    })
 
-    # Merge an extra distance file onto the base table by normalised
-    # (Pop1, Pop2) pair key. The extra file's first two columns are assumed
-    # to be the pair identifiers (RT / Fstat convention).
-    .mt_merge_extra <- function(base_df, extra_df) {
-      shiny::validate(shiny::need(ncol(extra_df) >= 3L,
-        "Extra file must have at least 2 ID columns + 1 distance column."))
-      id_cols   <- names(extra_df)[1:2]
-      val_cols  <- setdiff(names(extra_df), id_cols)
-      extra_keep <- extra_df[, val_cols, drop = FALSE]
-      extra_keep$.key <- .mt_key(extra_df[[1L]], extra_df[[2L]])
-      # In case the extra file has duplicate pairs, keep the first occurrence only
-      extra_keep <- extra_keep[!duplicated(extra_keep$.key), , drop = FALSE]
+    # ── TAB 1: Geographic distances + bootstrap CI ─────────────────────────
+    geo_results_r <- eventReactive(input$run_geo, {
+      shiny::req(db_ready())
+      ind <- ind_coords_r()
+      pops <- sort(unique(ind$Population))
+      n    <- length(pops)
+      shiny::validate(shiny::need(n >= 2L, "At least 2 populations are required."))
 
-      base_df$.key <- .mt_key(base_df$Pop1, base_df$Pop2)
-      merged <- merge(base_df, extra_keep, by = ".key", all.x = TRUE, sort = FALSE)
-      merged$.key <- NULL
-      merged
-    }
+      n_boot <- as.integer(input$n_boot_geo)
+      conf   <- input$conf_level_geo / 100
+      alpha  <- (1 - conf) / 2
 
-    # Core Mantel test with label permutation — rectangular-matrix safe.
-    # df must contain pop1_col, pop2_col, x_col, y_col.
-    .mt_mantel <- function(df, pop1_col, pop2_col, x_col, y_col,
-                            n_perm = 9999L, stat = "r") {
+      withProgress(message = "Computing geographic distances\u2026", value = 0.1, {
 
-      df <- df[is.finite(df[[x_col]]) & is.finite(df[[y_col]]), , drop = FALSE]
-      n  <- nrow(df)
-      if (n < 3L)
-        return(list(stat_obs = NA_real_, p_value = NA_real_, n_pairs = n,
-                    r2 = NA_real_, slope = NA_real_, intercept = NA_real_,
-                    perm_stats = numeric(0L), data_used = df))
+        cent <- aggregate(cbind(Latitude, Longitude) ~ Population, data = ind, FUN = mean)
+        rownames(cent) <- cent$Population
 
-      x  <- df[[x_col]]; y <- df[[y_col]]
-      p1 <- as.character(df[[pop1_col]]); p2 <- as.character(df[[pop2_col]])
-      all_labels <- unique(c(p1, p2))
-
-      keys   <- .mt_key(p1, p2)
-      lookup <- setNames(x, keys)   # X value indexed by normalised pair key
-
-      stat_fn <- function(xv, yv) {
-        ok <- is.finite(xv) & is.finite(yv)
-        if (sum(ok) < 3L) return(NA_real_)
-        if (stat == "b") unname(coef(lm(yv[ok] ~ xv[ok]))[2L])
-        else             suppressWarnings(cor(xv[ok], yv[ok]))
-      }
-
-      stat_obs <- stat_fn(x, y)
-
-      # Permutation: randomly relabel populations, then re-look-up X at the
-      # permuted (i,j) position; Y (and the pair list) stay fixed.
-      perm_stats <- vapply(seq_len(n_perm), function(.b) {
-        sigma   <- setNames(sample(all_labels), all_labels)
-        perm_k  <- .mt_key(sigma[p1], sigma[p2])
-        x_perm  <- unname(lookup[perm_k])     # NA where the permuted pair
-        stat_fn(x_perm, y)                    # is absent (rectangular matrix)
-      }, numeric(1L))
-
-      perm_fin <- perm_stats[is.finite(perm_stats)]
-      p_value  <- if (length(perm_fin) > 0L && is.finite(stat_obs))
-                    mean(perm_fin >= stat_obs) else NA_real_
-
-      lm0 <- tryCatch(lm(y ~ x), error = function(e) NULL)
-      slp <- if (!is.null(lm0)) unname(coef(lm0)[2L]) else NA_real_
-      icp <- if (!is.null(lm0)) unname(coef(lm0)[1L]) else NA_real_
-      r2  <- if (!is.null(lm0)) summary(lm0)$r.squared else NA_real_
-
-      list(stat_obs = stat_obs, p_value = p_value, n_pairs = n,
-           r2 = r2, slope = slp, intercept = icp,
-           perm_stats = perm_fin, data_used = df)
-    }
-
-    .guess_col <- function(cols, patterns, fallback) {
-      for (pat in patterns) {
-        hit <- grep(pat, cols, value = TRUE, ignore.case = TRUE)
-        if (length(hit)) return(hit[1L])
-      }
-      fallback
-    }
-
-    # ══════════════════════════════════════════════════════════════════════
-    # Data source
-    # ══════════════════════════════════════════════════════════════════════
-
-    base_df_r <- reactive({
-      if (input$mt_source == "computed") {
-        shiny::validate(shiny::need(
-          !is.null(rv$na_pairwise_table) && nrow(rv$na_pairwise_table) > 0L,
-          "No pairwise table found yet. Please run the Null Allele / FST-ENA module first."
-        ))
-        df <- rv$na_pairwise_table
-        if (isTRUE(input$mt_use_extra)) {
-          shiny::req(input$mt_extra_file)
-          extra <- .mt_read_file(input$mt_extra_file, input$mt_extra_sep, input$mt_extra_header)
-          df <- .mt_merge_extra(df, extra)
+        dist_obs <- matrix(NA_real_, n, n, dimnames = list(pops, pops))
+        for (i in seq_len(n - 1L)) for (j in (i + 1L):n) {
+          dist_obs[j, i] <- .iod_haversine_km(
+            cent$Latitude[cent$Population == pops[i]], cent$Longitude[cent$Population == pops[i]],
+            cent$Latitude[cent$Population == pops[j]], cent$Longitude[cent$Population == pops[j]])
         }
-        df
-      } else {
-        shiny::req(input$mt_file)
-        .mt_read_file(input$mt_file, input$mt_sep, input$mt_header)
-      }
-    })
 
-    output$dt_preview <- DT::renderDT({
-      df <- base_df_r()
-      DT::datatable(df, rownames = FALSE,
-        options = list(scrollX = TRUE, pageLength = 10, dom = "lrtip"),
-        class = "compact stripe hover")
-    })
-
-    output$dl_mantel_data <- downloadHandler(
-      filename = function() paste0("mantel_input_data_", Sys.Date(), ".csv"),
-      content  = function(file) write.csv(base_df_r(), file, row.names = FALSE)
-    )
-
-    output$vb_npairs_avail <- renderUI({
-      tryCatch(tags$span(nrow(base_df_r())), error = function(e) tags$span("\u2014"))
-    })
-
-    # ── Dynamic column selectors ─────────────────────────────────────────
-    output$col_pop1_ui <- renderUI({
-      cols <- tryCatch(names(base_df_r()), error = function(e) character(0))
-      def  <- .guess_col(cols, c("^Pop1$", "Pop.?1", "^From$"), cols[1])
-      selectInput(session$ns("col_pop1"), "Population 1 column:",
-                  choices = cols, selected = def)
-    })
-    output$col_pop2_ui <- renderUI({
-      cols <- tryCatch(names(base_df_r()), error = function(e) character(0))
-      def  <- .guess_col(cols, c("^Pop2$", "Pop.?2", "^To$"), cols[min(2L, length(cols))])
-      selectInput(session$ns("col_pop2"), "Population 2 column:",
-                  choices = cols, selected = def)
-    })
-    output$col_x_ui <- renderUI({
-      df   <- tryCatch(base_df_r(), error = function(e) NULL)
-      cols <- if (is.null(df)) character(0) else names(df)[sapply(df, is.numeric)]
-      def  <- .guess_col(cols, c("Dist_km", "Dgeo", "geo", "Dist", "ECOL"),
-                         if (length(cols)) cols[1] else NULL)
-      selectInput(session$ns("col_x"), "X column (predictor distance):",
-                  choices = cols, selected = def)
-    })
-    output$col_y_ui <- renderUI({
-      df   <- tryCatch(base_df_r(), error = function(e) NULL)
-      cols <- if (is.null(df)) character(0) else names(df)[sapply(df, is.numeric)]
-      def  <- .guess_col(cols, c("^FST_ENA$", "^FST_raw$", "^DCSE_INA$", "^DCSE_raw$"),
-                         if (length(cols) >= 2L) cols[2] else if (length(cols)) cols[1] else NULL)
-      selectInput(session$ns("col_y"), "Y column (genetic / response distance):",
-                  choices = cols, selected = def)
-    })
-
-    # ══════════════════════════════════════════════════════════════════════
-    # Run Mantel test
-    # ══════════════════════════════════════════════════════════════════════
-
-    mantel_result_r <- eventReactive(input$run_mantel, {
-      df <- base_df_r()
-      shiny::req(input$col_pop1, input$col_pop2, input$col_x, input$col_y)
-
-      pop1c <- input$col_pop1; pop2c <- input$col_pop2
-      xcol  <- input$col_x;   ycol  <- input$col_y
-
-      shiny::validate(
-        shiny::need(all(c(pop1c, pop2c, xcol, ycol) %in% names(df)),
-          "Selected columns not found in the loaded data."),
-        shiny::need(pop1c != pop2c, "Population 1 and Population 2 must be different columns."),
-        shiny::need(xcol  != ycol,  "X and Y must be different columns.")
-      )
-
-      df[[xcol]] <- suppressWarnings(as.numeric(df[[xcol]]))
-      df[[ycol]] <- suppressWarnings(as.numeric(df[[ycol]]))
-
-      # Optional exclusion of specific pairs — demonstrates rectangular support
-      if (nzchar(trimws(input$mt_exclude %||% ""))) {
-        excl <- trimws(strsplit(input$mt_exclude, ",")[[1L]])
-        excl <- excl[nzchar(excl)]
-        if (length(excl)) {
-          key_df   <- .mt_key(df[[pop1c]], df[[pop2c]])
-          key_excl <- vapply(excl, function(s) {
-            ids <- trimws(strsplit(s, "-")[[1L]])
-            if (length(ids) == 2L) .mt_key(ids[1], ids[2]) else NA_character_
-          }, character(1L))
-          df <- df[!(key_df %in% key_excl), , drop = FALSE]
+        setProgress(0.3, detail = sprintf("Bootstrap over individuals (%d reps)\u2026", n_boot))
+        ind_by_pop <- split(ind[, c("Latitude", "Longitude")], ind$Population)
+        boot_arr   <- array(NA_real_, dim = c(n, n, n_boot))
+        for (b in seq_len(n_boot)) {
+          cent_b <- sapply(pops, function(p) {
+            df  <- ind_by_pop[[p]]
+            idx <- sample.int(nrow(df), nrow(df), replace = TRUE)
+            c(mean(df$Latitude[idx]), mean(df$Longitude[idx]))
+          })
+          for (i in seq_len(n - 1L)) for (j in (i + 1L):n) {
+            boot_arr[j, i, b] <- .iod_haversine_km(
+              cent_b[1L, i], cent_b[2L, i], cent_b[1L, j], cent_b[2L, j])
+          }
         }
-      }
+        setProgress(0.85, detail = "Assembling results\u2026")
 
-      if (isTRUE(input$mt_log_x)) df[[xcol]] <- ifelse(df[[xcol]] > 0, log(df[[xcol]]), NA_real_)
-      if (isTRUE(input$mt_log_y)) df[[ycol]] <- ifelse(df[[ycol]] > 0, log(df[[ycol]]), NA_real_)
-
-      n_perm <- as.integer(input$mt_n_perm)
-      stat   <- input$mt_stat
-
-      withProgress(message = "Running Mantel test\u2026",
-                   detail  = sprintf("%d permutations\u2026", n_perm),
-                   value   = 0.1, {
-        res <- .mt_mantel(df, pop1c, pop2c, xcol, ycol, n_perm = n_perm, stat = stat)
+        rows <- vector("list", n * (n - 1L) / 2L); k <- 1L
+        for (i in seq_len(n - 1L)) for (j in (i + 1L):n) {
+          bd <- boot_arr[j, i, ]; bd <- bd[is.finite(bd)]
+          ci <- if (length(bd) >= 2L) unname(quantile(bd, c(alpha, 1 - alpha))) else c(NA_real_, NA_real_)
+          d_obs  <- dist_obs[j, i]
+          ln_obs <- if (is.finite(d_obs) && d_obs > 0) log(d_obs) else NA_real_
+          ln_bd  <- ifelse(bd > 0, log(bd), NA_real_)
+          ci_ln  <- if (length(bd) >= 2L) unname(quantile(ln_bd, c(alpha, 1 - alpha), na.rm = TRUE))
+                    else c(NA_real_, NA_real_)
+          rows[[k]] <- data.frame(
+            Pop1 = pops[i], Pop2 = pops[j],
+            Dgeo_km    = d_obs,  Dgeo_ci_l  = ci[1L],    Dgeo_ci_u  = ci[2L],
+            lnDgeo     = ln_obs, lnDgeo_ci_l = ci_ln[1L], lnDgeo_ci_u = ci_ln[2L],
+            stringsAsFactors = FALSE)
+          k <- k + 1L
+        }
+        long_df <- do.call(rbind, rows)
         setProgress(1.0)
       })
 
-      res$xcol_label <- xcol
-      res$ycol_label <- ycol
-      res$stat_label <- if (stat == "b") "Slope b" else "Pearson r"
+      list(matrix = dist_obs, long = long_df, pops = pops, n_boot = n_boot)
+    })
+
+    # ── Value boxes (Tab 1) ─────────────────────────────────────────────────
+    output$box_npops_geo <- renderValueBox({
+      valueBox(length(geo_results_r()$pops), HTML("Populations"),
+               icon = icon("map-marker-alt"), color = "teal")
+    })
+    output$box_npairs_geo <- renderValueBox({
+      valueBox(nrow(geo_results_r()$long), HTML("Pairs"),
+               icon = icon("project-diagram"), color = "blue")
+    })
+    output$box_avg_dgeo <- renderValueBox({
+      v <- mean(geo_results_r()$long$Dgeo_km, na.rm = TRUE)
+      valueBox(round(v, 1), HTML("Avg D<sub>geo</sub><br>(km)"),
+               icon = icon("ruler"), color = "purple")
+    })
+    output$box_max_dgeo <- renderValueBox({
+      v <- max(geo_results_r()$long$Dgeo_km, na.rm = TRUE)
+      valueBox(round(v, 1), HTML("Max D<sub>geo</sub><br>(km)"),
+               icon = icon("expand-arrows-alt"), color = "navy")
+    })
+
+    # ── Half-matrix display ─────────────────────────────────────────────────
+    output$ui_geo_matrix <- renderUI({
+      r <- tryCatch(geo_results_r(), error = function(e) NULL)
+      if (is.null(r)) return(tags$p("Click 'Compute Geographic Distances' first.",
+                                    style = "color:#94a3b8;"))
+      .iod_render_mat_html(r$matrix, digits = 1)
+    })
+
+    # ── Long format table + downloads ───────────────────────────────────────
+    output$dt_geo_long <- DT::renderDT({
+      df <- geo_results_r()$long
+      num_cols <- setdiff(names(df), c("Pop1", "Pop2"))
+      df[num_cols] <- lapply(df[num_cols], round, 4)
+      DT::datatable(df, rownames = FALSE,
+        options = list(scrollX = TRUE, pageLength = 15, dom = "lrtip"),
+        class   = "compact stripe hover",
+        colnames = c("Pop\u00a01","Pop\u00a02","Dgeo (km)","CI lo","CI hi",
+                     "ln(Dgeo)","CI lo (ln)","CI hi (ln)"))
+    })
+    output$dl_geo_csv <- downloadHandler(
+      filename = function() paste0("geographic_distances_", Sys.Date(), ".csv"),
+      content  = function(file) write.csv(geo_results_r()$long, file, row.names = FALSE)
+    )
+    output$dl_geo_txt <- downloadHandler(
+      filename = function() paste0("geographic_distances_", Sys.Date(), ".txt"),
+      content  = function(file)
+        write.table(geo_results_r()$long, file, sep = "\t", row.names = FALSE, quote = FALSE)
+    )
+
+    # ══════════════════════════════════════════════════════════════════════
+    # TAB 2 — Mantel test
+    # ══════════════════════════════════════════════════════════════════════
+
+    # ── Matrix 2: internal Dgeo / ln(Dgeo), from Tab 1 results ──────────────
+    matrix2_r <- reactive({
+      r <- tryCatch(geo_results_r(), error = function(e) NULL)
+      shiny::validate(shiny::need(!is.null(r),
+        "Please compute geographic distances in Tab 1 first."))
+      m <- r$matrix
+      # symmetrize (matrix is currently lower-triangle only)
+      m_full <- m
+      for (i in seq_len(nrow(m))) for (j in seq_len(ncol(m)))
+        if (is.na(m_full[i, j]) && !is.na(m_full[j, i])) m_full[i, j] <- m_full[j, i]
+      if (identical(input$mat2_choice, "ln")) {
+        m_full <- ifelse(m_full > 0, log(m_full), NA_real_)
+        dimnames(m_full) <- dimnames(m)
+      }
+      m_full
+    })
+
+    # ── Matrix 1: parse uploaded file ───────────────────────────────────────
+    mat1_raw_df_r <- reactive({
+      shiny::req(input$mat1_file)
+      df <- tryCatch(
+        read.table(input$mat1_file$datapath, header = TRUE, sep = input$mat1_sep,
+                   stringsAsFactors = FALSE, check.names = FALSE,
+                   fill = TRUE, quote = "\""),
+        error = function(e) NULL)
+      shiny::validate(shiny::need(!is.null(df) && nrow(df) >= 1L,
+        "Could not parse the uploaded file. Check separator / header settings."))
+      df
+    })
+
+    output$ui_mat1_cols <- renderUI({
+      df   <- tryCatch(mat1_raw_df_r(), error = function(e) NULL)
+      cols <- if (is.null(df)) character(0) else names(df)
+      tagList(
+        selectInput(session$ns("mat1_pop1col"), "Population 1 column:",
+                    choices = cols, selected = cols[1]),
+        selectInput(session$ns("mat1_pop2col"), "Population 2 column:",
+                    choices = cols, selected = cols[min(2L, length(cols))]),
+        selectInput(session$ns("mat1_valcol"), "Value column:",
+                    choices = cols, selected = cols[min(3L, length(cols))])
+      )
+    })
+
+    matrix1_r <- reactive({
+      df <- mat1_raw_df_r()
+
+      if (identical(input$mat1_format, "square")) {
+        labs <- as.character(df[[1L]])
+        vals <- as.matrix(df[, -1, drop = FALSE])
+        vals <- apply(vals, c(1L, 2L), function(x) suppressWarnings(as.numeric(x)))
+        shiny::validate(shiny::need(nrow(vals) == ncol(vals),
+          "Square format requires the same number of data rows as data columns ",
+          "(first column = row labels, header = column labels)."))
+        rownames(vals) <- labs
+        colnames(vals) <- labs
+        for (i in seq_len(nrow(vals))) for (j in seq_len(ncol(vals)))
+          if (is.na(vals[i, j]) && !is.na(vals[j, i])) vals[i, j] <- vals[j, i]
+        diag(vals) <- NA_real_
+        vals
+
+      } else {
+        shiny::req(input$mat1_pop1col, input$mat1_pop2col, input$mat1_valcol)
+        p1  <- as.character(df[[input$mat1_pop1col]])
+        p2  <- as.character(df[[input$mat1_pop2col]])
+        val <- suppressWarnings(as.numeric(df[[input$mat1_valcol]]))
+        labels <- sort(unique(c(p1, p2)))
+        m <- matrix(NA_real_, length(labels), length(labels),
+                    dimnames = list(labels, labels))
+        for (k in seq_along(p1)) { m[p1[k], p2[k]] <- val[k]; m[p2[k], p1[k]] <- val[k] }
+        m
+      }
+    })
+
+    # ── Run Mantel test ──────────────────────────────────────────────────────
+    mantel_result_r <- eventReactive(input$run_mantel, {
+      m1 <- matrix1_r()
+      m2 <- matrix2_r()
+      shiny::validate(shiny::need(
+        length(intersect(rownames(m1), rownames(m2))) >= 3L,
+        "Fewer than 3 population labels are common to both matrices. ",
+        "Check that population names match exactly (case-sensitive) between ",
+        "your uploaded Matrix 1 and this app's population names."
+      ))
+      n_perm <- as.integer(input$n_perm_mantel)
+      stat   <- input$mantel_stat
+
+      withProgress(message = "Running Mantel test\u2026",
+                   detail  = sprintf("%d permutations\u2026", n_perm),
+                   value   = 0.2, {
+        res <- .iod_mantel_matrix(m1, m2, n_perm = n_perm, stat = stat)
+        setProgress(1.0)
+      })
+
+      res$stat_label  <- if (stat == "b") "Slope b" else "Pearson r"
+      res$mat2_choice <- input$mat2_choice
       res
     })
 
-    # ── Status banner ───────────────────────────────────────────────────
-    output$ui_mantel_status <- renderUI({
-      r <- tryCatch(mantel_result_r(), error = function(e) NULL)
-      if (is.null(r)) return(NULL)
-      tags$div(class = "mt-info", style = "margin-top:.6rem;",
-        icon("check-circle"), " ",
-        sprintf("Mantel test complete \u2014 %d pairs used, %d valid permutations.",
-                r$n_pairs, length(r$perm_stats))
-      )
+    # ── Value boxes (Tab 2) ──────────────────────────────────────────────────
+    output$box_m_stat <- renderValueBox({
+      r <- mantel_result_r()
+      valueBox(round(r$stat_obs, 4), HTML(paste0(r$stat_label, "<br>(observed)")),
+               icon = icon("chart-line"), color = "purple")
+    })
+    output$box_m_pval <- renderValueBox({
+      r   <- mantel_result_r(); pv <- r$p_value
+      col <- if (is.na(pv)) "yellow" else if (pv < 0.05) "green" else if (pv < 0.10) "yellow" else "red"
+      valueBox(if (is.na(pv)) "NA" else formatC(pv, format = "f", digits = 4),
+                HTML("p-value<br>(one-sided)"), icon = icon("check-circle"), color = col)
+    })
+    output$box_m_n <- renderValueBox({
+      valueBox(mantel_result_r()$n_pairs, HTML("Pairs used (n)"),
+               icon = icon("project-diagram"), color = "blue")
+    })
+    output$box_m_r2 <- renderValueBox({
+      r2 <- mantel_result_r()$r2
+      valueBox(if (is.na(r2)) "NA" else round(r2, 4), HTML("R\u00b2 (OLS)"),
+               icon = icon("percentage"), color = "teal")
     })
 
-    # ── Value boxes ──────────────────────────────────────────────────────
-    output$vb_npairs_used <- renderUI({
-      tryCatch(tags$span(mantel_result_r()$n_pairs), error = function(e) tags$span("\u2014"))
-    })
-    output$vb_stat <- renderUI({
-      tryCatch({
-        r <- mantel_result_r()
-        tags$span(round(r$stat_obs, 4))
-      }, error = function(e) tags$span("\u2014"))
-    })
-    output$vb_pval <- renderUI({
-      tryCatch({
-        r  <- mantel_result_r(); pv <- r$p_value
-        col <- if (is.na(pv)) "#64748b" else if (pv < 0.05) "#166534" else if (pv < 0.10) "#854d0e" else "#9d174d"
-        tags$span(style = paste0("color:", col, ";"),
-                  if (is.na(pv)) "\u2014" else formatC(pv, format = "f", digits = 4))
-      }, error = function(e) tags$span("\u2014"))
-    })
-    output$vb_r2 <- renderUI({
-      tryCatch({
-        r2 <- mantel_result_r()$r2
-        tags$span(if (is.na(r2)) "\u2014" else round(r2, 4))
-      }, error = function(e) tags$span("\u2014"))
-    })
+    # ── Scatter plot ─────────────────────────────────────────────────────────
+    output$mantel_scatter <- plotly::renderPlotly({
+      r <- mantel_result_r()
+      shiny::req(length(r$x) > 0L)
 
-    # ── Summary box ──────────────────────────────────────────────────────
-    output$ui_mantel_summary <- renderUI({
-      r <- tryCatch(mantel_result_r(), error = function(e) NULL)
-      if (is.null(r)) return(tags$p("Run the Mantel test to see results.", style = "color:#94a3b8;"))
-      p_neg <- if (is.na(r$p_value)) NA_real_ else 1 - r$p_value
-      tags$div(class = "mt-result-box",
-        tags$strong(sprintf("%s = %.4f", r$stat_label, r$stat_obs)), tags$br(),
-        sprintf("One-sided p (positive association) = %s",
-                if (is.na(r$p_value)) "NA" else formatC(r$p_value, format="f", digits=4)), tags$br(),
-        sprintf("One-sided p (negative association) = %s",
-                if (is.na(p_neg)) "NA" else formatC(p_neg, format="f", digits=4)), tags$br(),
-        sprintf("R\u00b2 (OLS) = %s", if (is.na(r$r2)) "NA" else formatC(r$r2, format="f", digits=4)), tags$br(),
-        sprintf("Regression: Y = %.4f + %.4f \u00d7 X", r$intercept, r$slope), tags$br(),
-        sprintf("Pairs used: %d  \u00b7  Valid permutations: %d", r$n_pairs, length(r$perm_stats))
-      )
-    })
-
-    # ── Histogram of permutation distribution ───────────────────────────
-    output$mt_hist <- plotly::renderPlotly({
-      r  <- mantel_result_r()
-      pv <- r$perm_stats
-      shiny::req(length(pv) > 0L)
-
-      plotly::plot_ly() %>%
-        plotly::add_histogram(
-          x = pv, nbinsx = 60,
-          marker = list(color = "rgba(124,58,237,0.55)",
-                        line  = list(color = "rgba(124,58,237,1)", width = 0.4)),
-          name = "Permuted"
-        ) %>%
-        plotly::layout(
-          shapes = list(list(type = "line", x0 = r$stat_obs, x1 = r$stat_obs,
-                              y0 = 0, y1 = 1, yref = "paper",
-                              line = list(color = "#B40F20", width = 2, dash = "dash"))),
-          xaxis  = list(title = r$stat_label),
-          yaxis  = list(title = "Count"),
-          title  = list(text = sprintf("n = %d permutations", length(pv)), font = list(size = 11)),
-          margin = list(t = 40, b = 40),
-          showlegend = FALSE,
-          annotations = list(list(
-            x = r$stat_obs, y = 0.95, xref = "x", yref = "paper",
-            text = sprintf("obs. = %.4f<br>p = %.4f", r$stat_obs, r$p_value),
-            showarrow = TRUE, arrowhead = 2,
-            font = list(size = 10, color = "#B40F20"),
-            bgcolor = "rgba(255,255,255,0.85)"
-          ))
-        )
-    })
-
-    # ── Scatter plot ─────────────────────────────────────────────────────
-    output$mt_scatter <- plotly::renderPlotly({
-      r  <- mantel_result_r()
-      df <- r$data_used
-      shiny::req(!is.null(df) && nrow(df) > 0L)
-
-      x_v <- df[[r$xcol_label]]; y_v <- df[[r$ycol_label]]
-      x_s <- seq(min(x_v, na.rm = TRUE), max(x_v, na.rm = TRUE), length.out = 100)
+      x_s <- seq(min(r$x), max(r$x), length.out = 100)
       y_s <- r$intercept + r$slope * x_s
+      x_lab <- if (identical(r$mat2_choice, "ln")) "ln(Dgeo)" else "Dgeo (km)"
 
       plotly::plot_ly() %>%
         plotly::add_markers(
-          x = x_v, y = y_v,
-          marker = list(color = "#7c3aed", size = 7, opacity = 0.75),
+          x = r$x, y = r$y,
+          marker = list(color = "#2CBF9F", size = 8, opacity = 0.8),
           name = "Pairs"
         ) %>%
         plotly::add_lines(
           x = x_s, y = y_s,
-          line = list(color = "#B40F20", width = 1.5),
+          line = list(color = "#B40F20", width = 2),
           name = sprintf("OLS: b=%.4f, R\u00b2=%.4f", r$slope, r$r2)
         ) %>%
         plotly::layout(
-          xaxis  = list(title = r$xcol_label),
-          yaxis  = list(title = r$ycol_label),
-          title  = list(text = sprintf("%s = %.4f, p = %.4f", r$stat_label, r$stat_obs, r$p_value),
-                        font = list(size = 11)),
+          xaxis  = list(title = x_lab),
+          yaxis  = list(title = "Matrix 1 value"),
+          title  = list(
+            text = sprintf("%s = %.4f, p = %.4f (n = %d)",
+                           r$stat_label, r$stat_obs, r$p_value, r$n_pairs),
+            font = list(size = 13)),
           legend = list(x = 0.02, y = 0.98, bgcolor = "rgba(255,255,255,0.8)"),
-          margin = list(t = 40, b = 40),
-          showlegend = TRUE
+          margin = list(t = 45)
         )
     })
 
-    # ── Pairs-used table & download ─────────────────────────────────────
-    output$dt_pairs_used <- DT::renderDT({
-      r <- tryCatch(mantel_result_r(), error = function(e) NULL)
-      shiny::validate(shiny::need(!is.null(r), "Run the Mantel test first."))
-      df <- r$data_used
-      DT::datatable(df, rownames = FALSE,
-        options = list(scrollX = TRUE, pageLength = 10, dom = "lrtip"),
-        class = "compact stripe hover")
+    # ── Full results text + download ────────────────────────────────────────
+    output$mantel_full_results <- renderText({
+      r <- mantel_result_r()
+      x_lab <- if (identical(r$mat2_choice, "ln")) "ln(Dgeo)" else "Dgeo (km)"
+      p_neg <- if (is.na(r$p_value)) NA_real_ else 1 - r$p_value
+      paste(
+        "Mantel test — joint row/column permutation",
+        "================================================",
+        sprintf("Matrix 1 vs Matrix 2 (%s)", x_lab),
+        sprintf("Statistic            : %s", r$stat_label),
+        sprintf("Observed value       : %.6f", r$stat_obs),
+        sprintf("Slope (OLS)          : %.6f", r$slope),
+        sprintf("Intercept (OLS)      : %.6f", r$intercept),
+        sprintf("R-squared (OLS)      : %.6f", r$r2),
+        sprintf("Pairs used (n)       : %d", r$n_pairs),
+        sprintf("Common populations   : %d", length(r$common)),
+        sprintf("Valid permutations   : %d", r$n_perm_valid),
+        sprintf("p-value (positive)   : %s", if (is.na(r$p_value)) "NA" else formatC(r$p_value, format="f", digits=4)),
+        sprintf("p-value (negative)   : %s", if (is.na(p_neg))    "NA" else formatC(p_neg,    format="f", digits=4)),
+        "",
+        "Population labels used:",
+        paste(r$common, collapse = ", "),
+        sep = "\n"
+      )
     })
 
-    output$dl_pairs_used <- downloadHandler(
-      filename = function() paste0("mantel_pairs_used_", Sys.Date(), ".csv"),
-      content  = function(file) write.csv(mantel_result_r()$data_used, file, row.names = FALSE)
+    output$dl_mantel_results <- downloadHandler(
+      filename = function() paste0("mantel_results_", Sys.Date(), ".txt"),
+      content  = function(file) {
+        r <- mantel_result_r()
+        x_lab <- if (identical(r$mat2_choice, "ln")) "ln(Dgeo)" else "Dgeo (km)"
+        p_neg <- if (is.na(r$p_value)) NA_real_ else 1 - r$p_value
+        lines <- c(
+          "# Mantel test results — Isolation by Distance module",
+          "# Joint row/column permutation (rectangular-matrix safe)",
+          paste0("# Matrix 2: ", x_lab),
+          paste0("Statistic: ", r$stat_label),
+          paste0("Observed value: ", r$stat_obs),
+          paste0("Slope: ", r$slope),
+          paste0("Intercept: ", r$intercept),
+          paste0("R2: ", r$r2),
+          paste0("N pairs: ", r$n_pairs),
+          paste0("Valid permutations: ", r$n_perm_valid),
+          paste0("p-value (positive): ", r$p_value),
+          paste0("p-value (negative): ", p_neg),
+          "",
+          "Pairwise data used (Matrix1_value, Matrix2_value):"
+        )
+        writeLines(lines, con = file)
+        write.table(data.frame(Matrix1 = r$x, Matrix2 = r$y),
+                    file, sep = "\t", row.names = FALSE, append = TRUE)
+      }
     )
 
   })
