@@ -2630,8 +2630,8 @@ randomized_g_stats <- function(data, loci, n_simulations, calculate_g_stat, incl
   w_s1_ena_pair <- w_s3_ena_pair <- matrix(0, npairs, nloc)
   dc_raw_pair   <- dc_ena_pair   <- matrix(NA_real_, npairs, nloc)
 
-  for (pi in seq_len(npairs)) {
-    p1 <- pair_list[[pi]][1L]; p2 <- pair_list[[pi]][2L]
+  for (pidx in seq_len(npairs)) {
+    p1 <- pair_list[[pidx]][1L]; p2 <- pair_list[[pidx]][2L]
     for (li in seq_len(nloc)) {
       lo <- loci[li]
       pr1 <- parsed_cache[[lo]][[p1]]; pr2 <- parsed_cache[[lo]][[p2]]
@@ -2641,21 +2641,21 @@ randomized_g_stats <- function(data, loci, n_simulations, calculate_g_stat, incl
       alleles_pair_raw <- sort(unique(c(pr1$alleles, pr2$alleles)))
       pd_raw <- list(.fr_raw_popdata(pr1), .fr_raw_popdata(pr2))
       comp_raw <- .fr_wc84_components(pd_raw, alleles_pair_raw)
-      w_s1_raw_pair[pi, li] <- comp_raw$s1 * comp_raw$nc
-      w_s3_raw_pair[pi, li] <- comp_raw$s3 * comp_raw$nc
+      w_s1_raw_pair[pidx, li] <- comp_raw$s1 * comp_raw$nc
+      w_s3_raw_pair[pidx, li] <- comp_raw$s3 * comp_raw$nc
 
       # Pairwise Fst — ena
       alleles_pair_ena <- sort(unique(c(em1$alleles, em2$alleles)))
       pd_ena <- list(.fr_ena_popdata(em1), .fr_ena_popdata(em2))
       comp_ena <- .fr_wc84_components(pd_ena, alleles_pair_ena)
-      w_s1_ena_pair[pi, li] <- comp_ena$s1 * comp_ena$nc
-      w_s3_ena_pair[pi, li] <- comp_ena$s3 * comp_ena$nc
+      w_s1_ena_pair[pidx, li] <- comp_ena$s1 * comp_ena$nc
+      w_s3_ena_pair[pidx, li] <- comp_ena$s3 * comp_ena$nc
 
       # CS distance — raw
       ni1 <- pr1$n_valid; ni2 <- pr2$n_valid
       if (ni1 > 0L && ni2 > 0L) {
         cs <- .fr_cs_prod(pr1$cnt / (2 * ni1), pr2$cnt / (2 * ni2))
-        if (cs <= 1.0) dc_raw_pair[pi, li] <- (2 / pi) * sqrt(2 * (1 - cs))
+        if (cs <= 1.0) dc_raw_pair[pidx, li] <- (2 / base::pi) * sqrt(2 * (1 - cs))
       }
 
       # CS distance — ena (INA: append rd, no renormalisation)
@@ -2664,7 +2664,7 @@ randomized_g_stats <- function(data, loci, n_simulations, calculate_g_stat, incl
         f1 <- .fr_append_null_state(em1$cq, em1$rd)
         f2 <- .fr_append_null_state(em2$cq, em2$rd)
         cs_c <- .fr_cs_prod(f1, f2)
-        if (cs_c <= 1.0) dc_ena_pair[pi, li] <- (2 / pi) * sqrt(2 * (1 - cs_c))
+        if (cs_c <= 1.0) dc_ena_pair[pidx, li] <- (2 / base::pi) * sqrt(2 * (1 - cs_c))
       }
     }
   }
@@ -2724,14 +2724,14 @@ randomized_g_stats <- function(data, loci, n_simulations, calculate_g_stat, incl
     boot_global_raw[b] <- if (s3g_r != 0) s1g_r / s3g_r else NA_real_
     boot_global_ena[b] <- if (s3g_e != 0) s1g_e / s3g_e else NA_real_
 
-    for (pi in seq_len(npairs)) {
-      s1p_r <- sum(res$w_s1_raw_pair[pi, idx]); s3p_r <- sum(res$w_s3_raw_pair[pi, idx])
-      s1p_e <- sum(res$w_s1_ena_pair[pi, idx]); s3p_e <- sum(res$w_s3_ena_pair[pi, idx])
-      boot_pair_raw[b, pi] <- if (s3p_r != 0) s1p_r / s3p_r else NA_real_
-      boot_pair_ena[b, pi] <- if (s3p_e != 0) s1p_e / s3p_e else NA_real_
+    for (pidx in seq_len(npairs)) {
+      s1p_r <- sum(res$w_s1_raw_pair[pidx, idx]); s3p_r <- sum(res$w_s3_raw_pair[pidx, idx])
+      s1p_e <- sum(res$w_s1_ena_pair[pidx, idx]); s3p_e <- sum(res$w_s3_ena_pair[pidx, idx])
+      boot_pair_raw[b, pidx] <- if (s3p_r != 0) s1p_r / s3p_r else NA_real_
+      boot_pair_ena[b, pidx] <- if (s3p_e != 0) s1p_e / s3p_e else NA_real_
 
-      boot_dc_raw[b, pi] <- mean(res$dc_raw_pair[pi, idx], na.rm = TRUE)
-      boot_dc_ena[b, pi] <- mean(res$dc_ena_pair[pi, idx], na.rm = TRUE)
+      boot_dc_raw[b, pidx] <- mean(res$dc_raw_pair[pidx, idx], na.rm = TRUE)
+      boot_dc_ena[b, pidx] <- mean(res$dc_ena_pair[pidx, idx], na.rm = TRUE)
     }
   }
 
