@@ -41,8 +41,7 @@ isolation_by_distance_UI <- function(id) {
     tags$div(
       class = "spg-method-note", style = "border-left-color:#0c4a6e;",
       HTML(paste0(
-        "Faithful R translation of the Pascal reference program ",
-        "<b>FreeNA_optm2R.pas</b>. Null allele frequencies (r<sub>d</sub>) are estimated ",
+        "Null allele frequencies (r<sub>d</sub>) are estimated ",
         "per locus &times; population with the EM algorithm; F<sub>ST</sub> (raw, Weir 1996 / ",
         "Genepop method) and F<sub>ST</sub>-ENA (null-allele corrected, Chapuis &amp; Estoup 2007) ",
         "use the same <b>double n<sub>c</sub>-weighting</b> scheme as the Pascal source when ",
