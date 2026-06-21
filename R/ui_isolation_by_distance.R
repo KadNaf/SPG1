@@ -35,13 +35,6 @@ isolation_by_distance_UI <- function(id) {
         "display:flex; align-items:center; gap:12px;",
         "background:#FFF8E1; border:2px solid #E1AF00;",
         "border-radius:6px; padding:10px 16px; margin-bottom:16px;"
-      ),
-      tags$span(style = "font-size:1.8em; line-height:1;", "\U0001f6a7"),
-      tags$div(
-        tags$strong(style = "color:#7B5800;", "Module under construction"),
-        tags$span(style = "color:#7B5800; margin-left:8px; font-size:0.9em;",
-          "Engine validated against an independent WC84 implementation and unit tests; ",
-          "UI/DB integration still being checked end-to-end.")
       )
     ),
 
