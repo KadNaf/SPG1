@@ -15,67 +15,101 @@ null_alleles_UI <- function(id) {
   ns <- NS(id)
 
   custom_css <- tags$style(HTML("
-    /* Palette aligned with the rest of ShinyPopGen (see app_ui.R):
-       #333a43 navy (primary/buttons), #8ea1b9 grey-blue (secondary),
-       #6B64EF purple (accent/links), #B40F20 red (warnings/FST),
-       #3B9AB2 teal (diversities), #EBCC2A amber (LD).
-       No external font import: uses the app's own font stack so the module
-       renders identically offline / inside the Docker image. */
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
-    .na-module { font-family: 'Helvetica Neue', 'Segoe UI', Arial, sans-serif; }
-    .na-module .na-mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    .na-module * { font-family: 'IBM Plex Sans', sans-serif; }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    .na-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #0c4a6e 100%);
+      border-radius: 10px; padding: 1.2rem 1.6rem; margin-bottom: 1rem;
+      position: relative; overflow: hidden;
     }
+    .na-header::before {
+      content: ''; position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        -45deg, transparent, transparent 28px,
+        rgba(255,255,255,.018) 28px, rgba(255,255,255,.018) 29px);
+    }
+    .na-header-title { font-size:1.05rem; font-weight:600; color:#f1f5f9; letter-spacing:.01em; margin-bottom:.2rem; }
+    .na-header-sub   { font-size:.75rem; color:#94a3b8; font-family:'IBM Plex Mono',monospace; }
+    .na-badges { display:flex; gap:6px; margin-top:.5rem; flex-wrap:wrap; }
+    .na-badge  { display:inline-block; border-radius:20px; padding:2px 10px; font-size:.67rem; font-family:'IBM Plex Mono',monospace; }
+    .na-badge-blue   { background:rgba(56,189,248,.15);  border:1px solid rgba(56,189,248,.3);  color:#38bdf8; }
+    .na-badge-green  { background:rgba(74,222,128,.12);  border:1px solid rgba(74,222,128,.3);  color:#4ade80; }
+    .na-badge-amber  { background:rgba(251,191,36,.12);  border:1px solid rgba(251,191,36,.3);  color:#fbbf24; }
+    .na-badge-teal   { background:rgba(20,184,166,.15);  border:1px solid rgba(20,184,166,.3);  color:#2dd4bf; }
 
     /* ── Value boxes ─────────────────────────────────────────────────── */
     .na-vbox-row { display:flex; gap:9px; margin-bottom:1rem; flex-wrap:wrap; }
-    .na-vbox { flex:1; min-width:110px; background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:.6rem .85rem; display:flex; align-items:center; gap:9px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
-    .na-vbox-icon  { width:30px; height:30px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
-    .na-vbox-label { font-size:10px; color:#8ea1b9; text-transform:uppercase; letter-spacing:.06em; margin-bottom:1px; }
-    .na-vbox-val   { font-size:18px; font-weight:600; color:#333a43; line-height:1.1; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .na-vbox { flex:1; min-width:110px; background:#fff; border:1px solid #e2e8f0; border-radius:9px; padding:.6rem .85rem; display:flex; align-items:center; gap:9px; }
+    .na-vbox-icon  { width:30px; height:30px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+    .na-vbox-label { font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-bottom:1px; }
+    .na-vbox-val   { font-size:18px; font-weight:600; color:#0f172a; line-height:1.1; font-family:'IBM Plex Mono',monospace; }
 
     /* ── Panels ──────────────────────────────────────────────────────── */
-    .na-panel { background:#fff; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:.85rem; overflow:hidden; }
-    .na-panel-head { background:#FFFFFF; border-bottom:2px solid #f0f0f0; padding:.6rem .9rem; }
-    .na-panel-title { font-size:13px; font-weight:600; color:#333a43; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .na-panel { background:#fff; border:1px solid #e2e8f0; border-radius:9px; margin-bottom:.85rem; overflow:hidden; }
+    .na-panel-head { background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:.55rem .9rem; }
+    .na-panel-title { font-size:12px; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
     .na-panel-body { padding:.85rem; }
 
-    /* ── Info strips (same visual family as .spg-method-note) ────────── */
-    .na-info { background:#f8f9fb; border:1px solid #d8dbe6; border-left:4px solid #6B64EF; border-radius:4px; padding:.5rem .9rem; font-size:11.5px; color:#2c3e50; margin-bottom:.85rem; line-height:1.65; }
-    .na-warn { background:#fdf6ec; border:1px solid #f0d9a8; border-left:4px solid #EBCC2A; border-radius:4px; padding:.5rem .9rem; font-size:11.5px; color:#6b4c1e; margin-bottom:.85rem; line-height:1.65; }
+    /* ── Bootstrap panel ─────────────────────────────────────────────── */
+    .na-panel-boot { background:#faf5ff; border:1px solid #e9d5ff; border-radius:9px; margin-bottom:.85rem; overflow:hidden; }
+    .na-panel-boot-head { background:#f3e8ff; border-bottom:1px solid #e9d5ff; padding:.55rem .9rem; }
+    .na-panel-boot-title { font-size:12px; font-weight:600; color:#4c1d95; display:flex; align-items:center; gap:6px; }
+
+    /* ── Info strips ─────────────────────────────────────────────────── */
+    .na-info { background:#eff6ff; border:1px solid #bfdbfe; border-radius:7px; padding:.45rem .8rem; font-size:11.5px; color:#1d4ed8; margin-bottom:.85rem; line-height:1.65; }
+    .na-warn { background:#fffbeb; border:1px solid #fcd34d; border-radius:7px; padding:.45rem .8rem; font-size:11.5px; color:#92400e; margin-bottom:.85rem; line-height:1.65; }
 
     /* ── Locus coding grid — radio buttons ───────────────────────────── */
     .na-locus-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:.5rem; }
     .na-locus-item {
-      background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;
+      background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
       padding:.45rem .7rem; min-width:160px; flex:1;
     }
     .na-locus-item .control-label { display:none; } /* hide redundant label */
     .na-locus-name {
-      font-size:11px; font-weight:700; color:#333a43;
-      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin-bottom:3px;
+      font-size:11px; font-weight:700; color:#1e293b;
+      font-family:'IBM Plex Mono',monospace; margin-bottom:3px;
     }
     .na-locus-item .radio { margin:2px 0; }
     .na-locus-item .radio label { font-size:11px; color:#475569; }
 
+    /* ── Buttons ─────────────────────────────────────────────────────── */
+    .na-btn-run {
+      background:linear-gradient(135deg,#0369a1,#0c4a6e) !important;
+      border:none !important; color:#fff !important; border-radius:7px !important;
+      font-weight:600 !important; font-size:13px !important; padding:7px 22px !important;
+      box-shadow:0 2px 8px rgba(3,105,161,.3) !important;
+    }
+    .na-btn-run:hover { opacity:.9; }
+    .na-btn-boot {
+      background:linear-gradient(135deg,#7c3aed,#4c1d95) !important;
+      border:none !important; color:#fff !important; border-radius:7px !important;
+      font-weight:600 !important; font-size:13px !important; padding:7px 22px !important;
+      box-shadow:0 2px 8px rgba(124,58,237,.3) !important;
+    }
+    .na-btn-boot:hover { opacity:.9; }
+
     /* ── Bootstrap result ────────────────────────────────────────────── */
     .na-boot-result {
-      background:#f8f9fb; border:1px solid #d8dbe6; border-left:4px solid #6B64EF; border-radius:4px;
-      padding:.65rem 1rem; font-size:11.5px; color:#2c3e50;
-      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height:1.9;
+      background:#faf5ff; border:1px solid #d8b4fe; border-radius:8px;
+      padding:.65rem 1rem; font-size:11.5px; color:#3b0764;
+      font-family:'IBM Plex Mono',monospace; line-height:1.9;
       margin-top:.75rem;
     }
-    .na-boot-result strong { color:#6B64EF; }
+    .na-boot-result strong { color:#6d28d9; }
 
     /* ── Matrix table ────────────────────────────────────────────────── */
     .na-matrix-wrap { overflow-x:auto; margin-top:.5rem; }
-    .na-matrix { border-collapse:collapse; font-size:11px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; width:100%; }
+    .na-matrix { border-collapse:collapse; font-size:11px; font-family:'IBM Plex Mono',monospace; width:100%; }
     .na-matrix th { background:#f8fafc; color:#475569; font-weight:600; padding:4px 9px; border:1px solid #e2e8f0; font-size:10.5px; white-space:nowrap; }
-    .na-matrix td { padding:4px 9px; border:1px solid #e2e8f0; color:#333a43; text-align:right; white-space:nowrap; font-size:11px; }
+    .na-matrix td { padding:4px 9px; border:1px solid #e2e8f0; color:#1e293b; text-align:right; white-space:nowrap; font-size:11px; }
     .na-matrix tr:nth-child(even) td { background:#f8fafc; }
     .na-matrix .diag  { background:#f1f5f9 !important; color:#94a3b8; text-align:center; }
     .na-matrix .upper { color:#cbd5e1; text-align:center; }
-    .na-matrix .lbl   { font-weight:700; color:#333a43; text-align:left; white-space:nowrap; }
+    .na-matrix .lbl   { font-weight:700; color:#0f172a; text-align:left; white-space:nowrap; }
 
     /* ── Download row ────────────────────────────────────────────────── */
     .na-dl-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:.5rem; }
@@ -85,15 +119,15 @@ null_alleles_UI <- function(id) {
     .na-module .dataTables_wrapper { font-size:12px; }
     .na-module table.dataTable thead th {
       background:#f8fafc !important; color:#475569 !important;
-      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+      font-family:'IBM Plex Mono',monospace !important;
       font-size:10.5px !important; font-weight:600 !important;
     }
     .na-module table.dataTable tbody td {
-      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
-      font-size:11px !important; color:#333a43 !important;
+      font-family:'IBM Plex Mono',monospace !important;
+      font-size:11px !important; color:#1e293b !important;
     }
     .na-module .nav-tabs > li > a { font-size:12px; font-weight:500; color:#475569; padding:5px 13px; }
-    .na-module .nav-tabs > li.active > a { color:#333a43; font-weight:600; }
+    .na-module .nav-tabs > li.active > a { color:#0f172a; font-weight:600; }
   "))
 
   # ── Shared download row ──────────────────────────────────────────────────
@@ -101,45 +135,45 @@ null_alleles_UI <- function(id) {
 
   tags$div(class="na-module", custom_css,
 
-    # ── Header (shared component — same as every other module) ─────────────
-    module_banner("atom", "Null Allele Estimation \u2014 FST-ENA \u00b7 DCSE-INA",
-      "EM algorithm (Dempster, Laird & Rubin 1977) \u00b7 FreeNA (Chapuis & Estoup 2007) \u00b7 Bootstrap CI over loci & sub-samples",
-      "#8D8680"),
-    tags$div(class = "spg-method-note", style = "border-left-color:#8D8680;",
-      HTML(paste0(
-        "Null allele frequencies (<b>EM algorithm</b>) are estimated per locus \u00d7 population, ",
-        "then used to correct two summary statistics for their presence: ",
-        "<b>FST-ENA</b> (Excluding Null Alleles \u2014 Weir 1996 / Genepop method, corrected following Chapuis & Estoup 2007) ",
-        "and <b>DCSE-INA</b> (Cavalli-Sforza & Edwards 1967 chord distance, with the null allele added as an extra allelic state). ",
-        "<br>Confidence intervals come from two independent bootstraps: <b>over loci</b> (fast, vectorised) ",
-        "and <b>over sub-samples</b> (resampling individuals within each population, re-running the EM algorithm each time)."
-      ))
+    # ── Header ─────────────────────────────────────────────────────────────
+    tags$div(class="na-header",
+      tags$div(class="na-header-title",
+        icon("atom"), " Null Allele Estimation \u00b7 FST-ENA \u00b7 DCSE-INA"),
+      tags$div(class="na-header-sub",
+        "EM algorithm \u00b7 Dempster, Laird & Rubin (1977) \u00b7 FreeNA \u2014 Chapuis & Estoup (2007)",
+        " \u00b7 Weir (1996) \u00b7 Cavalli-Sforza & Edwards (1967)"),
+      tags$div(class="na-badges",
+        tags$span(class="na-badge na-badge-blue",  "EM \u2014 null allele frequency"),
+        tags$span(class="na-badge na-badge-teal",  "ENA \u2014 FST corrected"),
+        tags$span(class="na-badge na-badge-green", "INA \u2014 DCSE corrected"),
+        tags$span(class="na-badge na-badge-amber", "Bootstrap CI \u2014 loci & sub-samples")
+      )
     ),
 
     # ── Value boxes ─────────────────────────────────────────────────────────
     tags$div(class="na-vbox-row",
       tags$div(class="na-vbox",
-        tags$div(class="na-vbox-icon",style="background:rgba(107,100,239,0.12);color:#6B64EF;",icon("dna")),
+        tags$div(class="na-vbox-icon",style="background:#e0f2fe;color:#0369a1;",icon("dna")),
         tags$div(tags$div(class="na-vbox-label","Loci"),
                  tags$div(class="na-vbox-val",uiOutput(ns("vb_loci"))))),
       tags$div(class="na-vbox",
-        tags$div(class="na-vbox-icon",style="background:rgba(142,161,185,0.18);color:#333a43;",icon("map-marker-alt")),
+        tags$div(class="na-vbox-icon",style="background:#dcfce7;color:#166534;",icon("map-marker-alt")),
         tags$div(tags$div(class="na-vbox-label","Populations"),
                  tags$div(class="na-vbox-val",uiOutput(ns("vb_pops"))))),
       tags$div(class="na-vbox",
-        tags$div(class="na-vbox-icon",style="background:rgba(107,100,239,0.12);color:#6B64EF;",icon("users")),
+        tags$div(class="na-vbox-icon",style="background:#f3e8ff;color:#7e22ce;",icon("users")),
         tags$div(tags$div(class="na-vbox-label","Individuals"),
                  tags$div(class="na-vbox-val",uiOutput(ns("vb_n"))))),
       tags$div(class="na-vbox",
-        tags$div(class="na-vbox-icon",style="background:rgba(235,204,42,0.18);color:#8a7413;",icon("percentage")),
+        tags$div(class="na-vbox-icon",style="background:#fef9c3;color:#854d0e;",icon("percentage")),
         tags$div(tags$div(class="na-vbox-label","Avg p_nulls"),
                  tags$div(class="na-vbox-val",uiOutput(ns("vb_avg_null"))))),
       tags$div(class="na-vbox",
-        tags$div(class="na-vbox-icon",style="background:rgba(180,15,32,0.10);color:#B40F20;",icon("exclamation-triangle")),
+        tags$div(class="na-vbox-icon",style="background:#fce7f3;color:#9d174d;",icon("exclamation-triangle")),
         tags$div(tags$div(class="na-vbox-label","Max p_nulls"),
                  tags$div(class="na-vbox-val",uiOutput(ns("vb_max_null"))))),
       tags$div(class="na-vbox",
-        tags$div(class="na-vbox-icon",style="background:rgba(59,154,178,0.15);color:#3B9AB2;",icon("chart-bar")),
+        tags$div(class="na-vbox-icon",style="background:#ccfbf1;color:#0d9488;",icon("chart-bar")),
         tags$div(tags$div(class="na-vbox-label","Global FST-ENA"),
                  tags$div(class="na-vbox-val",uiOutput(ns("vb_fst_ena")))))
     ),
@@ -224,7 +258,7 @@ null_alleles_UI <- function(id) {
           column(4,
             actionButton(ns("run_all"),
               label = tagList(icon("play"), tags$strong("  Compute + Bootstrap + Export")),
-              class = "btn-action-primary btn",
+              class = "na-btn-run btn",
               width = "100%"))
         ),
         br(),
@@ -248,11 +282,11 @@ null_alleles_UI <- function(id) {
         fluidRow(
           # File 1
           column(3,
-            tags$div(class="na-panel", style="border-color:#c9c6f7;",
-              tags$div(class="na-panel-head", style="background:#f4f3fe;",
-                tags$div(class="na-panel-title", style="color:#6B64EF;",
+            tags$div(class="na-panel", style="border-color:#bfdbfe;",
+              tags$div(class="na-panel-head", style="background:#eff6ff;",
+                tags$div(class="na-panel-title", style="color:#1d4ed8;",
                   icon("file-alt"), " File 1 — Null allele frequencies")),
-              tags$div(class="na-panel-body", style="font-size:11px;color:#475569;",
+              tags$div(class="na-panel-body", style="font-size:11px;color:#334155;",
                 "p_nulls per locus \u00d7 population",
                 tags$br(), "Global weighted mean per locus",
                 tags$br(), "Locus coding reminder",
@@ -263,11 +297,11 @@ null_alleles_UI <- function(id) {
           ),
           # File 2
           column(3,
-            tags$div(class="na-panel", style="border-color:#a9d3dc;",
-              tags$div(class="na-panel-head", style="background:#eef6f8;",
-                tags$div(class="na-panel-title", style="color:#3B9AB2;",
+            tags$div(class="na-panel", style="border-color:#99f6e4;",
+              tags$div(class="na-panel-head", style="background:#f0fdfa;",
+                tags$div(class="na-panel-title", style="color:#0d9488;",
                   icon("chart-bar"), " File 2 — Global FST & FST-ENA")),
-              tags$div(class="na-panel-body", style="font-size:11px;color:#475569;",
+              tags$div(class="na-panel-body", style="font-size:11px;color:#334155;",
                 "Per locus + multilocus FST / FST-ENA",
                 tags$br(), "CI from bootstrap over loci",
                 tags$br(), "CI from bootstrap over sub-samples",
@@ -278,11 +312,11 @@ null_alleles_UI <- function(id) {
           ),
           # File 3
           column(3,
-            tags$div(class="na-panel", style="border-color:#cfcdd6;",
-              tags$div(class="na-panel-head", style="background:#f5f5f7;",
-                tags$div(class="na-panel-title", style="color:#333a43;",
+            tags$div(class="na-panel", style="border-color:#e9d5ff;",
+              tags$div(class="na-panel-head", style="background:#faf5ff;",
+                tags$div(class="na-panel-title", style="color:#7c3aed;",
                   icon("table"), " File 3 — Pairwise long format")),
-              tags$div(class="na-panel-body", style="font-size:11px;color:#475569;",
+              tags$div(class="na-panel-body", style="font-size:11px;color:#334155;",
                 "FST, FST-ENA, DCSE, DCSE-INA",
                 tags$br(), "Per pair of sub-samples",
                 tags$br(), "All loci combined",
@@ -293,11 +327,11 @@ null_alleles_UI <- function(id) {
           ),
           # File 4
           column(3,
-            tags$div(class="na-panel", style="border-color:#ecdf9d;",
-              tags$div(class="na-panel-head", style="background:#fdfaef;",
-                tags$div(class="na-panel-title", style="color:#8a7413;",
+            tags$div(class="na-panel", style="border-color:#fcd34d;",
+              tags$div(class="na-panel-head", style="background:#fffbeb;",
+                tags$div(class="na-panel-title", style="color:#92400e;",
                   icon("th"), " File 4 — Per-locus half-matrices")),
-              tags$div(class="na-panel-body", style="font-size:11px;color:#475569;",
+              tags$div(class="na-panel-body", style="font-size:11px;color:#334155;",
                 "FST, FST-ENA, DCSE, DCSE-INA",
                 tags$br(), "Half-matrix per locus",
                 tags$br(), "Per pair of sub-samples",

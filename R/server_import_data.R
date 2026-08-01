@@ -602,15 +602,7 @@ server_import_data <- function(id, rv) {
     # ---------------------------------------------------------#
     
     shiny::observeEvent(input$load_default_data, {
-
-      waiter <- waiter::Waiter$new(
-        id    = session$ns("formatted_table"),
-        html  = waiter::spin_3(),
-        color = waiter::transparent(0.7)
-      )
-      waiter$show()
-      on.exit(waiter$hide(), add = TRUE)
-
+      
       reset_downstream_state(rv)
       
       default_path <- system.file("extdata", "default_dataset.csv", package = "shinypopgen")
@@ -835,19 +827,7 @@ server_import_data <- function(id, rv) {
     shiny::observeEvent(input$load_user_data, {
       shiny::req(input$file1)
       shiny::req(input$file1$datapath)
-
-      # Visible feedback while the file is parsed and loaded into DuckDB - the
-      # button itself gives no indication of progress otherwise, which reads
-      # as "unresponsive" on anything but a tiny file. Same Waiter pattern
-      # already used in server_general_stats.R.
-      waiter <- waiter::Waiter$new(
-        id    = session$ns("formatted_table"),
-        html  = waiter::spin_3(),
-        color = waiter::transparent(0.7)
-      )
-      waiter$show()
-      on.exit(waiter$hide(), add = TRUE)
-
+      
       uploaded_file(input$file1$datapath[1])
       # OR directly: rv$file_path <- input$file1$datapath[1]
       
