@@ -453,7 +453,8 @@ app_ui <- function() {
     }
     .spg-faq-item summary::-webkit-details-marker { display: none; }
     .spg-faq-item summary::before {
-      content: "\\25B8"; color: #6B64EF; font-size: 12px;
+      content: ">"; color: #6B64EF; font-size: 12px; font-weight: 700;
+      display: inline-block;
       transition: transform 0.15s ease;
     }
     .spg-faq-item[open] summary::before { transform: rotate(90deg); }
