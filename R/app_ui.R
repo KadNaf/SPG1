@@ -150,6 +150,8 @@ app_ui <- function() {
     .navbar .nav-link {
       padding-top: 14px !important; padding-bottom: 14px !important;
       color: #FFFFFF !important;
+      display: inline-flex !important; align-items: center; gap: 7px;
+      transition: color 0.15s ease, border-bottom-color 0.15s ease;
     }
     .navbar .nav-link:hover  { color: #8ea1b9 !important; }
     .navbar .nav-link.active {
@@ -246,8 +248,15 @@ app_ui <- function() {
     .btn-action-primary, .btn-action-primary.btn-primary {
       background-color: #333a43 !important; color: #FFFFFF !important;
       border: none !important; font-weight: 600; border-radius: 3px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
     }
-    .btn-action-primary:hover { background-color: #1e242b !important; }
+    .btn-action-primary:hover { background-color: #1e242b !important; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.18); }
+    .btn-action-primary:active { transform: translateY(0); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+    .btn-action-primary:focus-visible { outline: 2px solid #6B64EF; outline-offset: 2px; }
+    .btn-action-primary:disabled, .btn-action-primary.disabled {
+      background-color: #8ea1b9 !important; opacity: 0.75; transform: none; box-shadow: none; cursor: progress;
+    }
 
     /* All download buttons — dark grey */
     .btn-download-primary, .btn-download-secondary, .btn-download-info,
@@ -273,6 +282,8 @@ app_ui <- function() {
     .nav-tabs .nav-link,
     .nav-pills .nav-link {
       color: #333a43 !important;
+      padding: 7px 16px !important;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     }
     .nav-tabs .nav-link:hover,
     .nav-pills .nav-link:hover {
@@ -394,6 +405,28 @@ app_ui <- function() {
       font-size: 0.8rem; font-weight: 700;
     }
     /* ===== HELP PAGE ===== */
+    /* Smooth in-page scroll when jumping to a #help-... anchor, scoped to
+       the tab-content column so it doesn't affect the sidebar/navbar. */
+    body.spg-sidebar-mode.bslib-page-navbar > .container-fluid > .tab-content {
+      scroll-behavior: smooth;
+    }
+    .spg-help-nav {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 24px; padding-bottom: 16px;
+      border-bottom: 1px solid #e2e6ec;
+    }
+    .spg-help-nav a {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #f5f7fa; color: #333a43 !important;
+      border: 1px solid #e2e6ec; border-radius: 20px;
+      padding: 5px 14px; font-size: 12.5px; font-weight: 500;
+      text-decoration: none !important;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+    }
+    .spg-help-nav a:hover {
+      background: #333a43; color: #FFFFFF !important;
+      border-color: #333a43; transform: translateY(-1px);
+    }
     .spg-help-section {
       margin-bottom: 28px;
     }
@@ -404,6 +437,51 @@ app_ui <- function() {
       border-bottom: 2px solid #8ea1b9 !important;
       padding-bottom: 6px !important;
       margin-bottom: 14px !important;
+    }
+    /* scroll-margin so a jumped-to section isn't hidden under the sticky
+       module banner at the top of the tab-content column */
+    .spg-help-section { scroll-margin-top: 16px; }
+    /* FAQ accordion (details/summary — no JS dependency needed) */
+    .spg-faq-item {
+      border: 1px solid #e2e6ec; border-radius: 6px;
+      margin-bottom: 8px; overflow: hidden; background: #fff;
+    }
+    .spg-faq-item summary {
+      padding: 10px 14px; font-size: 13.5px; font-weight: 600;
+      color: #333a43; cursor: pointer; list-style: none;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .spg-faq-item summary::-webkit-details-marker { display: none; }
+    .spg-faq-item summary::before {
+      content: "\25B8"; color: #6B64EF; font-size: 12px;
+      transition: transform 0.15s ease;
+    }
+    .spg-faq-item[open] summary::before { transform: rotate(90deg); }
+    .spg-faq-item summary:hover { background: #f5f7fa; }
+    .spg-faq-body {
+      padding: 2px 14px 14px 36px; font-size: 13px; color: #444b55; line-height: 1.7;
+    }
+    .spg-faq-body code {
+      background: #f0f0f4; padding: 1px 5px; border-radius: 3px; font-size: 12px;
+    }
+    /* Module guide table */
+    .spg-modguide-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .spg-modguide-table th {
+      background: #333a43; color: #FFFFFF; text-align: left;
+      padding: 8px 10px; font-weight: 600;
+    }
+    .spg-modguide-table td {
+      padding: 8px 10px; border-bottom: 1px solid #e2e6ec; vertical-align: top;
+    }
+    .spg-modguide-table tr:nth-child(even) td { background: #f8f9fc; }
+    .spg-modguide-table tr:hover td { background: #f0f0fb; }
+    /* Glossary */
+    .spg-glossary dt {
+      font-weight: 700; color: #333a43; font-size: 13px;
+      margin-top: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .spg-glossary dd {
+      margin-left: 0; font-size: 13px; color: #444b55; line-height: 1.6; margin-bottom: 4px;
     }
     .spg-format-note {
       background: #f5f7fa;
@@ -466,8 +544,13 @@ app_ui <- function() {
     .btn-action-secondary {
       background-color: #8ea1b9 !important; color: #FFFFFF !important;
       border: none !important; border-radius: 3px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
     }
-    .btn-action-secondary:hover { background-color: #333a43 !important; }
+    .btn-action-secondary:hover { background-color: #333a43 !important; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.18); }
+    .btn-action-secondary:active { transform: translateY(0); box-shadow: none; }
+    .btn-action-secondary:disabled, .btn-action-secondary.disabled {
+      opacity: 0.65; transform: none; box-shadow: none; cursor: progress;
+    }
 
     /* ── Default: navbar hidden (welcome is entry page; sidebar shows it) ── */
     .bslib-page-navbar > nav.navbar { display: none !important; }
@@ -523,11 +606,14 @@ app_ui <- function() {
     body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .nav-link {
       padding: 9px 16px !important;
       text-align: left !important;
-      border-radius: 0 !important;
+      border-radius: 0 4px 4px 0 !important;
       white-space: nowrap !important;
       font-size: 0.88rem !important;
       color: rgba(255,255,255,0.82) !important;
       border-left: 3px solid transparent !important;
+      display: flex !important; align-items: center; gap: 9px;
+      margin: 1px 6px 1px 0 !important;
+      transition: background 0.15s ease, color 0.15s ease, border-left-color 0.15s ease;
     }
     body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .nav-link:hover {
       background: rgba(255,255,255,0.08) !important;
@@ -538,6 +624,7 @@ app_ui <- function() {
       background: rgba(107,100,239,0.25) !important;
       color: #FFFFFF !important;
       border-left-color: #6B64EF !important;
+      font-weight: 600 !important;
     }
     /* Dark mode toggle pushed to bottom of sidebar */
     body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .navbar-nav.ms-auto {
@@ -832,7 +919,7 @@ app_ui <- function() {
 
   help_content <- shiny::tagList(
     module_banner("question-circle", "Help & Documentation",
-      "Data format requirements \u00b7 Statistical methods \u00b7 Key references",
+      "Data format requirements \u00b7 Module-by-module guide \u00b7 FAQ \u00b7 Glossary \u00b7 Statistical methods & key references",
       "#6B64EF"),
     shiny::fluidRow(
       shinydashboard::box(
@@ -842,9 +929,24 @@ app_ui <- function() {
           shiny::icon("file-alt"), " Data requirements"
         ),
 
+        # Quick navigation — jump straight to a section instead of scrolling
+        shiny::div(
+          class = "spg-help-nav",
+          shiny::tags$a(href = "#help-formats",  shiny::icon("table"),        " File formats"),
+          shiny::tags$a(href = "#help-encoding", shiny::icon("columns"),      " Encoding"),
+          shiny::tags$a(href = "#help-modules",  shiny::icon("th"),          " Module guide"),
+          shiny::tags$a(href = "#help-tips",     shiny::icon("lightbulb"),    " Tips"),
+          shiny::tags$a(href = "#help-faq",      shiny::icon("question"),     " FAQ"),
+          shiny::tags$a(href = "#help-glossary", shiny::icon("spell-check"),  " Glossary"),
+          shiny::tags$a(href = "#help-macos",    shiny::icon("apple"),        " macOS setup"),
+          shiny::tags$a(href = "#help-workflow", shiny::icon("route"),        " Workflow"),
+          shiny::tags$a(href = "#help-methods",  shiny::icon("book-open"),    " References")
+        ),
+
         # Format overview
         shiny::div(
           class = "spg-help-section",
+          id = "help-formats",
           shiny::tags$h3(shiny::icon("table"), " Accepted file formats"),
           shiny::div(
             class = "spg-format-note",
@@ -870,6 +972,7 @@ app_ui <- function() {
         # Table examples
         shiny::div(
           class = "spg-help-section",
+          id = "help-encoding",
           shiny::tags$h3(shiny::icon("columns"), " Encoding formats"),
           shiny::fluidRow(
             shiny::column(6,
@@ -974,9 +1077,84 @@ app_ui <- function() {
 
         shiny::tags$hr(),
 
+        # Module-by-module guide
+        shiny::div(
+          class = "spg-help-section",
+          id = "help-modules",
+          shiny::tags$h3(shiny::icon("th"), " Module-by-module guide"),
+          shiny::div(
+            class = "spg-format-note",
+            shiny::icon("info-circle"),
+            shiny::HTML(" Every module reads from the same imported dataset (no re-upload needed) and every results table has a matching <code>.csv</code>/<code>.txt</code> export.")
+          ),
+          shiny::div(
+            style = "overflow-x:auto;",
+            shiny::HTML(paste0(
+              "<table class='spg-modguide-table'><thead><tr>",
+              "<th>Module</th><th>What it computes</th><th>Key inputs</th><th>Key outputs</th>",
+              "</tr></thead><tbody>",
+
+              "<tr><td><b>Import Data</b></td>",
+              "<td>Parses the file, auto-detects population/marker columns, builds the DuckDB tables used by every other module.</td>",
+              "<td>CSV/TXT file, separator, header, missing-data code, optional manual column assignment.</td>",
+              "<td>Formatted preview table, interactive map (if GPS columns found), import summary.</td></tr>",
+
+              "<tr><td><b>Allele Freq</b></td>",
+              "<td>Per-population and global allele frequencies, sample sizes, missing-data rates.</td>",
+              "<td>Population / marker filters.</td>",
+              "<td>Allele-frequency table (Na, Ne, He, Ho, Fis per locus), missing-data value boxes.</td></tr>",
+
+              "<tr><td><b>General Stats</b></td>",
+              "<td>Na, Ne, Ho, He and F-statistics (WC84) per allele and per locus.</td>",
+              "<td>None beyond the imported dataset.</td>",
+              "<td>Per-allele / per-locus statistics table.</td></tr>",
+
+              "<tr><td><b>Local Panmixia</b></td>",
+              "<td>Within-population Hardy-Weinberg test. FIS per locus and population (WC84).</td>",
+              "<td>Number of bootstrap replicates, number of permutations, confidence level.</td>",
+              "<td>FIS table with bootstrap CI and permutation p-value.</td></tr>",
+
+              "<tr><td><b>Global Panmixia</b></td>",
+              "<td>Overall Hardy-Weinberg test across all populations. Multilocus FIT.</td>",
+              "<td>Number of bootstrap replicates, number of permutations, confidence level.</td>",
+              "<td>FIT table with bootstrap CI and permutation p-value.</td></tr>",
+
+              "<tr><td><b>Subdivision</b></td>",
+              "<td>Population differentiation: FST (WC84, population-block bootstrap + permutation) and an independent G-test (log-likelihood ratio, FSTAT-style, complete multilocus genotypes only).</td>",
+              "<td>Number of bootstrap replicates / permutations (separately for FST and the G-test), confidence level.</td>",
+              "<td>FST table + plot, G-test table (two one-sided p-values, as in FSTAT).</td></tr>",
+
+              "<tr><td><b>Diversities</b></td>",
+              "<td>HS and HT (Nei 1987) per locus, with locus-bootstrap CI for the multilocus FST, FIT, FIS, HS, HT estimates.</td>",
+              "<td>Shares parameters with Subdivision (same underlying computation run).</td>",
+              "<td>HS/HT table, multilocus bootstrap summary.</td></tr>",
+
+              "<tr><td><b>LD</b></td>",
+              "<td>Pairwise linkage disequilibrium between all locus pairs, tested by permutation.</td>",
+              "<td>Number of permutations.</td>",
+              "<td>Pairwise LD table with permutation p-values.</td></tr>",
+
+              "<tr><td><b>Null Alleles</b></td>",
+              "<td>Null allele frequency per locus \u00d7 population (FreeNA / EM algorithm), FST-ENA and DCSE-INA corrections, two independent bootstraps (over loci, over sub-samples).</td>",
+              "<td>Missing-genotype coding per locus, bootstrap replicate counts, confidence level.</td>",
+              "<td>4 automatic export files (see the Null Alleles tab itself for the full list) + on-screen matrices.</td></tr>",
+
+              "<tr><td><b>IBD</b> \U0001f6a7</td>",
+              "<td>Isolation by distance: pairwise F<sub>ST</sub>\u2044(1\u2212F<sub>ST</sub>) vs geographic distance, Mantel test (Rousset 1997).</td>",
+              "<td>Requires GPS metadata (latitude/longitude) from the import step, or an uploaded distance-matrix file.</td>",
+              "<td>Scatter plot, Mantel test statistic and p-value.</td></tr>",
+
+              "</tbody></table>"
+            ))
+          )
+        ),
+
+        shiny::tags$hr(),
+
         # Tips
         shiny::div(
           class = "spg-help-section",
+          id = "help-tips",
           shiny::tags$h3(shiny::icon("lightbulb"), " Tips & common pitfalls"),
           shiny::div(class = "spg-tip", shiny::icon("check-circle"),
             shiny::HTML(" <strong>Use the default dataset</strong> to familiarise yourself with the expected format before uploading your own data.")),
@@ -992,9 +1170,113 @@ app_ui <- function() {
 
         shiny::tags$hr(),
 
+        # FAQ / Troubleshooting
+        shiny::div(
+          class = "spg-help-section",
+          id = "help-faq",
+          shiny::tags$h3(shiny::icon("question"), " FAQ & troubleshooting"),
+          shiny::div(
+            class = "spg-format-note",
+            shiny::icon("info-circle"),
+            shiny::HTML(" These are the exact messages the app shows when something goes wrong, with what they mean and what to do about them.")
+          ),
+          shiny::tags$div(class = "spg-faq-item",
+            shiny::tags$details(
+              shiny::tags$summary("\u201cDuckDB meta table missing\u201d / \u201cDuckDB hf table missing\u201d"),
+              shiny::tags$div(class = "spg-faq-body",
+                shiny::HTML("You've opened a module (e.g. Allele Freq, General Stats) before finishing the Import step, or the import failed silently. Go back to <b>Import Data</b>, load a file (or the default dataset), and confirm the preview table and map show data before switching tabs.")
+              )
+            )
+          ),
+          shiny::tags$div(class = "spg-faq-item",
+            shiny::tags$details(
+              shiny::tags$summary("\u201chf must contain (individual,locus,g) or (indiv_id,locus_id,gt)\u201d"),
+              shiny::tags$div(class = "spg-faq-body",
+                shiny::HTML("Internal schema check: the genotype table built at import doesn't have the expected column names. This normally means the import step itself failed or was interrupted \u2014 re-run <b>Load Data</b> rather than trying to fix this from a later tab.")
+              )
+            )
+          ),
+          shiny::tags$div(class = "spg-faq-item",
+            shiny::tags$details(
+              shiny::tags$summary("\u201cPopulation column not detected\u201d / \u201cNo column names available (header not read)\u201d"),
+              shiny::tags$div(class = "spg-faq-body",
+                shiny::HTML("Auto-detection couldn't find a population column, usually because the separator (comma / semicolon / tab) doesn't match the file, or <b>Header</b> is unticked for a file that does have one. Try the other separator, or use the <b>Manual column assignment</b> panel to pick the population column yourself.")
+              )
+            )
+          ),
+          shiny::tags$div(class = "spg-faq-item",
+            shiny::tags$details(
+              shiny::tags$summary("\u201cTry again, your range is out of bounds\u201d"),
+              shiny::tags$div(class = "spg-faq-body",
+                shiny::HTML("The column range typed into <b>Marker locus columns</b> or <b>Metadata columns</b> refers to a column index that doesn't exist in the file (e.g. <code>8-45</code> on a 40-column file). Count the columns in the preview table and adjust the range.")
+              )
+            )
+          ),
+          shiny::tags$div(class = "spg-faq-item",
+            shiny::tags$details(
+              shiny::tags$summary("An error message starting with \u201cErreur lors de \u2026\u201d"),
+              shiny::tags$div(class = "spg-faq-body",
+                shiny::HTML("A database query failed while computing a result (dropped connection, unexpected column). The rest of the message names which computation failed. Try reloading the data; if it persists with the same file, it's worth reporting (see Contact on the Welcome page) with that exact message.")
+              )
+            )
+          ),
+          shiny::tags$div(class = "spg-faq-item",
+            shiny::tags$details(
+              shiny::tags$summary("My upload is rejected or times out"),
+              shiny::tags$div(class = "spg-faq-body",
+                shiny::HTML("The upload limit is <b>500\u00a0MB</b>. Larger files need to be split or pre-filtered before import. If a file under that limit still times out, check your network connection to the server (this is more likely on a remote/Docker deployment than a local install).")
+              )
+            )
+          ),
+          shiny::tags$div(class = "spg-faq-item",
+            shiny::tags$details(
+              shiny::tags$summary("My FIS / He values look wrong on a locus I know has null alleles"),
+              shiny::tags$div(class = "spg-faq-body",
+                shiny::HTML("General Stats / Allele Freq do not correct for null alleles. Go to the <b>Null Alleles</b> tab: it estimates null-allele frequency per locus and reports FST-ENA / DCSE-INA, which are the corrected versions of the differentiation statistics. A locus with a null-allele frequency above ~0.10 should be treated with caution for FST/FIS interpretation.")
+              )
+            )
+          ),
+          shiny::tags$div(class = "spg-faq-item",
+            shiny::tags$details(
+              shiny::tags$summary("The IBD tab looks incomplete or behaves oddly"),
+              shiny::tags$div(class = "spg-faq-body",
+                shiny::HTML("Isolation by Distance is flagged \U0001f6a7 (work in progress) on the Welcome page and in the Module guide above. Treat its output as provisional.")
+              )
+            )
+          )
+        ),
+
+        shiny::tags$hr(),
+
+        # Glossary
+        shiny::div(
+          class = "spg-help-section",
+          id = "help-glossary",
+          shiny::tags$h3(shiny::icon("spell-check"), " Glossary"),
+          shiny::tags$dl(
+            class = "spg-glossary",
+            shiny::tags$dt("Na"), shiny::tags$dd("Number of alleles observed at a locus."),
+            shiny::tags$dt("Ne"), shiny::tags$dd("Effective number of alleles \u2014 the number of equally frequent alleles that would give the same heterozygosity as observed."),
+            shiny::tags$dt("Ho"), shiny::tags$dd("Observed heterozygosity \u2014 proportion of heterozygous genotypes actually observed."),
+            shiny::tags$dt("He / HS / HT"), shiny::tags$dd("Expected (gene diversity) heterozygosity. He/HS = within-population; HT = total, across all populations pooled (Nei 1987)."),
+            shiny::tags$dt("FIS"), shiny::tags$dd("Inbreeding coefficient within populations relative to their own allele frequencies (Weir & Cockerham 1984). Positive = heterozygote deficit; negative = heterozygote excess."),
+            shiny::tags$dt("FIT"), shiny::tags$dd("Overall inbreeding coefficient of individuals relative to the total (multi-population) allele frequencies."),
+            shiny::tags$dt("FST"), shiny::tags$dd("Differentiation among populations \u2014 the proportion of total genetic variance explained by allele-frequency differences between populations."),
+            shiny::tags$dt("FST-ENA"), shiny::tags$dd("FST 'Excluding Null Alleles' \u2014 FST recomputed on EM-corrected allele frequencies (Chapuis & Estoup 2007)."),
+            shiny::tags$dt("p_nulls"), shiny::tags$dd("Estimated null-allele frequency at a given locus \u00d7 population, from the EM algorithm (Dempster, Laird & Rubin 1977) as implemented in FreeNA."),
+            shiny::tags$dt("DCSE / DCSE-INA"), shiny::tags$dd("Cavalli-Sforza & Edwards (1967) chord genetic distance between populations; DCSE-INA is the version with the null allele added as an extra allelic state."),
+            shiny::tags$dt("EM algorithm"), shiny::tags$dd("Expectation-Maximisation \u2014 the iterative procedure used to estimate null-allele frequencies from observed genotype counts until convergence."),
+            shiny::tags$dt("WC84"), shiny::tags$dd("Shorthand used throughout the app for the unbiased moment estimators of Weir & Cockerham (1984) for FIS/FIT/FST."),
+            shiny::tags$dt("Bootstrap CI vs. permutation p-value"), shiny::tags$dd("Two different resampling procedures reported side by side: the bootstrap CI resamples loci (or individuals) to give a confidence interval on the estimate itself; the permutation p-value reshuffles individuals/genotypes under a null hypothesis of no structure to test significance. They answer different questions and are not interchangeable.")
+          )
+        ),
+
+        shiny::tags$hr(),
+
         # Mac installation note
         shiny::div(
           class = "spg-help-section",
+          id = "help-macos",
           shiny::tags$h3(shiny::icon("apple"), " macOS: prerequisites for installation"),
           shiny::div(
             class = "spg-format-note",
@@ -1028,6 +1310,7 @@ app_ui <- function() {
         # Workflow
         shiny::div(
           class = "spg-help-section",
+          id = "help-workflow",
           shiny::tags$h3(shiny::icon("route"), " Recommended workflow"),
           shiny::tags$ol(
             style = "font-size:14px; line-height:2.0;",
@@ -1049,6 +1332,7 @@ app_ui <- function() {
         # Statistical methods & references
         shiny::div(
           class = "spg-help-section",
+          id = "help-methods",
           shiny::tags$h3(shiny::icon("book-open"), " Statistical methods & key references"),
           shiny::fluidRow(
             shiny::column(6,

@@ -143,14 +143,87 @@ server_null_alleles <- function(id, rv) {
       updateSelectInput(session,"fl_pop2", choices=c("All pairs"="all",stats::setNames(pops,pops)),selected="all")
     })
 
-    # ── Per-locus coding UI — radio buttons, default = absent (000000) ─────────
+    # ══════════════════════════════════════════════════════════════════════════
+    #  MISSING-GENOTYPE CODING — USER CHOICE per locus, exactly as in FreeNA's
+    #  own Pascal source (FreeNA_optm2R.pas): a genotype "0 0" is always read
+    #  as "missing complete" (excluded from allele-frequency estimation), and
+    #  a genotype "99 99"/"999 999" is always read as the null-homozygote
+    #  allele state (included as evidence for the null allele) — that part is
+    #  purely data-driven and never changes.
+    #  What DOES need a choice is which EM formula to apply to a locus's
+    #  blanks: treat them as pure PCR failure ("absent") or as informative
+    #  null homozygotes ("null_homo"). We suggest a default per locus (based
+    #  on what your data actually contains), but you have the final say via
+    #  the radio buttons below — this avoids ever silently mis-classifying a
+    #  locus.
+    # ══════════════════════════════════════════════════════════════════════════
+    treat_id  <- function(loc) paste0("coding_", gsub("[^A-Za-z0-9]", "_", loc))
+    recode_id <- function(loc) paste0("recode_", gsub("[^A-Za-z0-9]", "_", loc))
+
+    # Suggestion only — derived from the data itself (does any population at
+    # this locus actually contain a literal 999999/999999-style genotype?).
+    locus_autodetect_r <- reactive({
+      em_res  <- em_results_r()
+      markers <- markers_r()
+      treats <- sapply(markers, function(loc) {
+        ee <- em_res[[loc]]
+        if (length(ee) &&
+            any(vapply(ee, function(e) isTRUE(e$n_null_homo > 0L), logical(1))))
+          "null_homo" else "absent"
+      })
+      stats::setNames(treats, markers)
+    })
+
+    # The value actually used everywhere downstream: the user's radio-button
+    # choice, falling back to the auto-detected suggestion until they pick one.
+    locus_treatments_r <- reactive({
+      markers <- markers_r()
+      suggested <- tryCatch(locus_autodetect_r(), error = function(e) NULL)
+      treats <- sapply(markers, function(loc) {
+        val <- input[[treat_id(loc)]]
+        if (!is.null(val) && val %in% c("null_homo","absent")) return(val)
+        if (!is.null(suggested) && loc %in% names(suggested)) suggested[[loc]] else "absent"
+      })
+      stats::setNames(treats, markers)
+    })
+
+    # Single-digit code reported in the "Recoded_blanks" column (999 or 0),
+    # mirroring FreeNA's own report — follows the user's chosen coding.
+    locus_recoded_blanks_r <- reactive({
+      base      <- as.integer(base_r())
+      null_code <- if (base >= 1000L) 999L else 99L
+      treats    <- locus_treatments_r()
+      stats::setNames(
+        ifelse(treats == "null_homo", null_code, 0L),
+        names(treats))
+    })
+
+    # Optional, user-set flag per locus — lets the user mark a locus for a
+    # recoding sensitivity check (exported as "Recode" = 0 when flagged,
+    # blank otherwise). Purely an annotation; it does not change the EM
+    # computation itself.
+    locus_recode_flags_r <- reactive({
+      markers <- markers_r()
+      stats::setNames(
+        sapply(markers, function(loc) isTRUE(input[[recode_id(loc)]])),
+        markers)
+    })
+
+    # ── Per-locus coding UI — radio buttons, pre-selected from auto-detection ──
     output$locus_coding_ui <- renderUI({
       ns_fn   <- session$ns
       markers <- markers_r()
       if (length(markers) == 0L) return(tags$p("No markers loaded yet."))
+      suggested <- tryCatch(locus_autodetect_r(), error = function(e) NULL)
       items <- lapply(markers, function(loc) {
+        sugg <- if (!is.null(suggested) && loc %in% names(suggested))
+          suggested[[loc]] else "absent"
+        hint_txt <- sprintf("Suggestion based on your data: %s",
+          if (identical(sugg, "null_homo")) "999999 (null homozygote)"
+          else "000000 (absent / PCR failure)")
         tags$div(class = "na-locus-item",
           tags$div(class = "na-locus-name", loc),
+          tags$div(style = "font-size:10.5px;color:#64748b;margin-bottom:3px;", hint_txt),
           radioButtons(
             inputId  = ns_fn(treat_id(loc)),
             label    = NULL,
@@ -158,29 +231,33 @@ server_null_alleles <- function(id, rv) {
               "000000 — absent / PCR failure" = "absent",
               "999999 — null homozygote"      = "null_homo"
             ),
-            selected = "absent",   # default = 000000 per Chapuis & Estoup (2007)
+            selected = sugg,
             inline   = TRUE
-          )
+          ),
+          checkboxInput(
+            inputId = ns_fn(recode_id(loc)),
+            label   = "Flag for recoding sensitivity check",
+            value   = FALSE)
         )
       })
       tags$div(class = "na-locus-grid", items)
     })
 
-    locus_treatments_r <- reactive({
-      markers <- markers_r()
-      treats  <- sapply(markers, function(loc) {
-        val <- input[[treat_id(loc)]]
-        if (is.null(val) || !val %in% c("null_homo","absent")) "absent" else val
-      })
-      stats::setNames(treats, markers)
-    })
-
     # ══════════════════════════════════════════════════════════════════════════
     #  EM ALGORITHM — exact translation of rDempster_per_locus (Pascal FreeNA)
-    #  treat = "absent"    : 000000 coding (PCR failure)
-    #  treat = "null_homo" : 999999 coding (null homozygote)
+    #  n_null_homo (how many individuals carry a literal 99/999-per-allele
+    #  genotype) is ALWAYS computed straight from the data, exactly like
+    #  FreeNA_optm2R.pas does when reading genotypes — this never depends on
+    #  any setting and is always correct.
+    #  `treat` is the USER'S CHOICE (per locus, from the radio buttons) for
+    #  which EM formula to apply to that locus's blanks:
+    #    "absent"    — treat blanks as uninformative PCR failure (000000)
+    #    "null_homo" — treat blanks as informative null homozygotes (999999)
+    #  If the user picks "null_homo" for a locus that has no literal
+    #  null-homozygote genotypes in the data (n_null_homo == 0), we fall back
+    #  to the "absent" formulas — there is nothing to treat as informative.
     # ══════════════════════════════════════════════════════════════════════════
-    em_freena <- function(gt_vec, base, treat = "absent") {
+    em_freena <- function(gt_vec, base, treat = "absent", max_iter = 5000L) {
       efpop      <- length(gt_vec)
       absent_msk <- is.na(gt_vec) | gt_vec <= 0L
       n_absent   <- sum(absent_msk)
@@ -189,7 +266,7 @@ server_null_alleles <- function(id, rv) {
       empty <- list(rd=0.0, pfreq=numeric(0), genefreq_obs=numeric(0),
                     H_ii=numeric(0), H_iX=numeric(0), N=0L, efpop=efpop,
                     n_absent=n_absent, n_null_homo=0L, alleles=integer(0),
-                    n_valid_geno=0L)
+                    n_valid_geno=0L, treat="absent")
 
       if (length(valid_gt) == 0L) return(empty)
 
@@ -199,6 +276,11 @@ server_null_alleles <- function(id, rv) {
       null_homo_msk <- (a1_all == null_code) & (a2_all == null_code)
       n_null_homo   <- sum(null_homo_msk)
 
+      # Effective treat actually applied: honour the user's choice, but only
+      # if there is something to treat as informative.
+      treat <- if (identical(treat, "null_homo") && n_null_homo > 0L)
+        "null_homo" else "absent"
+
       valid_a1 <- a1_all[!null_homo_msk]
       valid_a2 <- a2_all[!null_homo_msk]
       alleles  <- sort(unique(c(valid_a1, valid_a2)))
@@ -206,12 +288,14 @@ server_null_alleles <- function(id, rv) {
 
       N <- efpop - n_absent
       if (N == 0L || length(alleles) == 0L) {
-        empty$N <- N; empty$n_null_homo <- n_null_homo; return(empty)
+        empty$N <- N; empty$n_null_homo <- n_null_homo; empty$treat <- treat
+        return(empty)
       }
 
       n_valid_geno <- N - n_null_homo
       if (n_valid_geno == 0L) {
-        empty$N <- N; empty$n_null_homo <- n_null_homo; return(empty)
+        empty$N <- N; empty$n_null_homo <- n_null_homo; empty$treat <- treat
+        return(empty)
       }
 
       genefreq_obs <- sapply(alleles, function(a)
@@ -222,7 +306,7 @@ server_null_alleles <- function(id, rv) {
       hotot <- sum(H_ii)
 
       # rd initialisation
-      rd <- if (treat == "null_homo" && n_null_homo > 0L)
+      rd <- if (treat == "null_homo")
               sqrt(n_null_homo / N)
             else
               sqrt(1.0 / (N + 1.0))
@@ -232,7 +316,7 @@ server_null_alleles <- function(id, rv) {
       for (ai in seq_along(alleles)) {
         if (genefreq_obs[ai] <= 0) { p[ai] <- 0.0; next }
         ii <- H_ii[ai]; jj <- H_iX[ai]
-        if (treat == "null_homo" && n_null_homo > 0L) {
+        if (treat == "null_homo") {
           X <- n_null_homo + hotot - ii + (N - n_null_homo - hotot) - jj; Y <- N
         } else {
           X <- 1.0 + hotot - ii + (N - hotot) - jj; Y <- N + 1.0
@@ -241,7 +325,7 @@ server_null_alleles <- function(id, rv) {
       }
 
       # EM loop
-      for (iter in seq_len(5000L)) {
+      for (iter in seq_len(max_iter)) {
         new_p <- numeric(length(alleles)); rdi <- 0.0; re <- 0L
         for (ai in seq_along(alleles)) {
           if (genefreq_obs[ai] <= 0) { new_p[ai] <- 0.0; next }
@@ -266,7 +350,7 @@ server_null_alleles <- function(id, rv) {
            genefreq_obs=stats::setNames(genefreq_obs,a_chr),
            H_ii=stats::setNames(H_ii,a_chr), H_iX=stats::setNames(H_iX,a_chr),
            N=N, efpop=efpop, n_absent=n_absent, n_null_homo=n_null_homo,
-           alleles=alleles, n_valid_geno=n_valid_geno)
+           alleles=alleles, n_valid_geno=n_valid_geno, treat=treat)
     }
 
     # ── Weir (1996) FST components ─────────────────────────────────────────────
@@ -338,80 +422,27 @@ server_null_alleles <- function(id, rv) {
       if (nrow(raw) == 0L) return(list())
       base       <- as.integer(base_r())
       markers    <- markers_r(); pops <- pops_r()
-      treatments <- locus_treatments_r()
       em_res <- list()
       for (loc in markers) {
         em_res[[loc]] <- list()
-        treat <- as.character(treatments[loc] %||% "absent")
         for (pop in pops) {
           gts <- raw$gt[raw$Marker == loc & raw$Population == pop]
           em_res[[loc]][[pop]] <-
             if (length(gts) == 0L)
               list(rd=0.0, pfreq=numeric(0), genefreq_obs=numeric(0),
                    H_ii=numeric(0), H_iX=numeric(0), N=0L, efpop=0L,
-                   n_absent=0L, n_null_homo=0L, alleles=integer(0), n_valid_geno=0L)
+                   n_absent=0L, n_null_homo=0L, alleles=integer(0),
+                   n_valid_geno=0L, treat="absent")
             else
-              em_freena(gts, base, treat)
+              em_freena(gts, base)
         }
       }
       em_res
     })
 
     # ══════════════════════════════════════════════════════════════════════════
-    #  GLOBAL FST (raw + ENA)
+    #  GLOBAL FST (raw + ENA), with per-locus accumulators kept for bootstrap
     # ══════════════════════════════════════════════════════════════════════════
-    compute_fst_global <- function(em_res) {
-      markers <- names(em_res); pops <- names(em_res[[markers[1]]])
-      s1 <- s3 <- s1c <- s3c <- 0.0
-      rows <- vector("list", length(markers))
-      for (li in seq_along(markers)) {
-        loc <- markers[li]; em_loc <- em_res[[loc]]
-        alleles_obs <- sort(unique(unlist(lapply(em_loc, function(e) e$alleles))))
-        ni_raw  <- sapply(pops, function(p) { e<-em_loc[[p]]; max(0L,e$efpop-e$n_absent-e$n_null_homo) })
-        ni_corr <- sapply(pops, function(p) { e<-em_loc[[p]]; max(0L,e$efpop-e$n_absent) })
-        r_raw <- sum(ni_raw>0L); r_corr <- sum(ni_corr>0L)
-        N_raw <- sum(ni_raw); N2_raw <- sum(ni_raw^2)
-        N_cor <- sum(ni_corr); N2_cor <- sum(ni_corr^2)
-        nc_raw  <- if (N_raw>0&&r_raw>1)  (N_raw -N2_raw /N_raw ) /(r_raw -1) else 0.0
-        nc_corr <- if (N_cor>0&&r_corr>1) (N_cor -N2_cor /N_cor ) /(r_corr-1) else 0.0
-        s1l <- s3l <- s1lc <- s3lc <- 0.0
-        for (a in alleles_obs) {
-          a_chr <- as.character(a)
-          pop_raw <- lapply(pops, function(p) {
-            e <- em_loc[[p]]; ni <- max(0L,e$efpop-e$n_absent-e$n_null_homo)
-            pf <- if (a_chr %in% names(e$genefreq_obs)) e$genefreq_obs[[a_chr]] else 0.0
-            AA <- if (a_chr %in% names(e$H_ii)) e$H_ii[[a_chr]] else 0L
-            list(ni=ni, nA=pf*2L*ni, AA=AA, AA_corr=AA)
-          })
-          cmp <- weir_components_allele(pop_raw, use_corr=FALSE)
-          s1l <- s1l+cmp$s2P; s3l <- s3l+cmp$s2P+cmp$s2I+cmp$s2G
-          pop_ena <- lapply(pops, function(p) {
-            e <- em_loc[[p]]; ni <- max(0L,e$efpop-e$n_absent)
-            pf <- if (a_chr %in% names(e$pfreq)) e$pfreq[[a_chr]] else 0.0
-            AA <- if (a_chr %in% names(e$H_ii)) e$H_ii[[a_chr]] else 0L
-            d  <- pf+2.0*e$rd; AAc <- if (AA>0&&d>0) AA*(pf/d) else 0.0
-            list(ni=ni, nA=pf*2L*ni, AA=AA, AA_corr=AAc)
-          })
-          cmpc <- weir_components_allele(pop_ena, use_corr=TRUE)
-          s1lc <- s1lc+cmpc$s2P; s3lc <- s3lc+cmpc$s2P+cmpc$s2I+cmpc$s2G
-        }
-        fst_loc  <- if (s3l  != 0) s1l /s3l  else NA_real_
-        fst_locc <- if (s3lc != 0) s1lc/s3lc else NA_real_
-        if (!is.na(fst_loc)  && nc_raw >0) { s1  <- s1 +s1l *nc_raw;  s3  <- s3 +s3l *nc_raw  }
-        if (!is.na(fst_locc) && nc_corr>0) { s1c <- s1c+s1lc*nc_corr; s3c <- s3c+s3lc*nc_corr }
-        rows[[li]] <- data.frame(Locus=loc,
-          FST_raw=round(fst_loc,6), FST_ENA=round(fst_locc,6),
-          Delta_FST=round(fst_locc-fst_loc,6),
-          N_pops_raw=r_raw, N_pops_ENA=r_corr, stringsAsFactors=FALSE)
-      }
-      list(global_raw=if(s3>0)s1/s3 else NA_real_,
-           global_ena=if(s3c>0)s1c/s3c else NA_real_,
-           per_locus=do.call(rbind,rows),
-           s1v=sapply(rows,function(r) { e<-em_res[[r$Locus]]; 0 }),  # placeholder
-           s1_vec=NULL, s3_vec=NULL, s1c_vec=NULL, s3c_vec=NULL)
-    }
-
-    # ── Global FST with per-locus accumulators for bootstrap ───────────────────
     compute_fst_global_full <- function(em_res) {
       markers <- names(em_res); pops <- names(em_res[[markers[1]]])
       s1_vec <- s3_vec <- s1c_vec <- s3c_vec <- numeric(length(markers))
@@ -747,8 +778,19 @@ server_null_alleles <- function(id, rv) {
 
     # ══════════════════════════════════════════════════════════════════════════
     #  BOOTSTRAP OVER SUB-SAMPLES (individuals within populations)
+    #  - Uses its own (smaller) replicate count, nboot_subs, since this method
+    #    re-runs the EM algorithm for every (replicate x locus x population)
+    #    combination and is far more expensive than the vectorised loci
+    #    bootstrap above.
+    #  - Each EM run is capped at max_iter iterations (default 100, vs. 5000
+    #    for the main point estimate) — a bootstrap replicate only needs to
+    #    be "close enough", not fully converged to 1e-6, so this keeps runtime
+    #    reasonable without changing the statistical method itself.
+    #  - progress_cb(fraction_done), if supplied, is called periodically so
+    #    the caller can update a progress bar during this (long) step.
     # ══════════════════════════════════════════════════════════════════════════
-    boot_subsamples_global_fst <- function(raw_df, em_res, base, treatments, nboot, alpha) {
+    boot_subsamples_global_fst <- function(raw_df, em_res, base, treatments, nboot,
+                                            alpha, max_iter = 100L, progress_cb = NULL) {
       markers <- names(em_res); pops <- names(em_res[[markers[1]]])
       idx_by_pop_loc <- list()
       for (pop in pops) for (loc in markers)
@@ -757,6 +799,7 @@ server_null_alleles <- function(id, rv) {
       inds_by_pop <- lapply(pops, function(p) unique(raw_df$Individual[raw_df$Population==p]))
       names(inds_by_pop) <- pops
       boot_raw <- boot_ena <- numeric(nboot)
+      report_every <- max(1L, as.integer(round(nboot / 20)))  # ~20 progress updates
       for (b in seq_len(nboot)) {
         em_b <- list()
         for (loc in markers) {
@@ -771,12 +814,14 @@ server_null_alleles <- function(id, rv) {
             ir <- unlist(lapply(ri, function(x) br[ic==x]))
             gts <- raw_df$gt[ir]
             em_b[[loc]][[pop]] <- if(length(gts)==0L) em_res[[loc]][[pop]]
-                                  else em_freena(gts, base, treat)
+                                  else em_freena(gts, base, treat, max_iter = max_iter)
           }
         }
         fg <- compute_fst_global_full(em_b)
         boot_raw[b] <- fg$global_raw %||% NA_real_
         boot_ena[b] <- fg$global_ena %||% NA_real_
+        if (!is.null(progress_cb) && (b %% report_every == 0L || b == nboot))
+          progress_cb(b / nboot)
       }
       list(
         raw = quantile(boot_raw, c(alpha/2,0.5,1-alpha/2), na.rm=TRUE),
@@ -789,12 +834,13 @@ server_null_alleles <- function(id, rv) {
     # ══════════════════════════════════════════════════════════════════════════
     results_r <- eventReactive(input$run_all, {
       req(db_ready())
-      nboot  <- max(100L, min(99999L, as.integer(input$nboot %||% 5000L)))
-      alpha  <- as.numeric(input$ci_level %||% "0.05")
-      ci     <- ci_bounds(alpha)
-      base   <- as.integer(base_r())
-      treats <- locus_treatments_r()
+      nboot      <- max(100L, min(99999L, as.integer(input$nboot %||% 5000L)))
+      nboot_subs <- max(50L,  min(20000L, as.integer(input$nboot_subs %||% 500L)))
+      alpha   <- as.numeric(input$ci_level %||% "0.05")
+      ci      <- ci_bounds(alpha)
+      base    <- as.integer(base_r())
       markers <- markers_r(); pops <- pops_r()
+      treats  <- locus_treatments_r()   # user's per-locus coding choice
 
       withProgress(message = "Running computations...", value = 0, {
 
@@ -803,7 +849,11 @@ server_null_alleles <- function(id, rv) {
         raw_df <- raw_data_r()
         shiny::validate(shiny::need(nrow(raw_df)>0, "No genotype data found."))
 
-        # 2. EM per locus x population
+        # 2. EM per locus x population — applies the user's chosen coding
+        #    (000000 vs 999999) per locus; em_freena() always counts
+        #    n_null_homo straight from the data regardless of this choice,
+        #    and falls back to the "absent" formulas if a locus has no
+        #    literal null-homozygote genotypes to treat as informative.
         setProgress(0.08, detail = "EM algorithm (null allele frequencies)...")
         em_res <- list()
         for (loc in markers) {
@@ -815,7 +865,8 @@ server_null_alleles <- function(id, rv) {
               if (length(gts)==0L)
                 list(rd=0.0,pfreq=numeric(0),genefreq_obs=numeric(0),
                      H_ii=numeric(0),H_iX=numeric(0),N=0L,efpop=0L,
-                     n_absent=0L,n_null_homo=0L,alleles=integer(0),n_valid_geno=0L)
+                     n_absent=0L,n_null_homo=0L,alleles=integer(0),
+                     n_valid_geno=0L,treat="absent")
               else em_freena(gts, base, treat)
           }
         }
@@ -848,17 +899,33 @@ server_null_alleles <- function(id, rv) {
         setProgress(0.70, detail = sprintf("Bootstrap over loci — pairwise DCSE (%d reps)...", nboot))
         boot_pair_dc_loci <- boot_loci_pair_dc(dc_pair, nboot, alpha)
 
-        # 10. Bootstrap over sub-samples — global FST
-        setProgress(0.78, detail = sprintf("Bootstrap over sub-samples — global FST (%d reps)...", nboot))
-        boot_gl_subs <- boot_subsamples_global_fst(raw_df, em_res, base, treats, nboot, alpha)
+        # 10. Bootstrap over sub-samples — global FST (own, smaller replicate
+        #     count; capped EM iterations per replicate; fine-grained progress
+        #     since this is by far the most expensive step)
+        setProgress(0.78, detail = sprintf("Bootstrap over sub-samples — global FST (%d reps)...", nboot_subs))
+        boot_gl_subs <- boot_subsamples_global_fst(
+          raw_df, em_res, base, treats, nboot_subs, alpha, max_iter = 100L,
+          progress_cb = function(frac) {
+            setProgress(0.78 + 0.17 * frac,
+              detail = sprintf("Bootstrap over sub-samples — global FST (%d / %d reps)...",
+                                round(frac * nboot_subs), nboot_subs))
+          })
 
         setProgress(0.95, detail = "Assembling results...")
 
-        # p_nulls tables
-        # N = efpop = total individuals (genotyped + missing), as per FreeNA
-        # N_exp_blanks = efpop * p_nulls^2 (expected null homozygotes)
-        # p_nulls_x_N  = efpop * p_nulls   (expected null allele copies)
-        # N_absent     = number of missing genotypes in this pop x locus
+        # ══════════════════════════════════════════════════════════════════════
+        #  p_nulls TABLES — reproduces FreeNA's own null-allele-frequency report
+        #  N            = efpop  (total individuals: genotyped + missing), per FreeNA
+        #  N_exp_blanks = N * p_nulls^2         (expected count of null homozygotes)
+        #  p_nulls_x_N  = N * p_nulls           (expected count of null allele copies)
+        #  N_blanks     = n_absent + n_null_homo (missing genotypes, whichever coding
+        #                 convention — 000000 or 999999 — this locus uses)
+        #  Coding / Recoded_blanks reflect the user's chosen coding per locus
+        #  (see locus_treatments_r() / locus_recoded_blanks_r() above)
+        # ══════════════════════════════════════════════════════════════════════
+        recoded_blanks <- locus_recoded_blanks_r()
+        recode_flags   <- locus_recode_flags_r()
+
         t1_rows <- list()
         for (loc in markers) {
           for (pop in pops) {
@@ -870,10 +937,10 @@ server_null_alleles <- function(id, rv) {
               Population   = pop,
               Coding       = as.character(treats[loc] %||% "absent"),
               p_nulls      = round(e$rd, 6),
-              N            = n_total,               # FIX: total (genotyped + missing)
-              N_absent     = as.integer(e$n_absent),# missing genotypes
-              N_exp_blanks = round(n_exp, 6),        # FIX: uses efpop
-              p_nulls_x_N  = round(e$rd * n_total, 6), # FIX: uses efpop
+              N            = n_total,                        # total (genotyped + missing)
+              N_blanks     = as.integer(e$n_absent + e$n_null_homo), # missing, either coding
+              N_exp_blanks = round(n_exp, 6),
+              p_nulls_x_N  = round(e$rd * n_total, 6),
               stringsAsFactors=FALSE)
           }
         }
@@ -882,24 +949,36 @@ server_null_alleles <- function(id, rv) {
         t1 <- t1[order(t1$Locus, t1$Population),]
         t1$Locus <- as.character(t1$Locus)
 
-        # Global weighted mean per locus — uses N = efpop
+        # Per-locus summary — N-weighted mean, exactly as FreeNA reports it,
+        # plus a one-sided binomial test (P[X <= N_blanks] with size = N_tot,
+        # prob = Av(N_exp_blanks)/N_tot), rounded to 3 decimals as FreeNA does.
+        # Recoded_blanks reports the coding actually found in the data (999 or
+        # 0); Recode is the user's optional sensitivity-check flag (0 = flagged,
+        # blank = not flagged).
         t2_rows <- lapply(markers, function(loc) {
-          sub  <- t1[t1$Locus==loc,,drop=FALSE]
-          vidx <- !is.na(sub$p_nulls)
+          sub      <- t1[t1$Locus==loc,,drop=FALSE]
+          vidx     <- !is.na(sub$p_nulls)
           n_tot    <- sum(sub$N)                    # sum of efpop across pops
-          n_blanks <- sum(sub$N_absent)             # total missing genotypes
-          av_p  <- if (any(vidx)&&sum(sub$N[vidx])>0)
+          n_blanks <- sum(sub$N_blanks)              # total missing genotypes
+          av_p     <- if (any(vidx)&&sum(sub$N[vidx])>0)
             sum(sub$p_nulls[vidx]*sub$N[vidx]) / sum(sub$N[vidx]) else NA_real_
-          av_n  <- sum(sub$N*(sub$p_nulls^2), na.rm=TRUE) # Av(N_exp_blanks)
-          f_exp <- if (!is.na(av_n)&&n_tot>0) av_n/n_tot else NA_real_
+          av_nexp  <- sum(sub$N*(sub$p_nulls^2), na.rm=TRUE) # Av(N_exp_blanks)
+          f_exp    <- if (!is.na(av_nexp)&&n_tot>0) av_nexp/n_tot else NA_real_
+          prob     <- if (!is.na(av_nexp)&&n_tot>0) av_nexp/n_tot else NA_real_
+          pval     <- if (!is.na(prob))
+            round(stats::pbinom(n_blanks, size = n_tot, prob = prob), 3) else NA_real_
           data.frame(
-            Locus        = loc,
-            Coding       = as.character(treats[loc] %||% "absent"),
-            Av_p_nulls   = round(av_p,  6),
-            Av_N_exp     = round(av_n,  6),
-            N_tot        = n_tot,
-            N_blanks     = n_blanks,
-            f_expBlanks  = round(f_exp, 6),
+            Locus          = loc,
+            Coding         = as.character(treats[loc] %||% "absent"),
+            Av_N_exp_blanks= round(av_nexp, 6),
+            Av_p_nulls     = round(av_p,  6),
+            N_tot          = n_tot,
+            N_blanks       = n_blanks,
+            f_expBlanks    = round(f_exp, 6),
+            p_value        = pval,
+            p_nulls        = round(av_p, 6),
+            Recoded_blanks = as.integer(recoded_blanks[[loc]] %||% 0L),
+            Recode         = if (isTRUE(recode_flags[[loc]])) 0L else NA_integer_,
             stringsAsFactors=FALSE)
         })
         t2 <- do.call(rbind, t2_rows)
@@ -916,7 +995,7 @@ server_null_alleles <- function(id, rv) {
           boot_gl_subs      = boot_gl_subs,
           boot_pair_fst     = boot_pair_fst_loci,
           boot_pair_dc      = boot_pair_dc_loci,
-          nboot = nboot, alpha = alpha, ci = ci,
+          nboot = nboot, nboot_subs = nboot_subs, alpha = alpha, ci = ci,
           treats = treats, markers = markers, pops = pops,
           em_res = em_res
         )
@@ -939,9 +1018,14 @@ server_null_alleles <- function(id, rv) {
         "# INA correction (Including Null Alleles) — Chapuis & Estoup (2007) / FreeNA",
         "# FST: Weir (1996) following Genepop method",
         "# DCSE: Cavalli-Sforza & Edwards (1967) chord genetic distance",
-        paste0("# Bootstrap replicates: ", r$nboot),
+        paste0("# Bootstrap replicates (over loci): ", r$nboot),
+        paste0("# Bootstrap replicates (over sub-samples, individuals): ", r$nboot_subs %||% r$nboot,
+               " (EM capped at 100 iterations per replicate)"),
+        "# Note: the sub-samples bootstrap CI can sit slightly above the observed value",
+        "#   (point estimate under its own lower bound) — a known property of resampling",
+        "#   individuals with replacement, not a computation error.",
         paste0("# Confidence interval: ", ci_pct, " (alpha = ", r$alpha, ")"),
-        paste0("# Locus coding (000000=absent/PCR failure; 999999=null homozygote):"),
+        paste0("# Locus coding, as chosen per locus (000000=absent/PCR failure; 999999=null homozygote):"),
         paste0("#   ", treat_summary),
         "#"
       )
@@ -1187,8 +1271,8 @@ server_null_alleles <- function(id, rv) {
       tags$div(class="na-info", style="margin-top:.5rem;",
         icon("check-circle"), " ",
         tags$strong("Computation complete."),
-        sprintf(" %d loci \u00b7 %d populations \u00b7 %d replicates \u00b7 %s CI.",
-                length(r$markers), length(r$pops), r$nboot, ci_pct),
+        sprintf(" %d loci \u00b7 %d populations \u00b7 %d loci-replicates \u00b7 %d sub-sample-replicates \u00b7 %s CI.",
+                length(r$markers), length(r$pops), r$nboot, r$nboot_subs %||% r$nboot, ci_pct),
         " Output files are ready for download above."
       )
     })
@@ -1234,14 +1318,17 @@ server_null_alleles <- function(id, rv) {
     })
 
     # ── Tab 1: null allele frequencies DTs ────────────────────────────────────
-    # t1 columns: Locus, Population, Coding, p_nulls, N, N_absent,
-    #             N_exp_blanks, p_nulls_x_N
+    # t1 columns: Locus, Population, Coding, p_nulls, N, N_blanks,
+    #             N_exp_blanks, p_nulls_x_N  — matches FreeNA's per-locus x
+    #             population report (Locus names / Farm / p_nulls / N /
+    #             N_exp_blanks / p_nulls*N), with Coding/N_blanks kept as
+    #             transparent extras reflecting your chosen coding.
     output$dt_t1 <- DT::renderDT({
       r <- results_r()
       shiny::validate(shiny::need(nrow(r$t1)>0, "No data yet. Click Compute."))
       d <- r$t1
       names(d) <- c("Locus","Population","Coding","p_nulls",
-                    "N (total)","N absent","N_exp_blanks","p_nulls\u00d7N")
+                    "N","N_blanks","N_exp_blanks","p_nulls\u00d7N")
       DT::datatable(d, rownames=FALSE,
         options=list(pageLength=20, scrollX=TRUE, dom="lftip",
           columnDefs=list(list(className="dt-right", targets=3:7))),
@@ -1256,20 +1343,25 @@ server_null_alleles <- function(id, rv) {
         DT::formatStyle("Locus", fontWeight="600", color="#0f172a")
     }, server=TRUE)
 
-    # t2 columns: Locus, Coding, Av_p_nulls, Av_N_exp, N_tot, N_blanks, f_expBlanks
+    # t2 columns: Locus, Coding, Av(N_exp_blanks), Av(p_nulls), N_tot, N_blanks,
+    #             f(expBlanks), p-value, p_nulls, Recoded_blanks, Recode
+    #             — matches FreeNA's per-locus summary report exactly.
     output$dt_t2 <- DT::renderDT({
       r <- results_r()
       shiny::validate(shiny::need(nrow(r$t2)>0, "No data yet. Click Compute."))
       d <- r$t2
-      names(d) <- c("Locus","Coding","Av(p_nulls)","Av(N_exp_blanks)",
-                    "N_tot","N_blanks","f(expBlanks)")
+      names(d) <- c("Locus","Coding","Av(N_exp_blanks)","Av(p_nulls)",
+                    "N_tot","N_blanks","f(expBlanks)","p-value","p_nulls",
+                    "Recoded_blanks","Recode")
       DT::datatable(d, rownames=FALSE,
         options=list(pageLength=20, scrollX=TRUE, dom="lftip",
-          columnDefs=list(list(className="dt-right", targets=2:6))),
+          columnDefs=list(list(className="dt-right", targets=2:10))),
         class="compact hover stripe") |>
-        DT::formatRound("Av(p_nulls)",     6) |>
-        DT::formatRound("Av(N_exp_blanks)",6) |>
-        DT::formatRound("f(expBlanks)",    6) |>
+        DT::formatRound("Av(p_nulls)",       6) |>
+        DT::formatRound("Av(N_exp_blanks)",  6) |>
+        DT::formatRound("f(expBlanks)",      6) |>
+        DT::formatRound("p-value",           3) |>
+        DT::formatRound("p_nulls",           6) |>
         DT::formatStyle("Av(p_nulls)",
           backgroundColor = DT::styleInterval(
             c(0.05,0.10,0.20),
@@ -1347,18 +1439,31 @@ server_null_alleles <- function(id, rv) {
       if (is.null(r)) return(tags$p("Run computation first.", style="color:#94a3b8;"))
       ci_pct <- paste0(round((1-r$alpha)*100,3),"%")
       bl <- r$boot_gl_loci; bs <- r$boot_gl_subs
-      tags$div(class="na-boot-result",
-        tags$strong(sprintf("Global FST-ENA \u2014 observed: %.6f", r$fst_global$global_ena)),
-        tags$br(),
-        sprintf("%s CI (bootstrap over loci):      [ %.6f  \u2013  %.6f ]", ci_pct, bl$ena[1], bl$ena[3]),
-        tags$br(),
-        sprintf("%s CI (bootstrap over sub-samples): [ %.6f  \u2013  %.6f ]", ci_pct, bs$ena[1], bs$ena[3]),
-        tags$br(), tags$br(),
-        tags$strong(sprintf("Global Raw FST \u2014 observed: %.6f", r$fst_global$global_raw)),
-        tags$br(),
-        sprintf("%s CI (bootstrap over loci):      [ %.6f  \u2013  %.6f ]", ci_pct, bl$raw[1], bl$raw[3]),
-        tags$br(),
-        sprintf("%s CI (bootstrap over sub-samples): [ %.6f  \u2013  %.6f ]", ci_pct, bs$raw[1], bs$raw[3])
+      obs_ena <- r$fst_global$global_ena; obs_raw <- r$fst_global$global_raw
+      ena_outside <- !is.na(obs_ena) && (obs_ena < bs$ena[1] || obs_ena > bs$ena[3])
+      raw_outside <- !is.na(obs_raw) && (obs_raw < bs$raw[1] || obs_raw > bs$raw[3])
+      tags$div(
+        tags$div(class="na-boot-result",
+          tags$strong(sprintf("Global FST-ENA \u2014 observed: %.6f", obs_ena)),
+          tags$br(),
+          sprintf("%s CI (bootstrap over loci):      [ %.6f  \u2013  %.6f ]", ci_pct, bl$ena[1], bl$ena[3]),
+          tags$br(),
+          sprintf("%s CI (bootstrap over sub-samples): [ %.6f  \u2013  %.6f ]", ci_pct, bs$ena[1], bs$ena[3]),
+          tags$br(), tags$br(),
+          tags$strong(sprintf("Global Raw FST \u2014 observed: %.6f", obs_raw)),
+          tags$br(),
+          sprintf("%s CI (bootstrap over loci):      [ %.6f  \u2013  %.6f ]", ci_pct, bl$raw[1], bl$raw[3]),
+          tags$br(),
+          sprintf("%s CI (bootstrap over sub-samples): [ %.6f  \u2013  %.6f ]", ci_pct, bs$raw[1], bs$raw[3])
+        ),
+        if (ena_outside || raw_outside)
+          tags$div(class="na-info", style="margin-top:.5rem;",
+            icon("info-circle"), " ",
+            "The observed value falls just outside its own sub-samples bootstrap CI above. ",
+            "This is a known property of resampling individuals with replacement (duplicated ",
+            "individuals in a replicate slightly raise its apparent structure) \u2014 not a computation error. ",
+            "The bootstrap-over-loci CI is not affected by this."
+          )
       )
     })
 
@@ -1461,6 +1566,15 @@ server_null_alleles <- function(id, rv) {
         DT::formatRound("Raw DCSE",6)|>DT::formatRound("DCSE-INA",6)|>
         DT::formatStyle("Locus",fontWeight="600",color="#0f172a")
     }, server=TRUE)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  SHARE RESULTS WITH OTHER MODULES (e.g. Isolation by Distance / Mantel)
+    #  so they can reuse the already-computed pairwise FST/FST-ENA/DCSE/DCSE-INA
+    #  (+ bootstrap CI) instead of recomputing everything from scratch.
+    # ══════════════════════════════════════════════════════════════════════════
+    observeEvent(results_r(), {
+      rv$null_alleles_results <- results_r()
+    }, ignoreNULL = FALSE)
 
   }) # end moduleServer
 }
