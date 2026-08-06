@@ -330,8 +330,8 @@ null_alleles_UI <- function(id) {
               tags$div(class="na-panel-body", style="font-size:11px;color:#334155;",
                 "All bootstrap replicate values (over loci and over sub-samples)",
                 tags$br(),
-                uiOutput(ns("ui_dl_file5")),
-                plotly::plotlyOutput(ns("boot_dist_plot"), height="220px")
+                uiOutput(ns("ui_dl_file5"))
+                # plotly::plotlyOutput(ns("boot_dist_plot"), height="220px")
               )
             )
           )
