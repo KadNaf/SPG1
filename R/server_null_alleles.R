@@ -245,56 +245,74 @@ server_null_alleles <- function(id, rv) {
 
     # ══════════════════════════════════════════════════════════════════════════
     #  EM ALGORITHM — exact translation of rDempster_per_locus (Pascal FreeNA)
-    #  n_null_homo (how many individuals carry a literal 99/999-per-allele
-    #  genotype) is ALWAYS computed straight from the data, exactly like
-    #  FreeNA_optm2R.pas does when reading genotypes — this never depends on
-    #  any setting and is always correct.
-    #  `treat` is the USER'S CHOICE (per locus, from the radio buttons) for
-    #  which EM formula to apply to that locus's blanks:
+    #
+    #  `treat` is the USER'S CHOICE (per locus, from the radio buttons):
     #    "absent"    — treat blanks as uninformative PCR failure (000000)
     #    "null_homo" — treat blanks as informative null homozygotes (999999)
-    #  If the user picks "null_homo" for a locus that has no literal
-    #  null-homozygote genotypes in the data (n_null_homo == 0), we fall back
-    #  to the "absent" formulas — there is nothing to treat as informative.
+    #
+    #  CRITICAL: this choice is honoured as a TEMPORARY RE-CODING, independent
+    #  of whatever numeral the source file actually used for its blanks. A
+    #  "blank" individual (coded 0 OR 999 in the raw data — either
+    #  convention) is identified first; the user's choice then decides
+    #  whether ALL of that locus's blanks enter the EM as absent or as null
+    #  homozygotes. Earlier versions only recognised a blank as
+    #  "null homozygote" if it was LITERALLY coded 999 in the source file —
+    #  so choosing "null_homo" for a locus whose blanks were coded 0 silently
+    #  had no effect at all (it always fell back to "absent", because
+    #  n_null_homo was 0 by construction). That is the bug fixed here: the
+    #  user's selection now always governs the computation, whether the
+    #  source file used 0, 000000, 999, or 999999.
     # ══════════════════════════════════════════════════════════════════════════
     em_freena <- function(gt_vec, base, treat = "absent", max_iter = 5000L) {
-      efpop      <- length(gt_vec)
-      absent_msk <- is.na(gt_vec) | gt_vec <= 0L
-      n_absent   <- sum(absent_msk)
-      valid_gt   <- gt_vec[!absent_msk]
+      efpop     <- length(gt_vec)
+      null_code <- if (base >= 1000L) 999L else 99L
+
+      # A "blank" is any individual missing at this locus, REGARDLESS of
+      # which numeral the source file used to encode it (0 or 999).
+      is_zero_coded <- is.na(gt_vec) | gt_vec <= 0L
+      a1_tmp <- ifelse(gt_vec > 0L, floor(gt_vec / base), NA_integer_)
+      a2_tmp <- ifelse(gt_vec > 0L, gt_vec %% base,       NA_integer_)
+      is_null_coded <- !is_zero_coded & !is.na(a1_tmp) &
+                        (a1_tmp == null_code) & (a2_tmp == null_code)
+      is_blank <- is_zero_coded | is_null_coded
+
+      # TEMPORARY RE-CODING — driven entirely by the user's choice, not by
+      # the source numeral. Exception: if THIS population has no blanks at
+      # all for this locus, there is nothing to recode as null-homozygote —
+      # fall back to the absent-style formulas (nothing informative to use).
+      treat <- if (identical(treat, "null_homo")) "null_homo" else "absent"
+      if (treat == "null_homo" && sum(is_blank) > 0L) {
+        n_absent    <- 0L
+        n_null_homo <- sum(is_blank)
+      } else {
+        treat       <- "absent"
+        n_absent    <- sum(is_blank)
+        n_null_homo <- 0L
+      }
+
+      valid_gt <- gt_vec[!is_blank]   # real (non-blank) genotypes only
 
       empty <- list(rd=0.0, pfreq=numeric(0), genefreq_obs=numeric(0),
                     H_ii=numeric(0), H_iX=numeric(0), N=0L, efpop=efpop,
-                    n_absent=n_absent, n_null_homo=0L, alleles=integer(0),
-                    n_valid_geno=0L, treat="absent")
+                    n_absent=n_absent, n_null_homo=n_null_homo, alleles=integer(0),
+                    n_valid_geno=0L, treat=treat)
 
       if (length(valid_gt) == 0L) return(empty)
 
-      a1_all <- floor(valid_gt / base)
-      a2_all <- valid_gt %% base
-      null_code     <- if (base >= 1000L) 999L else 99L
-      null_homo_msk <- (a1_all == null_code) & (a2_all == null_code)
-      n_null_homo   <- sum(null_homo_msk)
-
-      # Effective treat actually applied: honour the user's choice, but only
-      # if there is something to treat as informative.
-      treat <- if (identical(treat, "null_homo") && n_null_homo > 0L)
-        "null_homo" else "absent"
-
-      valid_a1 <- a1_all[!null_homo_msk]
-      valid_a2 <- a2_all[!null_homo_msk]
+      valid_a1 <- floor(valid_gt / base)
+      valid_a2 <- valid_gt %% base
       alleles  <- sort(unique(c(valid_a1, valid_a2)))
       alleles  <- alleles[alleles >= 0L & alleles != null_code]
 
       N <- efpop - n_absent
       if (N == 0L || length(alleles) == 0L) {
-        empty$N <- N; empty$n_null_homo <- n_null_homo; empty$treat <- treat
+        empty$N <- N
         return(empty)
       }
 
       n_valid_geno <- N - n_null_homo
       if (n_valid_geno == 0L) {
-        empty$N <- N; empty$n_null_homo <- n_null_homo; empty$treat <- treat
+        empty$N <- N
         return(empty)
       }
 
