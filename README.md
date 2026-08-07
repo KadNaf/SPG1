@@ -100,7 +100,7 @@ the in-app **Help** tab for full references.
 
 ## Credits
 
-**Programming:** Vincent Manzanilla and Naffiou Kadiri
+**Programming:** Naffiou Kadiri and Vincent Manzanilla
 **Conception:** Thierry de Meeûs
 
 ## License
