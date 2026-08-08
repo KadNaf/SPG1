@@ -100,14 +100,19 @@ null_alleles_UI <- function(id) {
     # SUMMARY — value boxes
     # ════════════════════════════════════════════════════════════════════
     fluidRow(
-      column(4, valueBoxOutput(ns("vb_loci"),  width = NULL)),
-      column(4, valueBoxOutput(ns("vb_pops"),  width = NULL)),
-      column(4, valueBoxOutput(ns("vb_n"),     width = NULL))
-    ),
-    fluidRow(
-      column(4, valueBoxOutput(ns("vb_avg_null"), width = NULL)),
-      column(4, valueBoxOutput(ns("vb_max_null"), width = NULL)),
-      column(4, valueBoxOutput(ns("vb_fst_ena"),  width = NULL))
+      box(
+        width = 12, solidHeader = TRUE, status = "primary",
+        title = div(style = "background:#FFFFFF; padding:10px; color:#333a43; font-weight:600;",
+                    icon("chart-bar"), " Summary "),
+        fluidRow(
+          column(2, valueBoxOutput(ns("vb_loci"),  width = NULL)),
+          column(2, valueBoxOutput(ns("vb_pops"),  width = NULL)),
+          column(2, valueBoxOutput(ns("vb_n"),     width = NULL))
+          column(2, valueBoxOutput(ns("vb_avg_null"), width = NULL)),
+          column(2, valueBoxOutput(ns("vb_max_null"), width = NULL)),
+          column(2, valueBoxOutput(ns("vb_fst_ena"),  width = NULL))
+        )
+      )
     ),
 
     # ════════════════════════════════════════════════════════════════════
