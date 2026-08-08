@@ -107,7 +107,7 @@ null_alleles_UI <- function(id) {
         fluidRow(
           column(2, valueBoxOutput(ns("vb_loci"),  width = NULL)),
           column(2, valueBoxOutput(ns("vb_pops"),  width = NULL)),
-          column(2, valueBoxOutput(ns("vb_n"),     width = NULL))
+          column(2, valueBoxOutput(ns("vb_n"),     width = NULL)),
           column(2, valueBoxOutput(ns("vb_avg_null"), width = NULL)),
           column(2, valueBoxOutput(ns("vb_max_null"), width = NULL)),
           column(2, valueBoxOutput(ns("vb_fst_ena"),  width = NULL))
