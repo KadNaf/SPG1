@@ -37,20 +37,20 @@ isolation_by_distance_UI <- function(id) {
       ))
     ),
 
-    fluidRow(
-      box(
-        width = 12, solidHeader = TRUE, status = "primary",
-        title = div(style = "background:#FFFFFF; padding:10px; color:#333a43; font-weight:600;",
-                    icon("chart-bar"), " Summary "),
-        fluidRow(
-          column(3, valueBoxOutput(ns("box_nloci"),  width = NULL)),
-          column(3, valueBoxOutput(ns("box_npops"),  width = NULL)),
-          column(3, valueBoxOutput(ns("box_fstena"), width = NULL)),
-          column(3, valueBoxOutput(ns("box_nboot"),  width = NULL))
-        ),
-        uiOutput(ns("ui_run_status"))
-      )
-    ),
+    # fluidRow(
+    #   box(
+    #     width = 12, solidHeader = TRUE, status = "primary",
+    #     title = div(style = "background:#FFFFFF; padding:10px; color:#333a43; font-weight:600;",
+    #                 icon("chart-bar"), " Summary "),
+    #     fluidRow(
+    #       column(3, valueBoxOutput(ns("box_nloci"),  width = NULL)),
+    #       column(3, valueBoxOutput(ns("box_npops"),  width = NULL)),
+    #       column(3, valueBoxOutput(ns("box_fstena"), width = NULL)),
+    #       column(3, valueBoxOutput(ns("box_nboot"),  width = NULL))
+    #     ),
+    #     uiOutput(ns("ui_run_status"))
+    #   )
+    # ),
 
     tabsetPanel(
       id = ns("ibd_tabs"), type = "tabs",
