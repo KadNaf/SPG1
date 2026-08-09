@@ -34,7 +34,7 @@ null_alleles_UI <- function(id) {
     .na-locus-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
     .na-locus-item {
       background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;
-      padding:.5rem .8rem; min-width:180px; flex:1;
+      padding:.5rem .8rem; min-width:150px; flex:1;
     }
     .na-locus-item .control-label { display:none; } /* hide redundant label */
     .na-locus-name {
