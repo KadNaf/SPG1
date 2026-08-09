@@ -65,6 +65,31 @@ null_alleles_UI <- function(id) {
 
     .na-filecard { margin-bottom: 14px; }
     .na-filecard .fname { margin-top:8px; font-size:11px; word-break:break-all; color:#666; }
+
+    .vb-loci .small-box {
+      background-color: #E8F1F8 !important;
+      color: #333a43 !important;
+    }
+    .vb-pops .small-box {
+      background-color: #EAF4EA !important;
+      color: #333a43 !important;
+    }
+    .vb-n .small-box {
+      background-color: #FFF4E5 !important;
+      color: #333a43 !important;
+    }
+    .vb-avg-null .small-box {
+      background-color: #F3EAF7 !important;
+      color: #333a43 !important;
+    }
+    .vb-max-null .small-box {
+      background-color: #FDECEC !important;
+      color: #333a43 !important;
+    }
+    .vb-fst-ena .small-box {
+      background-color: #E8F5F2 !important;
+      color: #333a43 !important;
+    }
   "))
 
   box_title_style <- "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;"
