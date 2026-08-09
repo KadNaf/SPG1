@@ -91,8 +91,7 @@ null_alleles_UI <- function(id) {
         "<ul style='margin:4px 0 0 16px;'>",
         "<li><b>Loci</b>, resampled with replacement across the whole locus set (multilocus estimates only).</li>",
         "<li><b>Sub-samples</b> (populations), resampled as whole blocks with replacement (multilocus and per-locus).</li>",
-        "</ul>",
-        "The results here are reused directly by the <b>Isolation by Distance</b> module \u2014 nothing is recomputed there."
+        "</ul>"
       ))
     ),
 
