@@ -390,6 +390,111 @@ BEGIN_RCPP
 END_RCPP
 }
 
+// mantel_genepop_cpp
+Rcpp::List mantel_genepop_cpp(Rcpp::NumericMatrix Xmat, Rcpp::NumericMatrix Ymat, int nperm, double seedVal);
+RcppExport SEXP _shinypopgen_mantel_genepop_cpp(SEXP XmatSEXP, SEXP YmatSEXP, SEXP npermSEXP, SEXP seedValSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Xmat(XmatSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Ymat(YmatSEXP);
+    Rcpp::traits::input_parameter< int >::type nperm(npermSEXP);
+    Rcpp::traits::input_parameter< double >::type seedVal(seedValSEXP);
+    rcpp_result_gen = Rcpp::wrap(mantel_genepop_cpp(Xmat, Ymat, nperm, seedVal));
+    return rcpp_result_gen;
+END_RCPP
+}
+
+// mantel_plus1_cpp
+Rcpp::List mantel_plus1_cpp(Rcpp::NumericMatrix Xmat, Rcpp::NumericMatrix Ymat, int nperm);
+RcppExport SEXP _shinypopgen_mantel_plus1_cpp(SEXP XmatSEXP, SEXP YmatSEXP, SEXP npermSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Xmat(XmatSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Ymat(YmatSEXP);
+    Rcpp::traits::input_parameter< int >::type nperm(npermSEXP);
+    rcpp_result_gen = Rcpp::wrap(mantel_plus1_cpp(Xmat, Ymat, nperm));
+    return rcpp_result_gen;
+END_RCPP
+}
+
+// classic_partial_mantel_cpp
+Rcpp::List classic_partial_mantel_cpp(Rcpp::NumericMatrix Xmat, Rcpp::NumericMatrix Ymat, Rcpp::NumericMatrix Zmat, int nperm);
+RcppExport SEXP _shinypopgen_classic_partial_mantel_cpp(SEXP XmatSEXP, SEXP YmatSEXP, SEXP ZmatSEXP, SEXP npermSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Xmat(XmatSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Ymat(YmatSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Zmat(ZmatSEXP);
+    Rcpp::traits::input_parameter< int >::type nperm(npermSEXP);
+    rcpp_result_gen = Rcpp::wrap(classic_partial_mantel_cpp(Xmat, Ymat, Zmat, nperm));
+    return rcpp_result_gen;
+END_RCPP
+}
+
+// mrm_cpp
+Rcpp::List mrm_cpp(Rcpp::NumericMatrix Ymat, Rcpp::List Xmats, int nperm, bool standardize);
+RcppExport SEXP _shinypopgen_mrm_cpp(SEXP YmatSEXP, SEXP XmatsSEXP, SEXP npermSEXP, SEXP standardizeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Ymat(YmatSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type Xmats(XmatsSEXP);
+    Rcpp::traits::input_parameter< int >::type nperm(npermSEXP);
+    Rcpp::traits::input_parameter< bool >::type standardize(standardizeSEXP);
+    rcpp_result_gen = Rcpp::wrap(mrm_cpp(Ymat, Xmats, nperm, standardize));
+    return rcpp_result_gen;
+END_RCPP
+}
+
+// boot_subsamples_fst_cpp
+Rcpp::List boot_subsamples_fst_cpp(Rcpp::List perLocusData, int nboot);
+RcppExport SEXP _shinypopgen_boot_subsamples_fst_cpp(SEXP perLocusDataSEXP, SEXP nbootSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type perLocusData(perLocusDataSEXP);
+    Rcpp::traits::input_parameter< int >::type nboot(nbootSEXP);
+    rcpp_result_gen = Rcpp::wrap(boot_subsamples_fst_cpp(perLocusData, nboot));
+    return rcpp_result_gen;
+END_RCPP
+}
+
+// g_test_subdivision_batch_cpp
+Rcpp::List g_test_subdivision_batch_cpp(Rcpp::IntegerVector pop_idx0_full, Rcpp::List loci_idx0, Rcpp::List loci_allele0, Rcpp::IntegerVector loci_n_allele, int n_pop, int n_batch);
+RcppExport SEXP _shinypopgen_g_test_subdivision_batch_cpp(SEXP pop_idx0_fullSEXP, SEXP loci_idx0SEXP, SEXP loci_allele0SEXP, SEXP loci_n_alleleSEXP, SEXP n_popSEXP, SEXP n_batchSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type pop_idx0_full(pop_idx0_fullSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type loci_idx0(loci_idx0SEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type loci_allele0(loci_allele0SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type loci_n_allele(loci_n_alleleSEXP);
+    Rcpp::traits::input_parameter< int >::type n_pop(n_popSEXP);
+    Rcpp::traits::input_parameter< int >::type n_batch(n_batchSEXP);
+    rcpp_result_gen = Rcpp::wrap(g_test_subdivision_batch_cpp(pop_idx0_full, loci_idx0, loci_allele0, loci_n_allele, n_pop, n_batch));
+    return rcpp_result_gen;
+END_RCPP
+}
+
+// g_test_subdivision_observed_cpp
+Rcpp::List g_test_subdivision_observed_cpp(Rcpp::IntegerVector pop_idx0_full, Rcpp::List loci_idx0, Rcpp::List loci_allele0, Rcpp::IntegerVector loci_n_allele, int n_pop);
+RcppExport SEXP _shinypopgen_g_test_subdivision_observed_cpp(SEXP pop_idx0_fullSEXP, SEXP loci_idx0SEXP, SEXP loci_allele0SEXP, SEXP loci_n_alleleSEXP, SEXP n_popSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type pop_idx0_full(pop_idx0_fullSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type loci_idx0(loci_idx0SEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type loci_allele0(loci_allele0SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type loci_n_allele(loci_n_alleleSEXP);
+    Rcpp::traits::input_parameter< int >::type n_pop(n_popSEXP);
+    rcpp_result_gen = Rcpp::wrap(g_test_subdivision_observed_cpp(pop_idx0_full, loci_idx0, loci_allele0, loci_n_allele, n_pop));
+    return rcpp_result_gen;
+END_RCPP
+}
+
 static const R_CallMethodDef CallEntries[] = {
     {"_shinypopgen_wc_fis_by_pop", (DL_FUNC) &_shinypopgen_wc_fis_by_pop, 3},
     {"_shinypopgen_boot_indiv_wc_fis_by_pop", (DL_FUNC) &_shinypopgen_boot_indiv_wc_fis_by_pop, 6},
@@ -416,6 +521,13 @@ static const R_CallMethodDef CallEntries[] = {
     {"_shinypopgen_boot_popblock_wc84_parallel", (DL_FUNC) &_shinypopgen_boot_popblock_wc84_parallel, 7},
     {"_shinypopgen_boot_indiv_hs_cpp", (DL_FUNC) &_shinypopgen_boot_indiv_hs_cpp, 7},
     {"_shinypopgen_ld_pvalues_cpp", (DL_FUNC) &_shinypopgen_ld_pvalues_cpp, 5},
+    {"_shinypopgen_mantel_genepop_cpp", (DL_FUNC) &_shinypopgen_mantel_genepop_cpp, 4},
+    {"_shinypopgen_mantel_plus1_cpp", (DL_FUNC) &_shinypopgen_mantel_plus1_cpp, 3},
+    {"_shinypopgen_classic_partial_mantel_cpp", (DL_FUNC) &_shinypopgen_classic_partial_mantel_cpp, 4},
+    {"_shinypopgen_mrm_cpp", (DL_FUNC) &_shinypopgen_mrm_cpp, 4},
+    {"_shinypopgen_boot_subsamples_fst_cpp", (DL_FUNC) &_shinypopgen_boot_subsamples_fst_cpp, 2},
+    {"_shinypopgen_g_test_subdivision_batch_cpp", (DL_FUNC) &_shinypopgen_g_test_subdivision_batch_cpp, 6},
+    {"_shinypopgen_g_test_subdivision_observed_cpp", (DL_FUNC) &_shinypopgen_g_test_subdivision_observed_cpp, 5},
     {NULL, NULL, 0}
 };
 

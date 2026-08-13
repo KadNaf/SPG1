@@ -101,3 +101,31 @@ ld_pvalues_cpp <- function(Population, geno_mat, base, nbperms = 10000L, seed = 
     .Call(`_shinypopgen_ld_pvalues_cpp`, Population, geno_mat, base, nbperms, seed)
 }
 
+mantel_genepop_cpp <- function(Xmat, Ymat, nperm, seedVal) {
+    .Call(`_shinypopgen_mantel_genepop_cpp`, Xmat, Ymat, nperm, seedVal)
+}
+
+mantel_plus1_cpp <- function(Xmat, Ymat, nperm) {
+    .Call(`_shinypopgen_mantel_plus1_cpp`, Xmat, Ymat, nperm)
+}
+
+classic_partial_mantel_cpp <- function(Xmat, Ymat, Zmat, nperm) {
+    .Call(`_shinypopgen_classic_partial_mantel_cpp`, Xmat, Ymat, Zmat, nperm)
+}
+
+mrm_cpp <- function(Ymat, Xmats, nperm, standardize) {
+    .Call(`_shinypopgen_mrm_cpp`, Ymat, Xmats, nperm, standardize)
+}
+
+boot_subsamples_fst_cpp <- function(perLocusData, nboot) {
+    .Call(`_shinypopgen_boot_subsamples_fst_cpp`, perLocusData, nboot)
+}
+
+g_test_subdivision_batch_cpp <- function(pop_idx0_full, loci_idx0, loci_allele0, loci_n_allele, n_pop, n_batch) {
+    .Call(`_shinypopgen_g_test_subdivision_batch_cpp`, pop_idx0_full, loci_idx0, loci_allele0, loci_n_allele, n_pop, n_batch)
+}
+
+g_test_subdivision_observed_cpp <- function(pop_idx0_full, loci_idx0, loci_allele0, loci_n_allele, n_pop) {
+    .Call(`_shinypopgen_g_test_subdivision_observed_cpp`, pop_idx0_full, loci_idx0, loci_allele0, loci_n_allele, n_pop)
+}
+
