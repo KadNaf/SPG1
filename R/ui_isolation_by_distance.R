@@ -18,8 +18,8 @@ isolation_by_distance_UI <- function(id) {
 
     module_banner(
       "atom",
-      "Isolation by Distance \u00b7 Mantel Test",
-      "Rousset (1997) IBD regression \u00b7 Mantel (1967) permutation test \u2014 built on the pairwise FST-ENA / DCSE-INA already computed in the Null Alleles module",
+      "Isolation by Distance · Mantel Test",
+      "Rousset (1997) IBD regression · Mantel (1967) permutation test — Option 1: pairwise FST-ENA / DCSE-INA + geographic distances from population GPS centroids · Option 2: geographic distances imported from an external Pop1/Pop2/Distance file",
       "#0c4a6e"
     ),
 
