@@ -26,11 +26,15 @@ isolation_by_distance_UI <- function(id) {
     tags$div(
       class = "spg-method-note", style = "border-left-color:#0c4a6e;",
       HTML(paste0(
+        "<b>Option 1 — Use pairwise genetic distances from the Null Alleles module:</b><br>",
         "This module reuses the pairwise F<sub>ST</sub> / F<sub>ST</sub>-ENA / D<sub>CSE</sub> / ",
         "D<sub>CSE</sub>-INA (+ bootstrap CI) already computed in the <b>Null Alleles</b> module — ",
         "nothing is recomputed here. Go there first, choose your per-locus coding, and click ",
         "<b>\"Compute + Bootstrap + Export\"</b>, then come back to this module.",
-        "<br>Geographic distance (D<sub>geo</sub>) is the <b>Vincenty ellipsoidal geodesic distance</b> ",
+        "<br><br>",
+        
+        "<b>Option 2 — Use geographic distances from an external file:</b><br>",
+        "Geographic distance (D<sub>geo</sub>) is the <b>Vincenty ellipsoidal geodesic distance</b> ",
         "(WGS84), in metres, from each population's GPS centroid (mean Latitude/Longitude of its individuals) ",
         "\u2014 or, alternatively, distances loaded from an <b>external Pop1/Pop2/Distance file</b> ",
         "(e.g. the subsample-pairs template exported by the <b>Subdivision</b> module and edited by hand)."
