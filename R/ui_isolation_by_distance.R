@@ -16,7 +16,7 @@ isolation_by_distance_UI <- function(id) {
 
     module_banner(
       "atom",
-      "Isolation by Distance · Mantel Test"
+      "Isolation by Distance · Mantel Test",
     ),
 
     fluidRow(
