@@ -2,51 +2,75 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"
      width="512" height="512" role="img" aria-labelledby="t d">
   <title id="t">ShinyPopGen — icône</title>
-  <desc id="d">Double hélice d'ADN stylisée dans un disque bleu nuit.</desc>
+  <desc id="d">Double hélice d'ADN cyan et motif de nœuds génétiques dans un disque bleu nuit.</desc>
 
   <defs>
-    <linearGradient id="strand" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#3ED8FF"/>
-      <stop offset="100%" stop-color="#00A6E0"/>
-    </linearGradient>
+    <clipPath id="disc">
+      <circle cx="256" cy="256" r="248"/>
+    </clipPath>
   </defs>
 
-  <!-- disque de fond : supprime cette ligne pour un fond 100% transparent -->
+  <!-- disque de fond : supprime pour un fond transparent (garde le clipPath) -->
   <circle cx="256" cy="256" r="248" fill="#1B2A6B"/>
 
-  <g fill="none" stroke-linecap="round">
-    <!-- barreaux (derrière les brins) -->
-    <g stroke="#5BE7C4" stroke-width="12" opacity="0.9">
-      <line x1="185" y1="131" x2="327" y2="131"/>
-      <line x1="156" y1="156" x2="356" y2="156"/>
-      <line x1="185" y1="181" x2="327" y2="181"/>
+  <g clip-path="url(#disc)">
 
-      <line x1="185" y1="231" x2="327" y2="231"/>
-      <line x1="156" y1="256" x2="356" y2="256"/>
-      <line x1="185" y1="281" x2="327" y2="281"/>
+    <!-- ===== ADN ===== -->
+    <g stroke="#22B8F0" fill="none" stroke-linecap="round">
+      <!-- barreaux -->
+      <g stroke-width="16">
+        <line x1="178" y1="81"  x2="334" y2="81"/>
+        <line x1="146" y1="106" x2="366" y2="106"/>
+        <line x1="178" y1="131" x2="334" y2="131"/>
 
-      <line x1="185" y1="331" x2="327" y2="331"/>
-      <line x1="156" y1="356" x2="356" y2="356"/>
-      <line x1="185" y1="381" x2="327" y2="381"/>
+        <line x1="178" y1="181" x2="334" y2="181"/>
+        <line x1="146" y1="206" x2="366" y2="206"/>
+        <line x1="178" y1="231" x2="334" y2="231"/>
+
+        <line x1="178" y1="281" x2="334" y2="281"/>
+        <line x1="146" y1="306" x2="366" y2="306"/>
+        <line x1="178" y1="331" x2="334" y2="331"/>
+
+        <line x1="178" y1="381" x2="334" y2="381"/>
+        <line x1="146" y1="406" x2="366" y2="406"/>
+        <line x1="178" y1="431" x2="334" y2="431"/>
+      </g>
+
+      <!-- brin A -->
+      <path stroke-width="34"
+            d="M256,56  C403,81  403,131 256,156
+                        C109,181 109,231 256,256
+                        C403,281 403,331 256,356
+                        C109,381 109,431 256,456"/>
+      <!-- brin B (miroir) -->
+      <path stroke-width="34"
+            d="M256,56  C109,81  109,131 256,156
+                        C403,181 403,231 256,256
+                        C109,281 109,331 256,356
+                        C403,381 403,431 256,456"/>
     </g>
 
-    <!-- brin A : part vers la droite -->
-    <path stroke="url(#strand)" stroke-width="26"
-          d="M256,106 C389,131 389,181 256,206
-                     C123,231 123,281 256,306
-                     C389,331 389,381 256,406"/>
-
-    <!-- brin B : miroir, part vers la gauche -->
-    <path stroke="url(#strand)" stroke-width="26"
-          d="M256,106 C123,131 123,181 256,206
-                     C389,231 389,281 256,306
-                     C123,331 123,381 256,406"/>
-
-    <!-- nucléotides aux extrémités les plus larges -->
-    <g fill="#5BE7C4" stroke="none">
-      <circle cx="156" cy="156" r="14"/><circle cx="356" cy="156" r="14"/>
-      <circle cx="156" cy="256" r="14"/><circle cx="356" cy="256" r="14"/>
-      <circle cx="156" cy="356" r="14"/><circle cx="356" cy="356" r="14"/>
+    <!-- ===== motif nœuds + ampoule (par-dessus) ===== -->
+    <g fill="#86DFC4">
+      <!-- liaisons -->
+      <g stroke="#86DFC4" stroke-width="13" stroke-linecap="round" fill="none">
+        <line x1="186" y1="150" x2="232" y2="212"/>
+        <line x1="326" y1="150" x2="280" y2="212"/>
+        <line x1="186" y1="150" x2="326" y2="150"/>
+      </g>
+      <!-- nœuds -->
+      <circle cx="186" cy="150" r="27"/>
+      <circle cx="326" cy="150" r="27"/>
+      <!-- ampoule -->
+      <path d="M256,196
+               c-40,0 -66,30 -66,64
+               0,25 17,40 26,53
+               h80
+               c9,-13 26,-28 26,-53
+               0,-34 -26,-64 -66,-64 z"/>
+      <rect x="228" y="322" width="56" height="17" rx="8"/>
+      <rect x="236" y="347" width="40" height="15" rx="7"/>
     </g>
+
   </g>
 </svg>
