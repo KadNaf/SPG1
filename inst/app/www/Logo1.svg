@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="t d">
 <title id="t">ShinyPopGen</title>
 <desc id="d">Double helice d'ADN et noeuds genetiques dans un disque bleu nuit.</desc>
@@ -15,4 +14,7 @@
 <g fill="#5BE7C4" stroke="#5BE7C4" stroke-width="3.2" stroke-linejoin="round" transform="translate(209.5,328.9)"><ellipse cx="41" cy="41.4" rx="41" ry="41.4"/></g>
 <g fill="#5BE7C4" stroke="#5BE7C4" stroke-width="3.2" stroke-linejoin="round" transform="translate(327.6,110.8)"><ellipse cx="41" cy="41.4" rx="41" ry="41.4"/></g>
 <g fill="#5BE7C4" stroke="#5BE7C4" stroke-width="3.2" stroke-linejoin="round" transform="translate(91.2,110.8)"><ellipse cx="41" cy="41.4" rx="41" ry="41.4"/></g>
+<line x1="173.1" y1="152.1" x2="327.6" y2="152.1" stroke="#5BE7C4" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="161.1" y1="181.4" x2="195.7" y2="216.4" stroke="#5BE7C4" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="305" y1="216.4" x2="339.6" y2="181.4" stroke="#5BE7C4" stroke-width="9.6" stroke-linecap="round"/>
 </svg>
