@@ -642,28 +642,59 @@ app_ui <- function() {
       # Left: text + CTA
       shiny::div(
         class = "spg-hero-text",
-        shiny::HTML('<svg viewBox="0 0 510 410" height="340" xmlns="http://www.w3.org/2000/svg" aria-label="ShinyPopGen" style="display:block; margin-bottom:20px;">
-          <defs>
-            <linearGradient id="hero-tg" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#8F86FF"/>
-              <stop offset="100%" stop-color="#5AA7FF"/>
-            </linearGradient>
-          </defs>
-          <text x="0" y="85" fill="#F4F6FF" font-size="65" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="300" letter-spacing="-1.5">ShinyPopGen V1</text>
-          <text x="0" y="175" fill="url(#hero-tg)" font-size="65" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="500" letter-spacing="-2">SPG-V1</text>
-          <line x1="0" y1="210" x2="300" y2="210" stroke="#7074D8" stroke-width="2"/>
-          <text x="2" y="240" fill="#F4F6FF" font-size="18" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="400">
-            <tspan x="2" dy="0">A Versatile, user-friendly and multi-OS application</tspan>
-            <tspan x="2" dy="22">to analyse population genetic data</tspan>
-          </text>
-          <rect x="2"   y="280" width="72" height="12" rx="6" fill="#6F67F5"/>
-          <rect x="86"  y="280" width="72" height="12" rx="6" fill="#7F76FF"/>
-          <rect x="172" y="280" width="72" height="12" rx="6" fill="#17B08B"/>
-          <rect x="258" y="280" width="42" height="12" rx="6" fill="#C45D34"/>
-          <rect x="314" y="280" width="72" height="12" rx="6" fill="#9A650E"/>
-          <rect x="400" y="280" width="96" height="12" rx="6" fill="#5F56CA"/>
-          <text x="2" y="330" fill="#787BD3" font-size="22" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="400" letter-spacing="2.8">IRD \u00b7 UCAD \u00b7 CIRAD \u00b7 INTERTRYP</text>
-        </svg>'),
+        shiny::HTML('<svg viewBox="0 0 790 410" height="340" xmlns="http://www.w3.org/2000/svg"
+     aria-label="ShinyPopGen" style="display:block; margin-bottom:20px;">
+  <defs>
+    <linearGradient id="hero-tg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8F86FF"/>
+      <stop offset="100%" stop-color="#5AA7FF"/>
+    </linearGradient>
+    <clipPath id="hero-disc"><circle cx="256" cy="256" r="248"/></clipPath>
+    <style>
+      #mark { --disc:#1B2A6B; --dna:#00C2FF; --node:#5BE7C4; }
+    </style>
+  </defs>
+
+  <!-- ===== marque ===== -->
+  <g id="mark" transform="translate(0,58) scale(0.4688)">
+    <g clip-path="url(#hero-disc)">
+      <g fill="var(--disc)" stroke="var(--disc)" stroke-width="3.2" stroke-linejoin="round" transform="translate(8,5.5)"><ellipse cx="248" cy="250.5" rx="248" ry="250.5"/></g>
+      <g fill="var(--dna)" stroke="var(--dna)" stroke-width="6.4" stroke-linejoin="round" transform="translate(101.1,58.8)"><path d="M30.1,9.8 C37.1,20.5 32.3,46.1 44.6,69.5 C57,93 79,128.2 104.1,150.7 C129.3,173.2 170.4,189 195.6,204.3 C220.7,219.6 236.7,224.2 255.1,242.6 C273.5,261 295.5,291.8 305.9,314.6 C316.3,337.3 320.1,367.4 317.5,378.9 C314.8,390.4 296.4,391.4 289.9,383.5 C283.4,375.6 286.8,349.3 278.3,331.4 C269.8,313.5 255.1,291.8 239.1,276.3 C223.1,260.7 202.8,249.7 182.5,238 C162.2,226.2 137.5,218.3 117.2,205.8 C96.9,193.3 76.1,179.3 60.6,163 C45.1,146.6 33.7,125.2 24.3,107.8 C14.9,90.5 7.6,75.9 4,58.8 C0.3,41.7 -2.1,13.9 2.5,5.2 C7.1,-3.5 23.1,-0.9 30.1,9.8 Z"/></g>
+      <g fill="var(--dna)" stroke="var(--dna)" stroke-width="6.4" stroke-linejoin="round" transform="translate(234.8,-41.8) rotate(90,16.2,138.2)"><path d="M0,4 A16.2,4 0 0 1 32.3,4 L32.3,272.3 A16.2,4 0 0 1 0,272.3 Z"/><ellipse cx="16.2" cy="4" rx="16.2" ry="4"/></g>
+      <g fill="var(--dna)" stroke="var(--dna)" stroke-width="6.4" stroke-linejoin="round" transform="translate(235.1,38.2) rotate(90,14.5,117.3)"><path d="M0,3.6 A14.5,3.6 0 0 1 28.9,3.6 L28.9,231 A14.5,3.6 0 0 1 0,231 Z"/><ellipse cx="14.5" cy="3.6" rx="14.5" ry="3.6"/></g>
+      <g fill="var(--dna)" stroke="var(--dna)" stroke-width="6.4" stroke-linejoin="round" transform="translate(233.8,134.5) rotate(90,14.5,78.3)"><path d="M0,3.6 A14.5,3.6 0 0 1 28.9,3.6 L28.9,153 A14.5,3.6 0 0 1 0,153 Z"/><ellipse cx="14.5" cy="3.6" rx="14.5" ry="3.6"/></g>
+      <g fill="var(--dna)" stroke="var(--dna)" stroke-width="6.4" stroke-linejoin="round" transform="translate(245.4,270.2) rotate(270,14.5,147.6)"><path d="M0,3.6 A14.5,3.6 0 0 1 28.9,3.6 L28.9,291.5 A14.5,3.6 0 0 1 0,291.5 Z"/><ellipse cx="14.5" cy="3.6" rx="14.5" ry="3.6"/></g>
+      <g fill="var(--dna)" stroke="var(--dna)" stroke-width="6.4" stroke-linejoin="round" transform="translate(245.7,231.9) rotate(270,14.5,128.5)"><path d="M0,3.6 A14.5,3.6 0 0 1 28.9,3.6 L28.9,253.4 A14.5,3.6 0 0 1 0,253.4 Z"/><ellipse cx="14.5" cy="3.6" rx="14.5" ry="3.6"/></g>
+      <g fill="var(--dna)" stroke="var(--dna)" stroke-width="6.4" stroke-linejoin="round" transform="translate(250,217.5) rotate(270,14.5,95.5)"><path d="M0,3.6 A14.5,3.6 0 0 1 28.9,3.6 L28.9,187.3 A14.5,3.6 0 0 1 0,187.3 Z"/><ellipse cx="14.5" cy="3.6" rx="14.5" ry="3.6"/></g>
+      <g fill="var(--dna)" stroke="var(--dna)" stroke-width="6.4" stroke-linejoin="round" transform="translate(101.1,57.7) scale(-1,1) translate(-298.6,0)"><path d="M28.2,9.8 C34.8,20.5 30.3,46.1 41.9,69.5 C53.4,93 74.1,128.2 97.7,150.7 C121.3,173.2 159.9,189 183.5,204.3 C207.1,219.6 222,224.2 239.3,242.6 C256.5,261 277.2,291.8 286.9,314.6 C296.7,337.3 300.3,367.4 297.8,378.9 C295.3,390.4 278.1,391.4 272,383.5 C265.8,375.6 269,349.3 261.1,331.4 C253.1,313.5 239.3,291.8 224.3,276.3 C209.3,260.7 190.3,249.7 171.2,238 C152.1,226.2 129,218.3 109.9,205.8 C90.9,193.3 71.4,179.3 56.8,163 C42.3,146.6 31.6,125.2 22.8,107.8 C13.9,90.5 7.1,75.9 3.7,58.8 C0.3,41.7 -1.9,13.9 2.4,5.2 C6.7,-3.5 21.7,-0.9 28.2,9.8 Z"/></g>
+      <g fill="var(--node)" stroke="var(--node)" stroke-width="3.2" stroke-linejoin="round" transform="translate(173.1,193.5)"><ellipse cx="77.3" cy="78.1" rx="77.3" ry="78.1"/></g>
+      <g fill="var(--node)" stroke="var(--node)" stroke-width="3.2" stroke-linejoin="round" transform="translate(209.5,328.9)"><ellipse cx="41" cy="41.4" rx="41" ry="41.4"/></g>
+      <g fill="var(--node)" stroke="var(--node)" stroke-width="3.2" stroke-linejoin="round" transform="translate(327.6,110.8)"><ellipse cx="41" cy="41.4" rx="41" ry="41.4"/></g>
+      <g fill="var(--node)" stroke="var(--node)" stroke-width="3.2" stroke-linejoin="round" transform="translate(91.2,110.8)"><ellipse cx="41" cy="41.4" rx="41" ry="41.4"/></g>
+      <line x1="173.1" y1="152.1" x2="327.6" y2="152.1" stroke="var(--node)" stroke-width="9.6" stroke-linecap="round"/>
+      <line x1="161.1" y1="181.4" x2="195.7" y2="216.4" stroke="var(--node)" stroke-width="9.6" stroke-linecap="round"/>
+      <line x1="305" y1="216.4" x2="339.6" y2="181.4" stroke="var(--node)" stroke-width="9.6" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- ===== bloc texte (décalé de 280) ===== -->
+  <g transform="translate(280,0)">
+    <text x="0" y="85" fill="#F4F6FF" font-size="65" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="300" letter-spacing="-1.5">ShinyPopGen V1</text>
+    <text x="0" y="175" fill="url(#hero-tg)" font-size="65" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="500" letter-spacing="-2">SPG-V1</text>
+    <line x1="0" y1="210" x2="300" y2="210" stroke="#7074D8" stroke-width="2"/>
+    <text x="2" y="240" fill="#F4F6FF" font-size="18" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="400">
+      <tspan x="2" dy="0">A Versatile, user-friendly and multi-OS application</tspan>
+      <tspan x="2" dy="22">to analyse population genetic data</tspan>
+    </text>
+    <rect x="2"   y="280" width="72" height="12" rx="6" fill="#6F67F5"/>
+    <rect x="86"  y="280" width="72" height="12" rx="6" fill="#7F76FF"/>
+    <rect x="172" y="280" width="72" height="12" rx="6" fill="#17B08B"/>
+    <rect x="258" y="280" width="42" height="12" rx="6" fill="#C45D34"/>
+    <rect x="314" y="280" width="72" height="12" rx="6" fill="#9A650E"/>
+    <rect x="400" y="280" width="96" height="12" rx="6" fill="#5F56CA"/>
+    <text x="2" y="330" fill="#787BD3" font-size="22" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="400" letter-spacing="2.8">IRD · UCAD · CIRAD · INTERTRYP</text>
+  </g>
+</svg>'),
         # Credits section
         shiny::div(
           class = "spg-credits",
