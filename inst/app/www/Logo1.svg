@@ -6,7 +6,7 @@
 
   <defs>
     <linearGradient id="strand" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"  stop-color="#3ED8FF"/>
+      <stop offset="0%"   stop-color="#3ED8FF"/>
       <stop offset="100%" stop-color="#00A6E0"/>
     </linearGradient>
   </defs>
@@ -14,42 +14,39 @@
   <!-- disque de fond : supprime cette ligne pour un fond 100% transparent -->
   <circle cx="256" cy="256" r="248" fill="#1B2A6B"/>
 
-  <g id="mark" fill="none" stroke-linecap="round">
-    <!-- barreaux -->
-    <g stroke="#5BE7C4" stroke-width="9" opacity="0.9">
-      <line x1="216" y1="145" x2="296" y2="145"/>
-      <line x1="200" y1="162" x2="312" y2="162"/>
-      <line x1="216" y1="179" x2="296" y2="179"/>
-      <line x1="216" y1="213" x2="296" y2="213"/>
-      <line x1="200" y1="230" x2="312" y2="230"/>
-      <line x1="216" y1="247" x2="296" y2="247"/>
-      <line x1="216" y1="281" x2="296" y2="281"/>
-      <line x1="200" y1="298" x2="312" y2="298"/>
-      <line x1="216" y1="315" x2="296" y2="315"/>
-      <line x1="216" y1="349" x2="296" y2="349"/>
-      <line x1="200" y1="366" x2="312" y2="366"/>
-      <line x1="216" y1="383" x2="296" y2="383"/>
+  <g fill="none" stroke-linecap="round">
+    <!-- barreaux (derrière les brins) -->
+    <g stroke="#5BE7C4" stroke-width="12" opacity="0.9">
+      <line x1="185" y1="131" x2="327" y2="131"/>
+      <line x1="156" y1="156" x2="356" y2="156"/>
+      <line x1="185" y1="181" x2="327" y2="181"/>
+
+      <line x1="185" y1="231" x2="327" y2="231"/>
+      <line x1="156" y1="256" x2="356" y2="256"/>
+      <line x1="185" y1="281" x2="327" y2="281"/>
+
+      <line x1="185" y1="331" x2="327" y2="331"/>
+      <line x1="156" y1="356" x2="356" y2="356"/>
+      <line x1="185" y1="381" x2="327" y2="381"/>
     </g>
 
-    <!-- brin A -->
-    <path stroke="url(#strand)" stroke-width="18"
-          d="M256,128 C331,143 331,181 256,196
-                     C181,211 181,249 256,264
-                     C331,279 331,317 256,332
-                     C181,347 181,385 256,400"/>
-    <!-- brin B -->
-    <path stroke="url(#strand)" stroke-width="18"
-          d="M256,128 C181,143 181,181 256,196
-                     C331,211 331,249 256,264
-                     C181,279 181,317 256,332
-                     C331,347 331,385 256,400"/>
+    <!-- brin A : part vers la droite -->
+    <path stroke="url(#strand)" stroke-width="26"
+          d="M256,106 C389,131 389,181 256,206
+                     C123,231 123,281 256,306
+                     C389,331 389,381 256,406"/>
 
-    <!-- nucléotides aux extrémités des barreaux les plus larges -->
+    <!-- brin B : miroir, part vers la gauche -->
+    <path stroke="url(#strand)" stroke-width="26"
+          d="M256,106 C123,131 123,181 256,206
+                     C389,231 389,281 256,306
+                     C123,331 123,381 256,406"/>
+
+    <!-- nucléotides aux extrémités les plus larges -->
     <g fill="#5BE7C4" stroke="none">
-      <circle cx="200" cy="162" r="11"/><circle cx="312" cy="162" r="11"/>
-      <circle cx="200" cy="230" r="11"/><circle cx="312" cy="230" r="11"/>
-      <circle cx="200" cy="298" r="11"/><circle cx="312" cy="298" r="11"/>
-      <circle cx="200" cy="366" r="11"/><circle cx="312" cy="366" r="11"/>
+      <circle cx="156" cy="156" r="14"/><circle cx="356" cy="156" r="14"/>
+      <circle cx="156" cy="256" r="14"/><circle cx="356" cy="256" r="14"/>
+      <circle cx="156" cy="356" r="14"/><circle cx="356" cy="356" r="14"/>
     </g>
   </g>
 </svg>
