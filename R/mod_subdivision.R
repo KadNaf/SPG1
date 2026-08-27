@@ -201,14 +201,14 @@ mod_subdivision_ui <- function(id) {
             actionButton(ns("run_G_test"), "Run G-test",
                          icon  = icon("rocket"),
                          class = "btn-action-primary btn-block",
-                         style = "font-weight: bold;"),
-            tags$small(
-              style = "color: #666; margin-top: 6px; display: block;",
-              icon("info-circle"),
-              "10,000 permutations recommended for a stable p-value. Minimum 1,000. ",
-              "Global G = sum of the per-locus G values. Permutation is over subsamples ",
-              "(whole individuals reassigned among populations), not over loci."
-            )
+                         style = "font-weight: bold;")
+            # tags$small(
+            #   style = "color: #666; margin-top: 6px; display: block;",
+            #   icon("info-circle"),
+            #   "10,000 permutations recommended for a stable p-value. Minimum 1,000. ",
+            #   "Global G = sum of the per-locus G values. Permutation is over subsamples ",
+            #   "(whole individuals reassigned among populations), not over loci."
+            # )
           ),
           column(9,
             h4(icon("chart-area"), "G-test Summary",
