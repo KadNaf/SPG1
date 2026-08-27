@@ -14,10 +14,7 @@ isolation_by_distance_UI <- function(id) {
   fluidPage(
     tags$head(gs_head()),
 
-    module_banner(
-      "atom",
-      "Isolation by Distance · Mantel Test",""
-    ),
+    module_banner("atom","Isolation by Distance · Mantel Test",""),
 
     fluidRow(
       box(

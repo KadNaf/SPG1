@@ -73,27 +73,25 @@ null_alleles_UI <- function(id) {
     tags$head(gs_head()),
     supplemental_css,
 
-    module_banner("circle-notch", "Null Allele Estimation \u00b7 FST-ENA \u00b7 DCSE-INA",
-      "EM algorithm \u00b7 Dempster, Laird & Rubin (1977) \u00b7 FreeNA \u2014 Chapuis & Estoup (2007) \u00b7 Weir & Cockerham (1984) \u00b7 Cavalli-Sforza & Edwards (1967)",
-      "#8D8680"),
+    module_banner("circle-notch", "Null Allele Estimation · FST-ENA · DCSE-INA",""),
 
-    tags$div(class = "spg-method-note", style = "border-left-color:#8D8680;",
-      HTML(paste0(
-        "<b>EM algorithm</b> (Dempster, Laird &amp; Rubin 1977) estimates the null allele frequency ",
-        "at each locus \u00d7 population, following the <b>FreeNA</b> approach (Chapuis &amp; Estoup 2007). ",
-        "<br><br>",
-        "<b>F<sub>ST</sub>-ENA</b>: multilocus and pairwise F<sub>ST</sub> (Weir &amp; Cockerham 1984), ",
-        "Excluding Null Alleles \u2014 corrected using the EM-estimated frequencies. ",
-        "<b>D<sub>CSE</sub>-INA</b>: Cavalli-Sforza &amp; Edwards (1967) chord distance, Including the ",
-        "null allele as an extra allelic state.",
-        "<br><br>",
-        "<b>Bootstrap confidence intervals</b> are computed by two resampling schemes:",
-        "<ul style='margin:4px 0 0 16px;'>",
-        "<li><b>Loci</b>, resampled with replacement across the whole locus set (multilocus estimates only).</li>",
-        "<li><b>Sub-samples</b> (populations), resampled as whole blocks with replacement (multilocus and per-locus).</li>",
-        "</ul>"
-      ))
-    ),
+    # tags$div(class = "spg-method-note", style = "border-left-color:#8D8680;",
+    #   HTML(paste0(
+    #     "<b>EM algorithm</b> (Dempster, Laird &amp; Rubin 1977) estimates the null allele frequency ",
+    #     "at each locus \u00d7 population, following the <b>FreeNA</b> approach (Chapuis &amp; Estoup 2007). ",
+    #     "<br><br>",
+    #     "<b>F<sub>ST</sub>-ENA</b>: multilocus and pairwise F<sub>ST</sub> (Weir &amp; Cockerham 1984), ",
+    #     "Excluding Null Alleles \u2014 corrected using the EM-estimated frequencies. ",
+    #     "<b>D<sub>CSE</sub>-INA</b>: Cavalli-Sforza &amp; Edwards (1967) chord distance, Including the ",
+    #     "null allele as an extra allelic state.",
+    #     "<br><br>",
+    #     "<b>Bootstrap confidence intervals</b> are computed by two resampling schemes:",
+    #     "<ul style='margin:4px 0 0 16px;'>",
+    #     "<li><b>Loci</b>, resampled with replacement across the whole locus set (multilocus estimates only).</li>",
+    #     "<li><b>Sub-samples</b> (populations), resampled as whole blocks with replacement (multilocus and per-locus).</li>",
+    #     "</ul>"
+    #   ))
+    # ),
 
     # ════════════════════════════════════════════════════════════════════
     # SUMMARY — value boxes
@@ -155,12 +153,12 @@ null_alleles_UI <- function(id) {
               label = "Random seed (reproducibility):",
               value = 12345, min = 1, max = 2147483647, step = 1))
         ),
-        tags$p(style = "color:#666;font-size:12px;",
-          icon("info-circle"), " ",
-          "Bootstrap resampling is random: point estimates (FST, FST-ENA, DCSE\u2026) never change, ",
-          "but confidence interval bounds will shift slightly from run to run unless the seed is kept ",
-          "the same. Re-run with the same seed, same data and same number of replicates to reproduce ",
-          "the exact same confidence intervals \u2014 the seed used is recorded in every exported file."),
+        # tags$p(style = "color:#666;font-size:12px;",
+        #   icon("info-circle"), " ",
+        #   "Bootstrap resampling is random: point estimates (FST, FST-ENA, DCSE\u2026) never change, ",
+        #   "but confidence interval bounds will shift slightly from run to run unless the seed is kept ",
+        #   "the same. Re-run with the same seed, same data and same number of replicates to reproduce ",
+        #   "the exact same confidence intervals \u2014 the seed used is recorded in every exported file."),
 
         tags$hr(),
 
@@ -177,19 +175,19 @@ null_alleles_UI <- function(id) {
             textInput(ns("out_root"), "Root for the name of output files:",
                       value = "", placeholder = "auto-filled from the imported data file name"))
         ),
-        tags$p(style = "color:#666;font-size:12px;",
-          icon("info-circle"), " ", tags$strong("Browse\u2026"), " opens a folder picker for ",
-          tags$strong("this computer"), " (the one running this app). Pick a folder and every file will ",
-          "be saved there automatically each time you click Compute \u2014 no need to click the .txt buttons ",
-          "one by one. Leave it empty to just use the .txt download buttons below each result instead."),
-        tags$p(style = "color:#666;font-size:12px;",
-          "The root is proposed automatically from the name of the data file you imported ",
-          "and you can freely edit or extend it \u2014 e.g. add your own notes such as which loci ",
-          "were recoded to 999999. File names = root + description (e.g. ",
-          tags$code("<root>null_allele_frequencies.txt"), "). No date is added (already shown by your ",
-          "computer's file browser) \u2014 if you re-run with a different missing-data coding and want to ",
-          "keep both results, use the suffix field to tell them apart."),
-        textInput(ns("out_suffix"), "Optional suffix to distinguish this run (e.g. \"1\"):", value = ""),
+        # tags$p(style = "color:#666;font-size:12px;",
+        #   icon("info-circle"), " ", tags$strong("Browse\u2026"), " opens a folder picker for ",
+        #   tags$strong("this computer"), " (the one running this app). Pick a folder and every file will ",
+        #   "be saved there automatically each time you click Compute \u2014 no need to click the .txt buttons ",
+        #   "one by one. Leave it empty to just use the .txt download buttons below each result instead."),
+        # tags$p(style = "color:#666;font-size:12px;",
+        #   "The root is proposed automatically from the name of the data file you imported ",
+        #   "and you can freely edit or extend it \u2014 e.g. add your own notes such as which loci ",
+        #   "were recoded to 999999. File names = root + description (e.g. ",
+        #   tags$code("<root>null_allele_frequencies.txt"), "). No date is added (already shown by your ",
+        #   "computer's file browser) \u2014 if you re-run with a different missing-data coding and want to ",
+        #   "keep both results, use the suffix field to tell them apart."),
+        # textInput(ns("out_suffix"), "Optional suffix to distinguish this run (e.g. \"1\"):", value = ""),
         tags$p(style = "color:#666;font-size:12px;",
           "Files are saved as tab-delimited ", tags$strong(".txt"), " (not .csv)."),
 
@@ -273,12 +271,12 @@ null_alleles_UI <- function(id) {
           # ── TAB 1: Null allele frequencies ────────────────────────────────── #
           tabPanel(title = tagList(icon("percent"), " Null allele frequencies"),
                    value = "tab_na", br(),
-            tags$div(class = "na-info",
-              "Reproduces FreeNA's own null-allele-frequency report: the EM algorithm ",
-              "(Dempster, Laird & Rubin 1977) estimated per locus \u00d7 population below, ",
-              "and the N-weighted per-locus summary (Av(p_nulls), Av(N_exp_blanks), ",
-              "f(expBlanks), one-sided binomial test p-value, and chosen blank coding) further down."
-            ),
+            # tags$div(class = "na-info",
+            #   "Reproduces FreeNA's own null-allele-frequency report: the EM algorithm ",
+            #   "(Dempster, Laird & Rubin 1977) estimated per locus \u00d7 population below, ",
+            #   "and the N-weighted per-locus summary (Av(p_nulls), Av(N_exp_blanks), ",
+            #   "f(expBlanks), one-sided binomial test p-value, and chosen blank coding) further down."
+            # ),
             h4(icon("info-circle"), "p_nulls per locus \u00d7 population (EM algorithm)"),
             DT::DTOutput(ns("dt_t1")), br(),
             h4(icon("info-circle"), "Per-locus summary (N-weighted mean, FreeNA report format)"),
