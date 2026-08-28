@@ -240,7 +240,7 @@ isolation_by_distance_UI <- function(id) {
                              value = 10000, min = 99, max = 200000, step = 1000)
               ),
               column(3,
-                textInput(ns("mt_exclude"), "Exclude pairs ('ID1-ID2', comma-sep):", value = ""),
+                # textInput(ns("mt_exclude"), "Exclude pairs ('ID1-ID2', comma-sep):", value = ""),
                 actionButton(ns("run_mantel"), "Run Mantel Test",
                              icon = icon("random"), class = "btn-action-primary btn-block",
                              style = "font-weight:bold;")
@@ -250,38 +250,45 @@ isolation_by_distance_UI <- function(id) {
         ),
 
         fluidRow(
-          box(width = 12, solidHeader = TRUE, status = "primary",
+          box(width = 6, solidHeader = TRUE, status = "primary",
               title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
                           icon("chart-bar"), " Results"),
             uiOutput(ns("ui_mantel_key_values")),
             uiOutput(ns("ui_mantel_summary")),
             tags$br(),
             downloadButton(ns("dl_mantel_txt"), ".txt", class = "btn-action-secondary btn-sm")
-          )
-        ),
-
-        fluidRow(
+          ),
           box(width = 6, solidHeader = FALSE,
               title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
                           icon("table"), " Result summary"),
             DT::DTOutput(ns("dt_mantel_summary")),
             tags$br(),
             downloadButton(ns("dl_mantel_summary_txt"), ".txt", class = "btn-action-secondary btn-sm")
-          ),
-          box(width = 6, solidHeader = FALSE,
-              title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
-                          icon("table"), " Null distribution quantiles"),
-            DT::DTOutput(ns("dt_mantel_quantiles"))
-          )
-        ),
-
-        fluidRow(
-          box(width = 12, solidHeader = FALSE,
-              title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
-                          icon("table"), " Data used in the last run"),
-            DT::DTOutput(ns("dt_mantel_data"))
           )
         )
+
+        # fluidRow(
+        #   box(width = 6, solidHeader = FALSE,
+        #       title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
+        #                   icon("table"), " Result summary"),
+        #     DT::DTOutput(ns("dt_mantel_summary")),
+        #     tags$br(),
+        #     downloadButton(ns("dl_mantel_summary_txt"), ".txt", class = "btn-action-secondary btn-sm")
+        #   ),
+        #   box(width = 6, solidHeader = FALSE,
+        #       title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
+        #                   icon("table"), " Null distribution quantiles"),
+        #     DT::DTOutput(ns("dt_mantel_quantiles"))
+        #   )
+        # ),
+
+        # fluidRow(
+        #   box(width = 12, solidHeader = FALSE,
+        #       title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
+        #                   icon("table"), " Data used in the last run"),
+        #     DT::DTOutput(ns("dt_mantel_data"))
+        #   )
+        # )
       )
     )
   )

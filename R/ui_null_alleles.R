@@ -281,14 +281,14 @@ null_alleles_UI <- function(id) {
           # ── TAB 2: FST & FST-ENA ──────────────────────────────────────────── #
           tabPanel(title = tagList(icon("chart-bar"), " FST / FST-ENA"),
                    value = "tab_fst", br(),
-            tags$div(class = "na-info",
-              tags$strong("Global multilocus FST"), " \u2014 Weir & Cockerham (1984) unbiased moment estimator. ",
-              tags$strong("FST-ENA"), ": EM-corrected frequencies, Excluding Null Alleles \u2014 Chapuis & Estoup (2007).",
-              tags$br(),
-              "Bootstrap CI over loci (resample loci with replacement, multilocus estimates only) and over ",
-              "sub-samples (resample populations as whole blocks with replacement, available both for the ",
-              "multilocus estimate and per locus \u2014 see the per-locus table below)."
-            ),
+            # tags$div(class = "na-info",
+            #   tags$strong("Global multilocus FST"), " \u2014 Weir & Cockerham (1984) unbiased moment estimator. ",
+            #   tags$strong("FST-ENA"), ": EM-corrected frequencies, Excluding Null Alleles \u2014 Chapuis & Estoup (2007).",
+            #   tags$br(),
+            #   "Bootstrap CI over loci (resample loci with replacement, multilocus estimates only) and over ",
+            #   "sub-samples (resample populations as whole blocks with replacement, available both for the ",
+            #   "multilocus estimate and per locus \u2014 see the per-locus table below)."
+            # ),
             h4(icon("table"), "Per-locus FST and FST-ENA"),
             DT::DTOutput(ns("dt_fst_global")), br(),
 
@@ -313,13 +313,13 @@ null_alleles_UI <- function(id) {
           # ── TAB 3: DCSE / DCSE-INA ────────────────────────────────────────── #
           tabPanel(title = tagList(icon("route"), " DCSE / DCSE-INA"),
                    value = "tab_dc", br(),
-            tags$div(class = "na-info",
-              tags$strong("Cavalli-Sforza & Edwards (1967) chord distance."),
-              " DCSE-INA includes the null allele as an extra state \u2014 Chapuis & Estoup (2007).",
-              tags$br(),
-              "DCSE(i,j) = (2/\u03c0)\u00d7\u221a[2\u00d7(1\u2212\u03a3\u221a(p_ik\u00d7p_jk))]  ",
-              "INA: corrdgenefreq + null allele appended (freq = rd[locus, pop])."
-            ),
+            # tags$div(class = "na-info",
+            #   tags$strong("Cavalli-Sforza & Edwards (1967) chord distance."),
+            #   " DCSE-INA includes the null allele as an extra state \u2014 Chapuis & Estoup (2007).",
+            #   tags$br(),
+            #   "DCSE(i,j) = (2/\u03c0)\u00d7\u221a[2\u00d7(1\u2212\u03a3\u221a(p_ik\u00d7p_jk))]  ",
+            #   "INA: corrdgenefreq + null allele appended (freq = rd[locus, pop])."
+            # ),
             h4(icon("th"), "Pairwise DCSE and DCSE-INA \u2014 lower triangle matrix"),
             fluidRow(
               column(5,
@@ -338,10 +338,10 @@ null_alleles_UI <- function(id) {
           # ── TAB 4: Per-locus x pair ───────────────────────────────────────── #
           tabPanel(title = tagList(icon("border-all"), " Per-locus \u00d7 pair"),
                    value = "tab_locus_pair", br(),
-            tags$div(class = "na-info",
-              "FST, FST-ENA, DCSE and DCSE-INA for each locus \u00d7 pair of populations.",
-              " Useful for detecting outlier loci."
-            ),
+            # tags$div(class = "na-info",
+            #   "FST, FST-ENA, DCSE and DCSE-INA for each locus \u00d7 pair of populations.",
+            #   " Useful for detecting outlier loci."
+            # ),
             fluidRow(
               column(3, selectInput(ns("fl_locus"), "Locus:",
                 choices = c("All loci" = "all"), selected = "all")),
