@@ -136,7 +136,7 @@ null_alleles_UI <- function(id) {
 
         h4(icon("dice"), "(2) Bootstrap parameters"),
         p("Bootstrap over subsamples (for 5 subsamples at least) and over loci (for 5 loci at least)"),
-        tags$div(style = "max-width:160px;",
+        tags$div(style = "max-width:250px;",
           numericInput(ns("nboot"),
             label = "Number of bootstraps over loci (for all analyses) (at least 100):",
             value = 5000, min = 100, max = 99999, step = 1000, width = "100%"),
