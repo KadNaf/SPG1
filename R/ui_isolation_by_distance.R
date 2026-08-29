@@ -217,17 +217,15 @@ isolation_by_distance_UI <- function(id) {
                   choices = c("Pearson r" = "r", "Spearman rho" = "spearman",
                               "Rousset's 1D" = "rousset1d", "Rousset's 2D" = "rousset2d"),
                   selected = "r"),
-                conditionalPanel(
-                  condition = sprintf("input['%s'] && (input['%s'].includes('r') || input['%s'].includes('spearman'))",
-                                       ns("mt_stats"), ns("mt_stats"), ns("mt_stats")),
-                  checkboxInput(ns("mt_log_x"), "ln(transform) X (Pearson r / Spearman rho only)", value = FALSE),
-                  uiOutput(ns("mt_double_log_warning"))
-                ),
+                tags$p(style="color:#777;font-size:11px;", icon("lock"),
+                  " Pearson r / Spearman rho: a raw geographic distance column (e.g. ",
+                  tags$code("Dgeo_m"), ") is automatically ln-transformed behind the scenes; an already-logged ",
+                  "column or any other variable is used as-is \u2014 no setting needed."),
                 conditionalPanel(
                   condition = sprintf("input['%s'] && (input['%s'].includes('rousset1d') || input['%s'].includes('rousset2d'))",
                                        ns("mt_stats"), ns("mt_stats"), ns("mt_stats")),
                   tags$p(style="color:#777;font-size:11px;", icon("lock"),
-                    " Rousset's 1D always uses raw X; Rousset's 2D always uses ln(X) \u2014 automatic, independent of the checkbox above.")
+                    " Rousset's 1D always uses raw X; Rousset's 2D always uses ln(X) \u2014 automatic, regardless of which X column is selected.")
                 )
               ),
               column(3,

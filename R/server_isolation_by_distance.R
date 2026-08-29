@@ -623,19 +623,6 @@ server_isolation_by_distance <- function(id, rv) {
                   selected = .guess_col(cols, c("^Pop2$"), cols[min(2L, length(cols))]))
     })
 
-    # The 2D isolation-by-distance habitat model (Rousset 1997) regresses
-    # genetic distance on ln(geographic distance), not raw distance.
-    .raw_dist_warning <- function(xcol, log_checked) {
-      looks_raw <- !is.null(xcol) && nzchar(xcol) &&
-        grepl("dgeo|dist", xcol, ignore.case = TRUE) && !grepl("ln|log", xcol, ignore.case = TRUE)
-      if (looks_raw && !isTRUE(log_checked)) {
-        tags$p(style="color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:4px;padding:4px 6px;font-size:11px;margin-top:6px;",
-          icon("exclamation-triangle"), " ", tags$strong(xcol), " looks raw (un-logged). Tick \"ln(transform) X\" ",
-          "or pick an already-logged column such as ", tags$code("lnDgeo"), " for the 2D habitat model.")
-      }
-    }
-    output$mt_double_log_warning <- renderUI(.raw_dist_warning(input$mt_col_x, input$mt_log_x))
-
     output$mt_col_x_ui <- renderUI({
       df <- tryCatch(mt_base_df_r(), error = function(e) NULL)
       cols <- if (is.null(df)) character(0) else names(df)[sapply(df, is.numeric)]
@@ -703,7 +690,16 @@ server_isolation_by_distance <- function(id, rv) {
 
       x_raw <- suppressWarnings(as.numeric(df[[xcol]]))
       y     <- suppressWarnings(as.numeric(df[[ycol]]))
-      base_log <- isTRUE(input$mt_log_x)
+      # Pearson r / Spearman rho: if the selected X column looks like a raw
+      # (un-logged) geographic distance (name contains "dgeo"/"dist" but not
+      # "ln"/"log"), it is automatically ln-transformed behind the scenes —
+      # matching the conventional 2D isolation-by-distance model — with no
+      # checkbox and no prompt. Any other column (already-logged, or not a
+      # distance at all) is used exactly as selected.
+      # Rousset's 1D/2D still force raw/ln(X) automatically below,
+      # independently of this.
+      base_log <- nzchar(xcol) && grepl("dgeo|dist", xcol, ignore.case = TRUE) &&
+                  !grepl("ln|log", xcol, ignore.case = TRUE)
 
       all_labels <- sort(unique(trimws(c(as.character(df[[p1c]]), as.character(df[[p2c]])))))
       p1v <- trimws(as.character(df[[p1c]])); p2v <- trimws(as.character(df[[p2c]]))
