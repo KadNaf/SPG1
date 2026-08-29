@@ -213,22 +213,21 @@ isolation_by_distance_UI <- function(id) {
                 uiOutput(ns("mt_col_y_ui"))
               ),
               column(3,
-                radioButtons(ns("mt_stat"), "Statistic:",
+                checkboxGroupInput(ns("mt_stats"), "Statistic (select 1\u20134):",
                   choices = c("Pearson r" = "r", "Spearman rho" = "spearman",
                               "Rousset's 1D" = "rousset1d", "Rousset's 2D" = "rousset2d"),
                   selected = "r"),
                 conditionalPanel(
-                  condition = sprintf("input['%s'] == 'r' || input['%s'] == 'spearman'", ns("mt_stat"), ns("mt_stat")),
-                  checkboxInput(ns("mt_log_x"), "ln(transform) X", value = FALSE),
+                  condition = sprintf("input['%s'] && (input['%s'].includes('r') || input['%s'].includes('spearman'))",
+                                       ns("mt_stats"), ns("mt_stats"), ns("mt_stats")),
+                  checkboxInput(ns("mt_log_x"), "ln(transform) X (Pearson r / Spearman rho only)", value = FALSE),
                   uiOutput(ns("mt_double_log_warning"))
                 ),
                 conditionalPanel(
-                  condition = sprintf("input['%s'] == 'rousset1d'", ns("mt_stat")),
-                  tags$p(style="color:#777;font-size:11px;", icon("lock"), " X used as-is (raw distance, 1 dimension).")
-                ),
-                conditionalPanel(
-                  condition = sprintf("input['%s'] == 'rousset2d'", ns("mt_stat")),
-                  tags$p(style="color:#777;font-size:11px;", icon("lock"), " X automatically ln-transformed (2 dimensions).")
+                  condition = sprintf("input['%s'] && (input['%s'].includes('rousset1d') || input['%s'].includes('rousset2d'))",
+                                       ns("mt_stats"), ns("mt_stats"), ns("mt_stats")),
+                  tags$p(style="color:#777;font-size:11px;", icon("lock"),
+                    " Rousset's 1D always uses raw X; Rousset's 2D always uses ln(X) \u2014 automatic, independent of the checkbox above.")
                 )
               ),
               column(3,
