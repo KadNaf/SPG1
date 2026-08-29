@@ -690,16 +690,33 @@ server_isolation_by_distance <- function(id, rv) {
 
       x_raw <- suppressWarnings(as.numeric(df[[xcol]]))
       y     <- suppressWarnings(as.numeric(df[[ycol]]))
-      # Pearson r / Spearman rho: if the selected X column looks like a raw
-      # (un-logged) geographic distance (name contains "dgeo"/"dist" but not
-      # "ln"/"log"), it is automatically ln-transformed behind the scenes —
-      # matching the conventional 2D isolation-by-distance model — with no
-      # checkbox and no prompt. Any other column (already-logged, or not a
-      # distance at all) is used exactly as selected.
-      # Rousset's 1D/2D still force raw/ln(X) automatically below,
-      # independently of this.
-      base_log <- nzchar(xcol) && grepl("dgeo|dist", xcol, ignore.case = TRUE) &&
-                  !grepl("ln|log", xcol, ignore.case = TRUE)
+
+      # Recover BOTH the linear (raw-distance) and log-distance scale of X
+      # from whichever column the user actually picked, so every statistic
+      # below operates on the correct, consistent scale no matter which one
+      # was selected:
+      #   - if the picked column already looks log-transformed (name
+      #     contains "ln"/"log"), its values ARE the log scale, and the
+      #     linear scale is recovered via exp() (log is invertible);
+      #   - otherwise the picked column IS the linear scale, and the log
+      #     scale is derived via log().
+      # Without this, picking "lnDgeo" vs "Dgeo_m" as X used to give
+      # different (wrong) results for Rousset's 1D/2D — 1D silently tested
+      # log-distance when lnDgeo was picked, and 2D double-logged it.
+      looks_already_log <- nzchar(xcol) && grepl("ln|log", xcol, ignore.case = TRUE)
+      looks_geo_dist    <- nzchar(xcol) && grepl("dgeo|dist", xcol, ignore.case = TRUE)
+      if (looks_already_log) {
+        x_log <- x_raw
+        x_lin <- ifelse(is.finite(x_raw), exp(x_raw), NA_real_)
+      } else {
+        x_lin <- x_raw
+        x_log <- ifelse(is.finite(x_raw) & x_raw > 0, log(x_raw), NA_real_)
+      }
+      # Pearson r / Spearman rho: a geographic-distance-looking column (raw
+      # or already-logged) is tested on the log scale automatically, behind
+      # the scenes, matching the conventional 2D isolation-by-distance
+      # model; any other (non-distance) column is used exactly as picked.
+      base_log <- looks_geo_dist
 
       all_labels <- sort(unique(trimws(c(as.character(df[[p1c]]), as.character(df[[p2c]])))))
       p1v <- trimws(as.character(df[[p1c]])); p2v <- trimws(as.character(df[[p2c]]))
@@ -712,7 +729,7 @@ server_isolation_by_distance <- function(id, rv) {
       m_y <- .mt_build_square(data.frame(P1 = p1v, P2 = p2v, X = y), "P1", "P2", "X", all_labels)
 
       build_x <- function(use_log) {
-        xv <- if (use_log) ifelse(x_raw > 0, log(x_raw), NA_real_) else x_raw
+        xv <- if (use_log) x_log else x_lin
         .mt_build_square(data.frame(P1 = p1v, P2 = p2v, X = xv), "P1", "P2", "X", all_labels)
       }
 
@@ -766,7 +783,8 @@ server_isolation_by_distance <- function(id, rv) {
         res$key   <- skey
         res$label <- def$label
         res$use_log <- use_log
-        res$x_label <- paste0(xcol, if (use_log) " (ln)" else "")
+        x_base_name <- if (looks_already_log) sub("^ln|^log", "", xcol, ignore.case = TRUE) else xcol
+        res$x_label <- paste0(x_base_name, if (use_log) " (ln)" else "")
         res
       }
 

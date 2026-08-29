@@ -218,14 +218,15 @@ isolation_by_distance_UI <- function(id) {
                               "Rousset's 1D" = "rousset1d", "Rousset's 2D" = "rousset2d"),
                   selected = "r"),
                 tags$p(style="color:#777;font-size:11px;", icon("lock"),
-                  " Pearson r / Spearman rho: a raw geographic distance column (e.g. ",
-                  tags$code("Dgeo_m"), ") is automatically ln-transformed behind the scenes; an already-logged ",
-                  "column or any other variable is used as-is \u2014 no setting needed."),
+                  " Pearson r / Spearman rho: any geographic distance column (raw, e.g. ",
+                  tags$code("Dgeo_m"), ", or already-logged, e.g. ", tags$code("lnDgeo"),
+                  ") is tested on the log scale automatically; any other variable is used as-is \u2014 no setting needed."),
                 conditionalPanel(
                   condition = sprintf("input['%s'] && (input['%s'].includes('rousset1d') || input['%s'].includes('rousset2d'))",
                                        ns("mt_stats"), ns("mt_stats"), ns("mt_stats")),
                   tags$p(style="color:#777;font-size:11px;", icon("lock"),
-                    " Rousset's 1D always uses raw X; Rousset's 2D always uses ln(X) \u2014 automatic, regardless of which X column is selected.")
+                    " Rousset's 1D always uses raw distance, Rousset's 2D always uses ln(distance) \u2014 both recovered ",
+                    "correctly whether you picked the raw or the already-logged column as X.")
                 )
               ),
               column(3,
