@@ -382,30 +382,6 @@ server_isolation_by_distance <- function(id, rv) {
            summary = summ)
     })
 
-    output$dt_ibd_table <- DT::renderDT({
-      r <- ibd_results_r()
-      d <- r$df
-      out <- data.frame(
-        Farm1          = d$Pop1,
-        Farm2          = d$Pop2,
-        D_geo          = round(d$Dgeo_m, 4),
-        `FST-FreeNA`   = round(d$FST_ENA, 6),
-        `FST-FreeNA-i` = round(d$FST_ENA_lo, 6),
-        `FST-FreeNA-s` = round(d$FST_ENA_hi, 6),
-        `ln(D_geo)`    = round(d$lnDgeo, 6),
-        F_R            = round(d$FR, 6),
-        `F_R-i`        = round(d$FR_lo, 6),
-        `F_R-s`        = round(d$FR_hi, 6),
-        `D_CSE-INA`    = round(d$DCSE_INA, 6),
-        D_CSE          = round(d$DCSE_raw, 6),
-        check.names = FALSE, stringsAsFactors = FALSE
-      )
-      DT::datatable(out, rownames = FALSE,
-        options = list(scrollX = TRUE, pageLength = 28, dom = "lrtip"),
-        class = "compact stripe hover") |>
-        DT::formatRound(c("D_geo","FST-FreeNA","FST-FreeNA-i","FST-FreeNA-s",
-                           "ln(D_geo)","F_R","F_R-i","F_R-s","D_CSE-INA","D_CSE"), 6)
-    })
     output$dl_ibd_txt <- downloadHandler(
       filename = function() ibd_out_filename("regression"),
       content  = function(file) {
@@ -425,9 +401,6 @@ server_isolation_by_distance <- function(id, rv) {
         writeLines(hdr, con = con, useBytes = TRUE)
         writeLines("Regression summary (slope / b / Nb / Nem for average and CI bounds):", con = con)
         write.table(s, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con)
-        writeLines("Full pairwise table:", con = con)
-        write.table(r$df, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
       }
     )
 
