@@ -68,24 +68,10 @@ isolation_by_distance_UI <- function(id) {
           column(4,
             conditionalPanel(
               condition = sprintf("input['%s'] == 'internal'", ns("ibd_source")),
-              radioButtons(ns("ibd_dgeo_source"), "Distance (D_geo) source:",
-                choices = c("GPS centroid (auto, Vincenty)" = "gps",
-                            "External pairs/distances file" = "external"),
-                selected = "gps"),
-              conditionalPanel(
-                condition = sprintf("input['%s'] == 'external'", ns("ibd_dgeo_source")),
-                fileInput(ns("ibd_dgeo_file"), "Pairs/distances file (Pop1, Pop2, Distance):",
-                          accept = c(".csv", ".txt", ".tsv")),
-                radioButtons(ns("ibd_dgeo_sep"), "Separator:",
-                  choices = c("Comma" = ",", "Tab" = "\t", "Semicolon" = ";"),
-                  selected = ",", inline = TRUE),
-                checkboxInput(ns("ibd_dgeo_header"), "File has header row", value = TRUE),
-                uiOutput(ns("ibd_dgeo_file_status")),
-                tags$p(style = "color:#777;font-size:11px;",
-                  "Only pairs present in the file are used.")
-              ),
-              tags$p(style="color:#777;font-size:11px;",
-                "GPS mode needs Latitude/Longitude set at import for \u2265 2 populations (Vincenty geodesic distance, metres).")
+              tags$p(style="color:#777;font-size:11px;", icon("map-marker-alt"),
+                " D_geo (Dgeo_m / lnDgeo) is computed automatically from GPS coordinates (Vincenty geodesic ",
+                "distance, metres) \u2014 needs Latitude/Longitude set at import for \u2265 2 populations, same as in ",
+                "the Null Alleles module's Full pairwise table.")
             ),
             conditionalPanel(
               condition = sprintf("input['%s'] == 'external'", ns("ibd_source")),
@@ -117,6 +103,7 @@ isolation_by_distance_UI <- function(id) {
       box(width = 12, solidHeader = TRUE, status = "primary",
           title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
                       icon("chart-line"), " Regression summary (slope / b / Nb / Nem)"),
+        uiOutput(ns("ui_ibd_key_values")),
         DT::DTOutput(ns("dt_ibd_reg")),
         tags$br(),
         uiOutput(ns("ui_ibd_interpretation")),

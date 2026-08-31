@@ -256,48 +256,20 @@ server_isolation_by_distance <- function(id, rv) {
       df$FR_raw_lo <- .linearise(df$FST_raw_lo)
       df$FR_raw_hi <- .linearise(df$FST_raw_hi)
 
-      use_external_dgeo <- isTRUE(identical(input$ibd_dgeo_source, "external"))
-
-      if (use_external_dgeo) {
-        shiny::req(input$ibd_dgeo_file)
-        ext <- .mt_read_file(input$ibd_dgeo_file, input$ibd_dgeo_sep, input$ibd_dgeo_header)
-        shiny::validate(shiny::need(ncol(ext) >= 3L,
-          "External distance file must have at least 3 columns: Pop1, Pop2, Distance."))
-        nm <- names(ext)
-        pop1_col <- .guess_col(nm, c("^Pop1$", "^Farm1$", "^ID1$"), nm[1])
-        pop2_col <- .guess_col(nm, c("^Pop2$", "^Farm2$", "^ID2$"), nm[2])
-        dist_col <- .guess_col(nm, c("^Distance$", "^Dgeo", "^Dist$"), nm[3])
-
-        key <- function(a, b) { a <- trimws(as.character(a)); b <- trimws(as.character(b))
-                                 ifelse(a <= b, paste(a, b, sep = "__"), paste(b, a, sep = "__")) }
-
-        ext2 <- data.frame(
-          .key     = key(ext[[pop1_col]], ext[[pop2_col]]),
-          Dgeo_ext = suppressWarnings(as.numeric(ext[[dist_col]])),
-          stringsAsFactors = FALSE
-        )
-        ext2 <- ext2[!duplicated(ext2$.key), , drop = FALSE]
-
-        df$.key <- key(df$Pop1, df$Pop2)
-        df <- merge(df, ext2, by = ".key", sort = FALSE)
-        df$.key <- NULL
-        df$Dgeo_m <- df$Dgeo_ext
-        df$Dgeo_ext <- NULL
-        df$lnDgeo <- ifelse(is.finite(df$Dgeo_m) & df$Dgeo_m > 0, log(df$Dgeo_m), NA_real_)
-      } else {
-        coords <- tryCatch(coords_r(), error = function(e) NULL)
-        if (!is.null(coords)) {
-          get_d <- function(p1, p2) {
-            c1 <- coords[coords$Population == p1, ]; c2 <- coords[coords$Population == p2, ]
-            if (nrow(c1) >= 1L && nrow(c2) >= 1L)
-              .vincenty_m(c1$Latitude[1L], c1$Longitude[1L], c2$Latitude[1L], c2$Longitude[1L])
-            else NA_real_
-          }
-          df$Dgeo_m <- mapply(get_d, df$Pop1, df$Pop2)
-          df$lnDgeo <- ifelse(df$Dgeo_m > 0, log(df$Dgeo_m), NA_real_)
-        } else {
-          df$Dgeo_m <- NA_real_; df$lnDgeo <- NA_real_
+      # D_geo is always the GPS/Vincenty geodesic distance here — the exact
+      # same computation as the Null Alleles module's Full pairwise table.
+      coords <- tryCatch(coords_r(), error = function(e) NULL)
+      if (!is.null(coords)) {
+        get_d <- function(p1, p2) {
+          c1 <- coords[coords$Population == p1, ]; c2 <- coords[coords$Population == p2, ]
+          if (nrow(c1) >= 1L && nrow(c2) >= 1L)
+            .vincenty_m(c1$Latitude[1L], c1$Longitude[1L], c2$Latitude[1L], c2$Longitude[1L])
+          else NA_real_
         }
+        df$Dgeo_m <- mapply(get_d, df$Pop1, df$Pop2)
+        df$lnDgeo <- ifelse(df$Dgeo_m > 0, log(df$Dgeo_m), NA_real_)
+      } else {
+        df$Dgeo_m <- NA_real_; df$lnDgeo <- NA_real_
       }
 
       df
@@ -403,6 +375,23 @@ server_isolation_by_distance <- function(id, rv) {
         write.table(s, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
       }
     )
+
+    output$ui_ibd_key_values <- renderUI({
+      r <- ibd_results_r()
+      tags$div(style = "font-size:13px; color:#333; margin-bottom:14px;",
+        tags$div(tags$strong("Geographic distance (X): "), r$col_geo),
+        tags$div(tags$strong("Genetic distance (Y) \u2014 average: "), r$col_avg,
+                 tags$strong("  \u2014 lower limit: "), r$col_lo,
+                 tags$strong("  \u2014 higher limit: "), r$col_hi),
+        tags$div(tags$strong("Data source: "),
+                 if (isTRUE(identical(input$ibd_source, "external"))) "External re-loaded pairwise file"
+                 else "Null Alleles module (this session)"),
+        tags$div(tags$strong("Pairs used: "), nrow(r$df)),
+        tags$div(tags$strong("Slope (b) / Nb / Nem \u2014 average: "),
+                 sprintf("b = %.6f, Nb = %.6f, Nem = %.6f",
+                         r$reg_avg$slope, 1/r$reg_avg$slope, (1/r$reg_avg$slope)/(2*pi)))
+      )
+    })
 
     output$dt_ibd_reg <- DT::renderDT({
       r <- ibd_results_r()
@@ -559,10 +548,6 @@ server_isolation_by_distance <- function(id, rv) {
         if (!is.na(n)) sprintf(" (%d rows)", n) else "")
     }
     output$ibd_ext_file_status <- renderUI(.file_status_ui(input$ibd_ext_file, full_pair_table_external_r))
-    output$ibd_dgeo_file_status <- renderUI({
-      .file_status_ui(input$ibd_dgeo_file,
-        reactive(.mt_read_file(input$ibd_dgeo_file, input$ibd_dgeo_sep, input$ibd_dgeo_header)))
-    })
     output$mt_file_status <- renderUI({
       .file_status_ui(input$mt_file, reactive(.mt_read_file(input$mt_file, input$mt_sep, input$mt_header)))
     })
