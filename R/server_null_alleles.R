@@ -1569,8 +1569,8 @@ server_null_alleles <- function(id, rv) {
         tags$div(class = "card-icon", icon("route")),
         h5("Full pairwise table"),
         p("FST, FST-ENA, DCSE, DCSE-INA, F", tags$sub("R"), ", D_geo and ln(D_geo) \u2014 one row per pair."),
-        tags$div(class = "fname", uiOutput(ns("ui_filename_7"), inline = TRUE)),
-        uiOutput(ns("ui_dl_file7"))
+        tags$div(class = "fname", uiOutput(session$ns("ui_filename_7"), inline = TRUE)),
+        uiOutput(session$ns("ui_dl_file7"))
       )
     })
 
@@ -1646,7 +1646,7 @@ server_null_alleles <- function(id, rv) {
     output$ui_dl_file7 <- renderUI({
       req(results_r())
       if (!isTRUE(include_pairwise_r())) return(NULL)
-      tags$div(class="na-dl-row", downloadButton(ns("dl_file7_txt"), ".txt", class="btn btn-default btn-xs"))
+      tags$div(class="na-dl-row", downloadButton(session$ns("dl_file7_txt"), ".txt", class="btn btn-default btn-xs"))
     })
 
     # ── Results tab: Full pairwise table ───────────────────────────────────
