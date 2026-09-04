@@ -121,15 +121,29 @@ null_alleles_UI <- function(id) {
         title = div(style = box_title_style, icon("sliders"), "Setup"),
         solidHeader = TRUE, status = "primary",
 
+        # h4(icon("code-branch"), "(1) Missing genotype coding per locus"),
+        # tags$div(class = "na-warn",
+        #   tags$p(style = "margin:.25rem 0;",
+        #     "Please choose how to code missing data for each locus:", tags$br(),
+        #     tags$strong("0"), " = true missing data (ignored by the algorithm);", tags$br(),
+        #     tags$strong("999999"), " = homozygote for allele 999 (code for all null alleles)"),
+        #   tags$p(style = "margin:.5rem 0 0;font-weight:600;",
+        #     "Please make sure you do not already have any allele coded as 999.")
+        # ),
+
         h4(icon("code-branch"), "(1) Missing genotype coding per locus"),
         tags$div(class = "na-warn",
           tags$p(style = "margin:.25rem 0;",
-            "Please choose how to code missing data for each locus:", tags$br(),
-            tags$strong("0"), " = true missing data (ignored by the algorithm);", tags$br(),
-            tags$strong("999999"), " = homozygote for allele 999 (code for all null alleles)"),
-          tags$p(style = "margin:.5rem 0 0;font-weight:600;",
-            "Please make sure you do not already have any allele coded as 999.")
+            "Choose the missing data code for each locus: ",
+            tags$strong("0"), " = true missing (ignored); ",
+            tags$strong("999999"), " = homozygote for allele 999 (null alleles)."
+          ),
+          tags$p(
+            style = "margin:.25rem 0 0;font-weight:600;",
+            "Ensure allele 999 is not already present in your dataset."
+          )
         ),
+
         uiOutput(ns("locus_coding_ui")),
 
         tags$hr(),
