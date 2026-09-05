@@ -131,7 +131,7 @@ null_alleles_UI <- function(id) {
         #     "Please make sure you do not already have any allele coded as 999.")
         # ),
 
-        h4(icon("code-branch"), "(1) Missing genotype coding per locus"),
+        h4(icon("code-branch"), "Missing genotype coding per locus"),
         tags$div(class = "na-warn",
           tags$p(style = "margin:.25rem 0;",
             "Choose the missing data code for each locus: ",
@@ -148,7 +148,7 @@ null_alleles_UI <- function(id) {
 
         tags$hr(),
 
-        h4(icon("dice"), "(2) Bootstrap parameters"),
+        h4(icon("dice"), "Bootstrap parameters"),
         p("Bootstrap over subsamples (for 5 subsamples at least) and over loci (for 5 loci at least)"),
         tags$div(style = "display:flex; align-items:flex-start; gap:0; flex-wrap:wrap;",
           tags$div(style = "flex:1; min-width:190px; padding-right:16px;",
@@ -165,7 +165,7 @@ null_alleles_UI <- function(id) {
               value = 0.05, min = 0.0001, max = 0.5, step = 0.01, width = "100%")),
           tags$div(style = "border-left:1px solid #dcdfe4; flex:0 0 200px; padding:0 0 0 16px;",
             numericInput(ns("boot_seed"),
-              label = "Random seed (reproducibility):",
+              label = "Random seed (between 1 and 1000000):",
               value = 12345, min = 1, max = 1000000, step = 1, width = "100%"))
         ),
 
@@ -195,11 +195,11 @@ null_alleles_UI <- function(id) {
 
         tags$hr(),
 
-        h4(icon("rocket"), "(3) Run all computations + generate output files"),
+        h4(icon("rocket"), "Run all computations + generate output files"),
         fluidRow(
           column(4,
             actionButton(ns("run_all"),
-              label = tagList(icon("rocket"), tags$strong(" Compute")),
+              label = tagList(icon("rocket"), tags$strong(" Run")),
               class = "btn-action-primary btn-block",
               style = "font-weight: bold;"))
         ),

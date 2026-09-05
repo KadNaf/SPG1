@@ -103,7 +103,7 @@ isolation_by_distance_UI <- function(id) {
           ),
           column(4,
             tags$div(style="margin-top:22px;"),
-            actionButton(ns("run_ibd"), "Run IBD Regression",
+            actionButton(ns("run_ibd"), " Run",
                          icon = icon("rocket"), class = "btn-action-primary btn-block",
                          style = "font-weight:bold;")
           )
@@ -209,7 +209,7 @@ isolation_by_distance_UI <- function(id) {
                          value = 10000, min = 99, max = 200000, step = 1000)
           ),
           column(3,
-            actionButton(ns("run_mantel"), "Run Mantel Test",
+            actionButton(ns("run_mantel"), " Run",
                          icon = icon("random"), class = "btn-action-primary btn-block",
                          style = "font-weight:bold;")
           )
