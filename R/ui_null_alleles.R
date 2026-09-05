@@ -196,10 +196,6 @@ null_alleles_UI <- function(id) {
         tags$hr(),
 
         h4(icon("rocket"), "(3) Run all computations + generate output files"),
-        checkboxInput(ns("include_pairwise_table"),
-          "Also generate the Full pairwise table (needs GPS Latitude/Longitude at import)",
-          value = TRUE),
-        uiOutput(ns("ui_gps_status")),
         fluidRow(
           column(4,
             actionButton(ns("run_all"),

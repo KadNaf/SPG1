@@ -1490,16 +1490,6 @@ server_null_alleles <- function(id, rv) {
 
     gps_available_r <- reactive({ !is.null(tryCatch(coords_r(), error = function(e) NULL)) })
 
-    output$ui_gps_status <- renderUI({
-      ok <- isTRUE(gps_available_r())
-      if (ok) {
-        tags$p(style="color:#166534;font-size:11px;margin-top:4px;", icon("check-circle"),
-          " GPS coordinates found \u2014 D_geo will be computed (Vincenty geodesic distance).")
-      } else {
-        tags$p(style="color:#92400e;font-size:11px;margin-top:4px;", icon("exclamation-triangle"),
-          " No Latitude/Longitude found at import \u2014 the Full pairwise table will be generated without D_geo/ln(D_geo).")
-      }
-    })
 
     # ── Full pairwise table — same construction as the Isolation by Distance
     #    module's full_pair_table_internal_r(), built directly from
@@ -1558,7 +1548,7 @@ server_null_alleles <- function(id, rv) {
     })
 
     include_pairwise_r <- reactive({
-      isTRUE(input$include_pairwise_table) && isTRUE(gps_available_r())
+      isTRUE(gps_available_r())
     })
 
     n_files_r <- reactive({ if (isTRUE(include_pairwise_r())) 7L else 6L })
