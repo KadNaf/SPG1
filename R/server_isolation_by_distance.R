@@ -363,7 +363,7 @@ server_isolation_by_distance <- function(id, rv) {
       write.table(s, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
     }
     output$dl_ibd_txt <- downloadHandler(
-      filename = function() ibd_out_filename("IBD-Res"),
+      filename = function() ibd_out_filename("IBD"),
       content  = function(file) {
         con <- file(file, open = "w", encoding = "UTF-8"); on.exit(close(con))
         .write_ibd_results(con)
@@ -393,17 +393,17 @@ server_isolation_by_distance <- function(id, rv) {
       }
     )
 
-    output$ui_ibd_filename_res    <- renderUI(tags$code(ibd_out_filename("IBD-Res")))
+    output$ui_ibd_filename_res    <- renderUI(tags$code(ibd_out_filename("IBD")))
     output$ui_ibd_filename_params <- renderUI(tags$code(ibd_out_filename("IBD-parameters")))
 
     output$dl_ibd_both_zip <- downloadHandler(
-      filename = function() paste0(ibd_out_root_r(), "-IBD-", Sys.Date(), ".zip"),
+      filename = function() paste0(ibd_out_root_r(), "IBD-", Sys.Date(), ".zip"),
       content  = function(file) {
         shiny::req(ibd_results_r())
         tmpdir <- tempfile("spg_ibd_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
 
-        p1 <- file.path(tmpdir, ibd_out_filename("IBD-Res"))
+        p1 <- file.path(tmpdir, ibd_out_filename("IBD"))
         con1 <- file(p1, open = "w", encoding = "UTF-8"); .write_ibd_results(con1); close(con1)
 
         p2 <- file.path(tmpdir, ibd_out_filename("IBD-parameters"))
