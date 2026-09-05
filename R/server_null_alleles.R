@@ -1685,7 +1685,7 @@ server_null_alleles <- function(id, rv) {
         d1 <- file1_data(); d2 <- file2_data(); d3 <- file3_data()
         d4 <- file4_data(); d5 <- file5_data(); d6 <- file6_data()
 
-        p1 <- file.path(tmpdir, out_filename("null_allele_frequencies"))
+        p1 <- file.path(tmpdir, out_filename("-null_allele_frequencies"))
         write_with_header(c(d1$header, "Section 1: p_nulls per locus x population",
                              "N_exp_blanks: expected number of null homozygotes = N * p_nulls^2", ""),
                            d1$t1, p1, sep = "\t")
@@ -1693,13 +1693,13 @@ server_null_alleles <- function(id, rv) {
         write("Section 2: N-weighted mean per locus", file = p1, append = TRUE)
         write.table(d1$t2, file = p1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE, col.names = TRUE)
 
-        p2 <- file.path(tmpdir, out_filename("global_FST_ENA_CI"))
+        p2 <- file.path(tmpdir, out_filename("-global_FST_ENA_CI"))
         write_with_header(d2$header, d2$data, p2, sep = "\t")
 
-        p3 <- file.path(tmpdir, out_filename("pairwise_long_format"))
+        p3 <- file.path(tmpdir, out_filename("-pairwise_long_format"))
         write_with_header(d3$header, d3$data, p3, sep = "\t")
 
-        p4 <- file.path(tmpdir, out_filename("per_locus_half_matrices"))
+        p4 <- file.path(tmpdir, out_filename("-per_locus_half_matrices"))
         con4 <- file(p4, open = "w", encoding = "UTF-8")
         writeLines(d4$header, con = con4, useBytes = TRUE)
         for (loc in d4$markers) {
@@ -1714,10 +1714,10 @@ server_null_alleles <- function(id, rv) {
         }
         close(con4)
 
-        p5 <- file.path(tmpdir, out_filename("bootstrap_distributions"))
+        p5 <- file.path(tmpdir, out_filename("-bootstrap_distributions"))
         write_with_header(d5$header, d5$data, p5, sep = "\t")
 
-        p6 <- file.path(tmpdir, out_filename("run_parameters"))
+        p6 <- file.path(tmpdir, out_filename("-run_parameters"))
         con6 <- file(p6, open = "w", encoding = "UTF-8")
         writeLines(d6$header, con = con6, useBytes = TRUE)
         writeLines("Methods:", con = con6)
@@ -1734,7 +1734,7 @@ server_null_alleles <- function(id, rv) {
 
         if (isTRUE(include_pairwise_r())) {
           d7 <- file7_data()
-          p7 <- file.path(tmpdir, out_filename("full_pairwise_table"))
+          p7 <- file.path(tmpdir, out_filename("-full_pairwise_table"))
           write_with_header(d7$header, d7$data, p7, sep = "\t")
           all_files <- c(all_files, p7)
         }

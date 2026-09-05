@@ -33,7 +33,7 @@ mod_general_stats_ui <- function(id) {
         checkboxInput(ns("GST_sec_checkbox"),  "GST'' (Hedrick's correction)", FALSE),
         tags$hr(),
         actionButton(ns("run_basic_stats"),
-                     label = tagList(icon("calculator"), tags$strong("Compute Statistics")),
+                     label = tagList(icon("rocket"), tags$strong(" Run")),
                      class = "btn-action-primary btn-block")
       ),
       box(
@@ -99,8 +99,8 @@ mod_general_stats_ui <- function(id) {
         fluidRow(
           column(3,
             actionButton(ns("compute_allele_fstats"),
-              label = tagList(icon("calculator"),
-                              tags$strong("Compute F-statistics per allele")),
+              label = tagList(icon("rocket"),
+                              tags$strong(" Run")),
               class = "btn-action-primary btn-block", style = "font-weight: bold;")
           ),
           column(9,

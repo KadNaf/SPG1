@@ -26,7 +26,7 @@ mod_local_panmixia_ui <- function(id) {
       box(
         width = 12,
         title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    icon("rocket"),
+                    # icon("rocket"),
                     "FIS: CI & p-value parameters"),
         solidHeader = TRUE, status = "primary",
         fluidRow(
@@ -37,7 +37,7 @@ mod_local_panmixia_ui <- function(id) {
             numericInput(ns("conf_level"),"Confidence Level:",               value = 0.95, min = 0.80, max = 0.99, step = 0.01),
             selectInput(ns("analysis_level"), "Analysis Level:",
                         choices = c("By Locus", "By Population"), selected = "By Locus"),
-            actionButton(ns("Run_FIS_Analysis"), "Run FIS Analysis",
+            actionButton(ns("Run_FIS_Analysis"), " Run",
                          icon = icon("rocket"),
                          class = "btn-action-primary btn-block", style = "font-weight: bold;")
           ),

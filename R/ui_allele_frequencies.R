@@ -42,7 +42,7 @@ ui_allele_frequencies <- function(id) {
               options = list(placeholder = "Select a marker")),
             br(),
             actionButton(ns("update_fstat"),
-              label = tagList(icon("play"), " Compute Frequencies"),
+              label = tagList(icon("rocket"), " Run"),
               class = "btn-action-primary btn-block", style = "font-weight: bold;")
           ),
           column(8,

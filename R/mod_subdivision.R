@@ -37,7 +37,7 @@ mod_subdivision_ui <- function(id) {
       box(
         width = 12,
         title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    icon("sitemap"),
+                    # icon("sitemap"),
                     "FST: CI & p-value parameters"),
         solidHeader = TRUE, status = "primary",
         fluidRow(
@@ -46,7 +46,7 @@ mod_subdivision_ui <- function(id) {
             numericInput(ns("n_perm_fst"),     "Number of Permutations:",        value = 5000, min = 100,  max = 20000, step = 100),
             numericInput(ns("n_boot_fst"),     "Number of Bootstrap Replicates:", value = 5000, min = 100,  max = 20000, step = 100),
             numericInput(ns("conf_level_fst"), "Confidence Level:",               value = 0.95, min = 0.80, max = 0.99,  step = 0.01),
-            actionButton(ns("run_FST_Analysis"), "Run FST Analysis",
+            actionButton(ns("run_FST_Analysis"), " Run",
                          icon  = icon("rocket"),
                          class = "btn-action-primary btn-block",
                          style = "font-weight: bold;"),

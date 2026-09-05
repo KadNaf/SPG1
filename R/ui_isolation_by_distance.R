@@ -210,7 +210,7 @@ isolation_by_distance_UI <- function(id) {
           ),
           column(3,
             actionButton(ns("run_mantel"), " Run",
-                         icon = icon("random"), class = "btn-action-primary btn-block",
+                         icon = icon("rocket"), class = "btn-action-primary btn-block",
                          style = "font-weight:bold;")
           )
         ),
