@@ -121,7 +121,7 @@ mod_local_panmixia_ui <- function(id) {
           column(9,
             br(),
             actionButton(ns("run_fis_locus_pop"),
-                         label = tagList(icon("calculator"), tags$strong("Compute")),
+                         label = tagList(icon("rocket"), tags$strong(" Run")),
                          class = "btn-action-primary")
           )
         ),

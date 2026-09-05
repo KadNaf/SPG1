@@ -180,7 +180,7 @@ mod_subdivision_ui <- function(id) {
                          value = 10000, min = 1000, max = 50000, step = 1000),
             numericInput(ns("conf_level_g"), "Confidence Level:",
                          value = 0.95, min = 0.80, max = 0.99,  step = 0.01),
-            actionButton(ns("run_G_test"), "Run G-test",
+            actionButton(ns("run_G_test"), " Run",
                          icon  = icon("rocket"),
                          class = "btn-action-primary btn-block",
                          style = "font-weight: bold;")
