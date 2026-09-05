@@ -47,7 +47,10 @@ isolation_by_distance_UI <- function(id) {
                 selected = "\t", inline = TRUE),
               checkboxInput(ns("ibd_ext_header"), "File has header row", value = TRUE)
             ),
-            column(6, uiOutput(ns("ibd_ext_file_status")))
+            column(6,
+              uiOutput(ns("ibd_ext_file_status")),
+              uiOutput(ns("ibd_ext_dgeo_warning"))
+            )
           )
         )
       )
@@ -56,12 +59,21 @@ isolation_by_distance_UI <- function(id) {
     fluidRow(
       box(width = 12, solidHeader = TRUE, status = "primary",
           title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
-                      icon("sliders-h"), " Rousset's Isolation by Distance model"),
+                      icon("sliders-h"), " Rousset's Isolation by Distance model ",
+                      tags$a(href = "#", style="font-weight:400;color:#4f7cff;font-size:0.85em;",
+                        onclick = "var el=document.querySelector('a[data-value=\"help\"]'); if(el) el.click(); return false;",
+                        "(please see documentation)")),
         fluidRow(
           column(3, uiOutput(ns("ibd_col_geo_ui"))),
           column(3, uiOutput(ns("ibd_col_avg_ui"))),
-          column(3, uiOutput(ns("ibd_col_lo_ui"))),
-          column(3, uiOutput(ns("ibd_col_hi_ui")))
+          column(3,
+            uiOutput(ns("ibd_col_lo_ui")),
+            tags$p(style="color:#777;font-size:10.5px;margin-top:2px;", "Must be of the same format as the genetic distance used.")
+          ),
+          column(3,
+            uiOutput(ns("ibd_col_hi_ui")),
+            tags$p(style="color:#777;font-size:10.5px;margin-top:2px;", "Must be of the same format as the genetic distance used.")
+          )
         ),
         tags$hr(),
         fluidRow(
@@ -82,9 +94,9 @@ isolation_by_distance_UI <- function(id) {
           column(4,
             tags$div(style="font-size:12px;color:#555;margin-bottom:4px;", "Output file name:"),
             fluidRow(
-              column(7, textInput(ns("ibd_out_root"), "Root:", value = "",
+              column(7, textInput(ns("ibd_out_root"), NULL, value = "",
                                    placeholder = "auto-filled from imported file")),
-              column(5, textInput(ns("ibd_out_suffix"), "Suffix:", value = ""))
+              column(5, textInput(ns("ibd_out_suffix"), NULL, value = "", placeholder = "suffix (optional)"))
             ),
             tags$p(style="color:#777;font-size:11px;",
               "File name = ", tags$code("<root>-IBD-<suffix>.txt"))
@@ -106,9 +118,16 @@ isolation_by_distance_UI <- function(id) {
         uiOutput(ns("ui_ibd_key_values")),
         DT::DTOutput(ns("dt_ibd_reg")),
         tags$br(),
-        uiOutput(ns("ui_ibd_interpretation")),
-        tags$br(),
-        downloadButton(ns("dl_ibd_txt"), "Download regression summary (.txt)", class = "btn-action-secondary btn-sm")
+        tags$div(class = "spg-module-card", style = "margin-bottom:8px; max-width:400px; display:inline-block; margin-right:14px;",
+          tags$div(style="font-size:11px;color:#555;", "Results"),
+          tags$div(class = "fname", uiOutput(ns("ui_ibd_filename_res"), inline = TRUE))
+        ),
+        tags$div(class = "spg-module-card", style = "margin-bottom:8px; max-width:400px; display:inline-block;",
+          tags$div(style="font-size:11px;color:#555;", "Parameters"),
+          tags$div(class = "fname", uiOutput(ns("ui_ibd_filename_params"), inline = TRUE))
+        ),
+        tags$br(), tags$br(),
+        downloadButton(ns("dl_ibd_both_zip"), "Download both files (.zip)", class = "btn-action-primary btn-sm")
       )
     ),
 
@@ -133,8 +152,8 @@ isolation_by_distance_UI <- function(id) {
               fileInput(ns("mt_file"), "File (Pop1, Pop2, dist1, dist2, ...):",
                         accept = c(".csv", ".txt", ".tsv")),
               radioButtons(ns("mt_sep"), "Separator:",
-                choices = c("Comma"=",", "Tab"="\t", "Semicolon"=";"),
-                selected = ",", inline = TRUE),
+                choices = c("Tab"="\t", "Comma"=",", "Semicolon"=";"),
+                selected = "\t", inline = TRUE),
               checkboxInput(ns("mt_header"), "File has header row", value = TRUE)
             ),
             column(6, uiOutput(ns("mt_file_status")))
@@ -176,25 +195,10 @@ isolation_by_distance_UI <- function(id) {
                       icon("sliders-h"), " Mantel parameters"),
         fluidRow(
           column(3,
-            uiOutput(ns("mt_col_x_ui")),
-            uiOutput(ns("mt_col_y_ui"))
-          ),
-          column(3,
             checkboxGroupInput(ns("mt_stats"), "Statistic (select 1\u20134):",
               choices = c("Pearson r" = "r", "Spearman rho" = "spearman",
                           "Rousset's 1D" = "rousset1d", "Rousset's 2D" = "rousset2d"),
-              selected = "r"),
-            tags$p(style="color:#777;font-size:11px;", icon("lock"),
-              " Pearson r / Spearman rho: any geographic distance column (raw, e.g. ",
-              tags$code("Dgeo_m"), ", or already-logged, e.g. ", tags$code("lnDgeo"),
-              ") is tested on the log scale automatically; any other variable is used as-is \u2014 no setting needed."),
-            conditionalPanel(
-              condition = sprintf("input['%s'] && (input['%s'].includes('rousset1d') || input['%s'].includes('rousset2d'))",
-                                   ns("mt_stats"), ns("mt_stats"), ns("mt_stats")),
-              tags$p(style="color:#777;font-size:11px;", icon("lock"),
-                " Rousset's 1D always uses raw distance, Rousset's 2D always uses ln(distance) \u2014 both recovered ",
-                "correctly whether you picked the raw or the already-logged column as X.")
-            )
+              selected = "r")
           ),
           column(3,
             radioButtons(ns("mt_p_formula"), "p-value formula:",
@@ -208,6 +212,39 @@ isolation_by_distance_UI <- function(id) {
             actionButton(ns("run_mantel"), "Run Mantel Test",
                          icon = icon("random"), class = "btn-action-primary btn-block",
                          style = "font-weight:bold;")
+          )
+        ),
+        tags$hr(),
+        fluidRow(
+          column(3,
+            conditionalPanel(
+              condition = sprintf("input['%s'] && (input['%s'].includes('r') || input['%s'].includes('spearman'))",
+                                   ns("mt_stats"), ns("mt_stats"), ns("mt_stats")),
+              tags$div(style="font-weight:600;color:#333a43;margin-bottom:6px;", "Pearson r / Spearman rho"),
+              uiOutput(ns("mt_col_x_ui")),
+              uiOutput(ns("mt_col_y_ui")),
+              tags$p(style="color:#777;font-size:11px;", icon("lock"),
+                " Same X and Y for both. A geographic distance column (raw or already-logged) is tested on the ",
+                "log scale automatically; any other variable is used as-is \u2014 no setting needed.")
+            )
+          ),
+          column(3,
+            conditionalPanel(
+              condition = sprintf("input['%s'] && input['%s'].includes('rousset1d')", ns("mt_stats"), ns("mt_stats")),
+              tags$div(style="font-weight:600;color:#333a43;margin-bottom:6px;", "Rousset's 1D"),
+              uiOutput(ns("mt_col_x_1d_ui")),
+              uiOutput(ns("mt_col_y_1d_ui")),
+              tags$p(style="color:#777;font-size:11px;", icon("lock"), " X is always the raw distance (D_geo).")
+            )
+          ),
+          column(3,
+            conditionalPanel(
+              condition = sprintf("input['%s'] && input['%s'].includes('rousset2d')", ns("mt_stats"), ns("mt_stats")),
+              tags$div(style="font-weight:600;color:#333a43;margin-bottom:6px;", "Rousset's 2D"),
+              uiOutput(ns("mt_col_x_2d_ui")),
+              uiOutput(ns("mt_col_y_2d_ui")),
+              tags$p(style="color:#777;font-size:11px;", icon("lock"), " X is always ln(distance) \u2014 ln(D_geo).")
+            )
           )
         )
       )

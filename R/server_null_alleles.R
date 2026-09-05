@@ -1169,27 +1169,7 @@ server_null_alleles <- function(id, rv) {
     #  method lines don't belong in it).
     # ══════════════════════════════════════════════════════════════════════════
     meta_header <- function(r, file_desc, fst_dcse = TRUE) {
-      ci_pct <- paste0(round((1 - r$alpha) * 100, 3), "%")
-      treat_summary <- paste(sapply(r$markers, function(loc) {
-        cd <- as.character(r$treats[loc] %||% "absent")
-        sprintf("%s:%s", loc, if(cd=="absent") "000000" else "999999")
-      }), collapse=", ")
-      c(
-        file_desc,
-        "Method: Expectation-Maximization (EM) algorithm - Dempster, Laird & Rubin (1977)",
-        if (fst_dcse) "ENA correction (Excluding Null Alleles) - Chapuis & Estoup (2007) / FreeNA",
-        if (fst_dcse) "INA correction (Including Null Alleles) - Chapuis & Estoup (2007) / FreeNA",
-        if (fst_dcse) "FST: Weir & Cockerham (1984) unbiased moment estimator",
-        if (fst_dcse) "DCSE: Cavalli-Sforza & Edwards (1967) chord genetic distance",
-        if (fst_dcse) paste0("Bootstrap replicates (over loci): ", r$nboot),
-        if (fst_dcse) paste0("Bootstrap replicates (over sub-samples): ", r$nboot_subs %||% r$nboot),
-        if (fst_dcse) paste0("Bootstrap random seed (set.seed): ", r$seed %||% "n/a",
-                              " \u2014 rerun with the same seed and nboot to reproduce these CI exactly"),
-        paste0("Confidence interval: ", ci_pct, " (alpha = ", r$alpha, ")"),
-        "Locus coding for missing data (Miss) (000000=ignored; 999999=null homozygote):",
-        paste0("  ", treat_summary),
-        ""
-      )
+      c(file_desc, "")
     }
 
     write_with_header <- function(hdr, df, file, sep = "\t") {
@@ -1431,22 +1411,48 @@ server_null_alleles <- function(id, rv) {
     #  pairwise table can be generated here too, without cross-module
     #  dependencies.
     # ════════════════════════════════════════════════════════════════════════
-    coords_r <- reactive({
+    meta_cols_r <- reactive({
       db_ready()
-      con  <- con_r()
-      cols <- tryCatch(DBI::dbGetQuery(con, sprintf(
+      con <- con_r()
+      tryCatch(DBI::dbGetQuery(con, sprintf(
         "SELECT column_name FROM information_schema.columns WHERE table_name = '%s'",
         tbl_meta_r()))$column_name, error = function(e) character(0))
-      if (!all(c("Latitude", "Longitude") %in% cols)) return(NULL)
+    })
+
+    .guess_gps_col <- function(cols, patterns) {
+      for (pat in patterns) { hit <- grep(pat, cols, value = TRUE, ignore.case = TRUE); if (length(hit)) return(hit[1L]) }
+      if (length(cols)) cols[1] else NULL
+    }
+
+    output$gps_lon_col_ui <- renderUI({
+      cols <- meta_cols_r()
+      selectInput(session$ns("gps_lon_col"), "Longitude column:", choices = cols,
+                  selected = .guess_gps_col(cols, c("^Longitude$", "^Lon$", "^Long$")))
+    })
+    output$gps_lat_col_ui <- renderUI({
+      cols <- meta_cols_r()
+      selectInput(session$ns("gps_lat_col"), "Latitude column:", choices = cols,
+                  selected = .guess_gps_col(cols, c("^Latitude$", "^Lat$")))
+    })
+
+    coords_r <- reactive({
+      if (!isTRUE(identical(input$gps_available, "yes"))) return(NULL)
+      db_ready()
+      con  <- con_r()
+      latc <- input$gps_lat_col; lonc <- input$gps_lon_col
+      shiny::req(latc, lonc)
+      cols <- meta_cols_r()
+      if (!all(c(latc, lonc) %in% cols)) return(NULL)
       df <- tryCatch(DBI::dbGetQuery(con, sprintf(
         "SELECT Population,
-                AVG(CAST(Latitude  AS DOUBLE)) AS Latitude,
-                AVG(CAST(Longitude AS DOUBLE)) AS Longitude
+                AVG(CAST(%s AS DOUBLE)) AS Latitude,
+                AVG(CAST(%s AS DOUBLE)) AS Longitude
          FROM %s
          WHERE Population IS NOT NULL
-           AND Latitude IS NOT NULL AND Longitude IS NOT NULL
+           AND %s IS NOT NULL AND %s IS NOT NULL
          GROUP BY Population ORDER BY Population",
-        sql_ident(con, tbl_meta_r()))), error = function(e) NULL)
+        sql_ident(con, latc), sql_ident(con, lonc), sql_ident(con, tbl_meta_r()),
+        sql_ident(con, latc), sql_ident(con, lonc))), error = function(e) NULL)
       if (is.null(df) || nrow(df) < 2L) return(NULL)
       df
     })
@@ -1587,16 +1593,27 @@ server_null_alleles <- function(id, rv) {
         }, character(1)),
         stringsAsFactors = FALSE
       )
+      ci_pct <- paste0(round((1 - r$alpha) * 100, 3), "%")
+      methods_lines <- c(
+        "Method: Expectation-Maximization (EM) algorithm - Dempster, Laird & Rubin (1977)",
+        "ENA correction (Excluding Null Alleles) - Chapuis & Estoup (2007) / FreeNA",
+        "INA correction (Including Null Alleles) - Chapuis & Estoup (2007) / FreeNA",
+        "FST: Weir & Cockerham (1984) unbiased moment estimator",
+        "DCSE: Cavalli-Sforza & Edwards (1967) chord genetic distance"
+      )
       params_df <- data.frame(
-        Parameter = c("Dataset", "Number of bootstraps over loci", "Number of bootstraps over sub-samples",
-                      "Critical level for confidence intervals (alpha)", "Confidence interval",
-                      "Random seed"),
-        Value = c(rv$dataset_filename %||% "default_dataset", r$nboot, r$nboot_subs %||% r$nboot,
-                  r$alpha, paste0(round((1 - r$alpha) * 100, 3), "%"), r$seed %||% "n/a"),
+        Parameter = c("Dataset",
+                      "Bootstrap replicates (over loci)", "Bootstrap replicates (over sub-samples)",
+                      "Bootstrap random seed (set.seed)",
+                      "Confidence interval", "Critical level (alpha)"),
+        Value = c(rv$dataset_filename %||% "default_dataset",
+                  r$nboot, r$nboot_subs %||% r$nboot,
+                  paste0(r$seed %||% "n/a", " \u2014 rerun with the same seed and nboot to reproduce these CI exactly"),
+                  ci_pct, r$alpha),
         stringsAsFactors = FALSE
       )
-      list(header = c("Run parameters used for this \u201cCompute\u201d run", ""),
-           loci = loci_df, params = params_df)
+      list(header = c("List of parameters you chose to use", ""),
+           methods = methods_lines, loci = loci_df, params = params_df)
     })
 
     output$dl_file6_txt <- downloadHandler(
@@ -1605,6 +1622,9 @@ server_null_alleles <- function(id, rv) {
         d <- file6_data()
         con <- file(file, open = "w", encoding = "UTF-8"); on.exit(close(con))
         writeLines(d$header, con = con, useBytes = TRUE)
+        writeLines("Methods:", con = con)
+        writeLines(d$methods, con = con, useBytes = TRUE)
+        writeLines("", con = con)
         writeLines("General parameters:", con = con)
         write.table(d$params, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
         writeLines("", con = con)
@@ -1710,6 +1730,9 @@ server_null_alleles <- function(id, rv) {
         p6 <- file.path(tmpdir, out_filename("run_parameters"))
         con6 <- file(p6, open = "w", encoding = "UTF-8")
         writeLines(d6$header, con = con6, useBytes = TRUE)
+        writeLines("Methods:", con = con6)
+        writeLines(d6$methods, con = con6, useBytes = TRUE)
+        writeLines("", con = con6)
         writeLines("General parameters:", con = con6)
         write.table(d6$params, file = con6, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
         writeLines("", con = con6)
