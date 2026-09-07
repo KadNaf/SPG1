@@ -118,7 +118,7 @@ null_alleles_UI <- function(id) {
     fluidRow(
       box(
         width = 12,
-        title = div(style = box_title_style, icon("sliders"), "Setup"),
+        # title = div(style = box_title_style, icon("sliders"), "Setup"),
         solidHeader = TRUE, status = "primary",
 
         # h4(icon("code-branch"), "(1) Missing genotype coding per locus"),
@@ -131,7 +131,7 @@ null_alleles_UI <- function(id) {
         #     "Please make sure you do not already have any allele coded as 999.")
         # ),
 
-        h4(icon("code-branch"), "Missing genotype coding per locus"),
+        # h4(icon("code-branch"), "Missing genotype coding per locus"),
         tags$div(class = "na-warn",
           tags$p(style = "margin:.25rem 0;",
             "Choose the missing data code for each locus: ",
