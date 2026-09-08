@@ -1674,71 +1674,107 @@ server_null_alleles <- function(id, rv) {
         DT::formatRound(setdiff(names(df)[sapply(df, is.numeric)], character(0)), 6)
     })
 
-    # ── Download everything at once, as one .zip ───────────────────────────
+    # ── Build every output file into a temp directory; returns the file
+    #    paths written. Shared by both the browser-download zip and the
+    #    "save to a chosen folder" flow below, so the two never drift apart.
+    .build_export_files <- function(tmpdir) {
+      d1 <- file1_data(); d2 <- file2_data(); d3 <- file3_data()
+      d4 <- file4_data(); d5 <- file5_data(); d6 <- file6_data()
+
+      p1 <- file.path(tmpdir, out_filename("-null_allele_frequencies"))
+      write_with_header(c(d1$header, "Section 1: p_nulls per locus x population",
+                           "N_exp_blanks: expected number of null homozygotes = N * p_nulls^2", ""),
+                         d1$t1, p1, sep = "\t")
+      write("", file = p1, append = TRUE)
+      write("Section 2: N-weighted mean per locus", file = p1, append = TRUE)
+      write.table(d1$t2, file = p1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE, col.names = TRUE)
+
+      p2 <- file.path(tmpdir, out_filename("-global_FST_ENA_CI"))
+      write_with_header(d2$header, d2$data, p2, sep = "\t")
+
+      p3 <- file.path(tmpdir, out_filename("-pairwise_long_format"))
+      write_with_header(d3$header, d3$data, p3, sep = "\t")
+
+      p4 <- file.path(tmpdir, out_filename("-per_locus_half_matrices"))
+      con4 <- file(p4, open = "w", encoding = "UTF-8")
+      writeLines(d4$header, con = con4, useBytes = TRUE)
+      for (loc in d4$markers) {
+        for (sc in c("FST_raw","FST_ENA")) {
+          writeLines(half_matrix_txt(d4$fst_df, sc, d4$pops, loc), con=con4, useBytes=TRUE)
+          writeLines("", con=con4)
+        }
+        for (sc in c("DCSE_raw","DCSE_INA")) {
+          writeLines(half_matrix_txt(d4$dc_df, sc, d4$pops, loc), con=con4, useBytes=TRUE)
+          writeLines("", con=con4)
+        }
+      }
+      close(con4)
+
+      p5 <- file.path(tmpdir, out_filename("-bootstrap_distributions"))
+      write_with_header(d5$header, d5$data, p5, sep = "\t")
+
+      p6 <- file.path(tmpdir, out_filename("-run_parameters"))
+      con6 <- file(p6, open = "w", encoding = "UTF-8")
+      writeLines(d6$header, con = con6, useBytes = TRUE)
+      writeLines("Methods:", con = con6)
+      writeLines(d6$methods, con = con6, useBytes = TRUE)
+      writeLines("", con = con6)
+      writeLines("General parameters:", con = con6)
+      write.table(d6$params, file = con6, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+      writeLines("", con = con6)
+      writeLines("Missing genotype coding per locus:", con = con6)
+      write.table(d6$loci, file = con6, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+      close(con6)
+
+      all_files <- c(p1, p2, p3, p4, p5, p6)
+
+      if (isTRUE(include_pairwise_r())) {
+        d7 <- file7_data()
+        p7 <- file.path(tmpdir, out_filename("-full_pairwise_table"))
+        write_with_header(d7$header, d7$data, p7, sep = "\t")
+        all_files <- c(all_files, p7)
+      }
+      all_files
+    }
+
+    # ── Save to a chosen folder — the shinyFiles "save" dialog opens
+    #    automatically right after Compute finishes (see the trigger below),
+    #    and this same button can be clicked again any time to save once
+    #    more or pick a different location.
+    volumes_na <- c(Home = path.expand("~"), shinyFiles::getVolumes()())
+    shinyFiles::shinyFileSave(input, "save_all_btn", roots = volumes_na, session = session,
+                               filetype = list(zip = "zip"))
+
+    observeEvent(input$save_all_btn, {
+      sel <- shinyFiles::parseSavePath(volumes_na, input$save_all_btn)
+      shiny::req(nrow(sel) == 1L, results_r())
+      dest <- sel$datapath[1]
+      tmpdir <- tempfile("spg_export_"); dir.create(tmpdir)
+      on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+      all_files <- tryCatch(.build_export_files(tmpdir), error = function(e) NULL)
+      if (is.null(all_files)) {
+        showNotification("Could not build the output files.", type = "error", duration = 8)
+        return(invisible(NULL))
+      }
+      ok <- tryCatch({ zip::zip(zipfile = dest, files = basename(all_files), root = tmpdir); TRUE },
+                      error = function(e) { showNotification(paste("Could not save:", conditionMessage(e)), type = "error", duration = 8); FALSE })
+      if (ok) showNotification(paste("Saved to:", dest), type = "message", duration = 6)
+    }, ignoreInit = TRUE)
+
+    # Auto-open the save dialog right after a successful Compute, so the
+    # user is prompted for a save location without an extra click.
+    observeEvent(results_r(), {
+      session$sendCustomMessage("spg-click-null-alleles", session$ns("save_all_btn"))
+    }, ignoreInit = TRUE)
+
+    # ── Download everything at once, as one .zip (browser download) ────────
     output$dl_all_zip <- downloadHandler(
       filename = function() paste0(out_root_r(), out_suffix_r(), "SPG_null_alleles_export_", Sys.Date(), ".zip"),
       content  = function(file) {
         req(results_r())
         tmpdir <- tempfile("spg_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
-
-        d1 <- file1_data(); d2 <- file2_data(); d3 <- file3_data()
-        d4 <- file4_data(); d5 <- file5_data(); d6 <- file6_data()
-
-        p1 <- file.path(tmpdir, out_filename("-null_allele_frequencies"))
-        write_with_header(c(d1$header, "Section 1: p_nulls per locus x population",
-                             "N_exp_blanks: expected number of null homozygotes = N * p_nulls^2", ""),
-                           d1$t1, p1, sep = "\t")
-        write("", file = p1, append = TRUE)
-        write("Section 2: N-weighted mean per locus", file = p1, append = TRUE)
-        write.table(d1$t2, file = p1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE, col.names = TRUE)
-
-        p2 <- file.path(tmpdir, out_filename("-global_FST_ENA_CI"))
-        write_with_header(d2$header, d2$data, p2, sep = "\t")
-
-        p3 <- file.path(tmpdir, out_filename("-pairwise_long_format"))
-        write_with_header(d3$header, d3$data, p3, sep = "\t")
-
-        p4 <- file.path(tmpdir, out_filename("-per_locus_half_matrices"))
-        con4 <- file(p4, open = "w", encoding = "UTF-8")
-        writeLines(d4$header, con = con4, useBytes = TRUE)
-        for (loc in d4$markers) {
-          for (sc in c("FST_raw","FST_ENA")) {
-            writeLines(half_matrix_txt(d4$fst_df, sc, d4$pops, loc), con=con4, useBytes=TRUE)
-            writeLines("", con=con4)
-          }
-          for (sc in c("DCSE_raw","DCSE_INA")) {
-            writeLines(half_matrix_txt(d4$dc_df, sc, d4$pops, loc), con=con4, useBytes=TRUE)
-            writeLines("", con=con4)
-          }
-        }
-        close(con4)
-
-        p5 <- file.path(tmpdir, out_filename("-bootstrap_distributions"))
-        write_with_header(d5$header, d5$data, p5, sep = "\t")
-
-        p6 <- file.path(tmpdir, out_filename("-run_parameters"))
-        con6 <- file(p6, open = "w", encoding = "UTF-8")
-        writeLines(d6$header, con = con6, useBytes = TRUE)
-        writeLines("Methods:", con = con6)
-        writeLines(d6$methods, con = con6, useBytes = TRUE)
-        writeLines("", con = con6)
-        writeLines("General parameters:", con = con6)
-        write.table(d6$params, file = con6, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con6)
-        writeLines("Missing genotype coding per locus:", con = con6)
-        write.table(d6$loci, file = con6, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        close(con6)
-
-        all_files <- c(p1, p2, p3, p4, p5, p6)
-
-        if (isTRUE(include_pairwise_r())) {
-          d7 <- file7_data()
-          p7 <- file.path(tmpdir, out_filename("-full_pairwise_table"))
-          write_with_header(d7$header, d7$data, p7, sep = "\t")
-          all_files <- c(all_files, p7)
-        }
-
+        all_files <- .build_export_files(tmpdir)
         zip::zip(zipfile = file, files = basename(all_files), root = tmpdir)
       }
     )

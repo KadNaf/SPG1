@@ -72,6 +72,11 @@ null_alleles_UI <- function(id) {
   fluidPage(
     tags$head(gs_head()),
     supplemental_css,
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('spg-click-null-alleles', function(id) {
+        setTimeout(function(){ var el = document.getElementById(id); if (el) el.click(); }, 300);
+      });
+    ")),
 
     module_banner("circle-notch", "Null Allele Estimation · FST-ENA · DCSE-INA",""),
 
@@ -153,15 +158,15 @@ null_alleles_UI <- function(id) {
         tags$div(style = "display:flex; align-items:flex-start; gap:0; flex-wrap:wrap;",
           tags$div(style = "flex:1; min-width:190px; padding-right:16px;",
             numericInput(ns("nboot"),
-              label = "Number of bootstraps over loci (for all analyses) (at least 100):",
+              label = "Bootstraps over loci (at least 100):",
               value = 5000, min = 100, max = 99999, step = 1000, width = "100%")),
           tags$div(style = "border-left:1px solid #dcdfe4; flex:1; min-width:190px; padding:0 16px;",
             numericInput(ns("nboot_subs"),
-              label = "Number of bootstraps over subsamples (for over all FST's) (at least 100):",
+              label = "Bootstraps over subsamples (at least 100):",
               value = 5000, min = 100, max = 99999, step = 1000, width = "100%")),
           tags$div(style = "border-left:1px solid #dcdfe4; flex:0 0 220px; padding:0 16px;",
             numericInput(ns("alpha"),
-              label = "Critical level for confidence intervals (between 0.9999 and 0.0001):",
+              label = "Critical level for CI (between 0.9999 and 0.0001):",
               value = 0.05, min = 0.0001, max = 0.5, step = 0.01, width = "100%")),
           tags$div(style = "border-left:1px solid #dcdfe4; flex:0 0 200px; padding:0 0 0 16px;",
             numericInput(ns("boot_seed"),
@@ -261,123 +266,12 @@ null_alleles_UI <- function(id) {
         ),
         uiOutput(ns("ui_file7_card")),
         tags$hr(),
-        downloadButton(ns("dl_all_zip"), "Download all files (.zip)", class = "btn-action-primary")
-      )
-    ),
-
-    # ════════════════════════════════════════════════════════════════════
-    # RESULTS TABS — for visual inspection
-    # ════════════════════════════════════════════════════════════════════
-    h2("Results", class = "section-title"),
-    fluidRow(
-      box(
-        width = 12,
-        title = div(style = box_title_style, icon("table"), "Detailed results"),
-        solidHeader = TRUE, status = "primary",
-
-        tabsetPanel(id = ns("na_tabs"), type = "tabs",
-
-          # ── TAB 1: Null allele frequencies ────────────────────────────────── #
-          tabPanel(title = tagList(icon("percent"), " Null allele frequencies"),
-                   value = "tab_na", br(),
-            # tags$div(class = "na-info",
-            #   "Reproduces FreeNA's own null-allele-frequency report: the EM algorithm ",
-            #   "(Dempster, Laird & Rubin 1977) estimated per locus \u00d7 population below, ",
-            #   "and the N-weighted per-locus summary (Av(p_nulls), Av(N_exp_blanks), ",
-            #   "f(expBlanks), one-sided binomial test p-value, and chosen blank coding) further down."
-            # ),
-            h4(icon("info-circle"), "p_nulls per locus \u00d7 population (EM algorithm)"),
-            DT::DTOutput(ns("dt_t1")), br(),
-            h4(icon("info-circle"), "Per-locus summary (N-weighted mean, FreeNA report format)"),
-            DT::DTOutput(ns("dt_t2"))
-          ),
-
-          # ── TAB 2: FST & FST-ENA ──────────────────────────────────────────── #
-          tabPanel(title = tagList(icon("chart-bar"), " FST / FST-ENA"),
-                   value = "tab_fst", br(),
-            # tags$div(class = "na-info",
-            #   tags$strong("Global multilocus FST"), " \u2014 Weir & Cockerham (1984) unbiased moment estimator. ",
-            #   tags$strong("FST-ENA"), ": EM-corrected frequencies, Excluding Null Alleles \u2014 Chapuis & Estoup (2007).",
-            #   tags$br(),
-            #   "Bootstrap CI over loci (resample loci with replacement, multilocus estimates only) and over ",
-            #   "sub-samples (resample populations as whole blocks with replacement, available both for the ",
-            #   "multilocus estimate and per locus \u2014 see the per-locus table below)."
-            # ),
-            h4(icon("table"), "Per-locus FST and FST-ENA"),
-            DT::DTOutput(ns("dt_fst_global")), br(),
-
-            h4(icon("chart-area"), "Bootstrap CI \u2014 Global FST and FST-ENA"),
-            uiOutput(ns("ui_boot_global_fst")), br(),
-
-            h4(icon("th"), "Pairwise FST and FST-ENA \u2014 lower triangle matrix"),
-            fluidRow(
-              column(5,
-                radioButtons(ns("fst_pair_display"), "Display:",
-                  choices = c(
-                    "Raw FST (uncorrected)" = "raw",
-                    "FST-ENA (corrected)"   = "ena",
-                    "Both side by side"     = "both"),
-                  selected = "both", inline = TRUE))),
-            uiOutput(ns("ui_fst_pair_matrix")), br(),
-
-            h4(icon("chart-area"), "Bootstrap CI \u2014 Pairwise FST-ENA (over loci)"),
-            uiOutput(ns("ui_boot_pair_fst"))
-          ),
-
-          # ── TAB 3: DCSE / DCSE-INA ────────────────────────────────────────── #
-          tabPanel(title = tagList(icon("route"), " DCSE / DCSE-INA"),
-                   value = "tab_dc", br(),
-            # tags$div(class = "na-info",
-            #   tags$strong("Cavalli-Sforza & Edwards (1967) chord distance."),
-            #   " DCSE-INA includes the null allele as an extra state \u2014 Chapuis & Estoup (2007).",
-            #   tags$br(),
-            #   "DCSE(i,j) = (2/\u03c0)\u00d7\u221a[2\u00d7(1\u2212\u03a3\u221a(p_ik\u00d7p_jk))]  ",
-            #   "INA: corrdgenefreq + null allele appended (freq = rd[locus, pop])."
-            # ),
-            h4(icon("th"), "Pairwise DCSE and DCSE-INA \u2014 lower triangle matrix"),
-            fluidRow(
-              column(5,
-                radioButtons(ns("dc_display"), "Display:",
-                  choices = c(
-                    "Raw DCSE (uncorrected)" = "raw",
-                    "DCSE-INA (corrected)"   = "ina",
-                    "Both side by side"      = "both"),
-                  selected = "both", inline = TRUE))),
-            uiOutput(ns("ui_dc_matrix")), br(),
-
-            h4(icon("chart-area"), "Bootstrap CI \u2014 Pairwise DCSE-INA (over loci)"),
-            uiOutput(ns("ui_boot_pair_dc"))
-          ),
-
-          # ── TAB 4: Per-locus x pair ───────────────────────────────────────── #
-          tabPanel(title = tagList(icon("border-all"), " Per-locus \u00d7 pair"),
-                   value = "tab_locus_pair", br(),
-            # tags$div(class = "na-info",
-            #   "FST, FST-ENA, DCSE and DCSE-INA for each locus \u00d7 pair of populations.",
-            #   " Useful for detecting outlier loci."
-            # ),
-            fluidRow(
-              column(3, selectInput(ns("fl_locus"), "Locus:",
-                choices = c("All loci" = "all"), selected = "all")),
-              column(3, selectInput(ns("fl_pop1"), "Population 1:",
-                choices = c("All pairs" = "all"), selected = "all")),
-              column(3, selectInput(ns("fl_pop2"), "Population 2:",
-                choices = c("All pairs" = "all"), selected = "all"))
-            ),
-            h4(icon("table"), "FST and FST-ENA per locus \u00d7 pair"),
-            DT::DTOutput(ns("dt_fst_locus")), br(),
-            h4(icon("table"), "DCSE and DCSE-INA per locus \u00d7 pair"),
-            DT::DTOutput(ns("dt_dc_locus"))
-          ),
-
-          # ── TAB 5: Full pairwise table ──────────────────────────────────── #
-          tabPanel(title = tagList(icon("route"), " Full pairwise table"),
-                   value = "tab_full_pairwise", br(),
-            uiOutput(ns("ui_full_pairwise_note")),
-            DT::DTOutput(ns("dt_full_pairwise"))
-          )
-        ),
-        style = "padding: 10px;"
+        shinyFiles::shinySaveButton(ns("save_all_btn"), "Choose where to save\u2026",
+          "Choose a folder and file name to save all the generated files (as a .zip)",
+          filetype = list(zip = "zip"), class = "btn-action-primary"),
+        tags$p(style="color:#777;font-size:11px;margin-top:6px;",
+          icon("info-circle"), " This opens automatically once Compute finishes \u2014 use this button to save again ",
+          "or pick a different location.")
       )
     )
   )
