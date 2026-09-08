@@ -161,7 +161,7 @@ null_alleles_UI <- function(id) {
               value = 5000, min = 100, max = 99999, step = 1000, width = "100%")),
           tags$div(style = "border-left:1px solid #dcdfe4; flex:0 0 220px; padding:0 16px;",
             numericInput(ns("alpha"),
-              label = "Critical level for CI (between 0.9999 and 0.0001):",
+              label = "Alpha (between 0.9999 and 0.0001):",
               value = 0.05, min = 0.0001, max = 0.5, step = 0.01, width = "100%")),
           tags$div(style = "border-left:1px solid #dcdfe4; flex:0 0 200px; padding:0 0 0 16px;",
             numericInput(ns("boot_seed"),
