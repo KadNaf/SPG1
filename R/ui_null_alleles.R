@@ -265,13 +265,11 @@ null_alleles_UI <- function(id) {
           uiOutput(ns("ui_dl_file6"))
         ),
         uiOutput(ns("ui_file7_card")),
-        tags$hr(),
-        shinyFiles::shinySaveButton(ns("save_all_btn"), "Choose where to save\u2026",
-          "Choose a folder and file name to save all the generated files (as a .zip)",
-          filetype = list(zip = "zip"), class = "btn-action-primary"),
-        tags$p(style="color:#777;font-size:11px;margin-top:6px;",
-          icon("info-circle"), " This opens automatically once Compute finishes \u2014 use this button to save again ",
-          "or pick a different location.")
+        tags$div(style = "display:none;",
+          shinyFiles::shinySaveButton(ns("save_all_btn"), "Choose where to save\u2026",
+            "Choose a folder and file name to save all the generated files (as a .zip)",
+            filetype = list(zip = "zip"))
+        )
       )
     )
   )
