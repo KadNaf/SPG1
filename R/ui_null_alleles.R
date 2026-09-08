@@ -76,9 +76,7 @@ null_alleles_UI <- function(id) {
       Shiny.addCustomMessageHandler('spg-click-null-alleles', function(id) {
         setTimeout(function(){
           var el = document.getElementById(id);
-          if (!el) return;
-          if (window.jQuery) { jQuery(el).trigger('click'); }
-          el.click();
+          if (el) el.click();
         }, 400);
       });
     ")),
@@ -271,9 +269,7 @@ null_alleles_UI <- function(id) {
         ),
         uiOutput(ns("ui_file7_card")),
         tags$div(style = "position:absolute; opacity:0; width:1px; height:1px; overflow:hidden; pointer-events:none;",
-          shinyFiles::shinySaveButton(ns("save_all_btn"), "Choose where to save\u2026",
-            "Choose a folder and file name to save all the generated files (as a .zip)",
-            filetype = list(zip = "zip"))
+          downloadLink(ns("dl_all_zip_auto"), "auto-download")
         )
       )
     )

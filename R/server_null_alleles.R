@@ -1737,39 +1737,13 @@ server_null_alleles <- function(id, rv) {
       all_files
     }
 
-    # ── Save to a chosen folder — the shinyFiles "save" dialog opens
-    #    automatically right after Compute finishes (see the trigger below),
-    #    and this same button can be clicked again any time to save once
-    #    more or pick a different location.
-    volumes_na <- c(Home = path.expand("~"), shinyFiles::getVolumes()())
-    shinyFiles::shinyFileSave(input, "save_all_btn", roots = volumes_na, session = session,
-                               filetype = list(zip = "zip"))
-
-    observeEvent(input$save_all_btn, {
-      sel <- shinyFiles::parseSavePath(volumes_na, input$save_all_btn)
-      shiny::req(nrow(sel) == 1L, results_r())
-      dest <- sel$datapath[1]
-      tmpdir <- tempfile("spg_export_"); dir.create(tmpdir)
-      on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
-      all_files <- tryCatch(.build_export_files(tmpdir), error = function(e) NULL)
-      if (is.null(all_files)) {
-        showNotification("Could not build the output files.", type = "error", duration = 8)
-        return(invisible(NULL))
-      }
-      ok <- tryCatch({ zip::zip(zipfile = dest, files = basename(all_files), root = tmpdir); TRUE },
-                      error = function(e) { showNotification(paste("Could not save:", conditionMessage(e)), type = "error", duration = 8); FALSE })
-      if (ok) showNotification(paste("Saved to:", dest), type = "message", duration = 6)
-    }, ignoreInit = TRUE)
-
-    # Auto-open the save dialog right after a successful Compute, so the
-    # user is prompted for a save location without an extra click.
-    observeEvent(results_r(), {
-      showNotification("Choose where to save your files\u2026", type = "message", duration = 4)
-      session$sendCustomMessage("spg-click-null-alleles", session$ns("save_all_btn"))
-    }, ignoreInit = TRUE)
-
-    # ── Download everything at once, as one .zip (browser download) ────────
-    output$dl_all_zip <- downloadHandler(
+    # ── Auto-download everything as one .zip, right after Compute finishes.
+    #    This is a plain browser download (a real <a> link, clicked
+    #    automatically via JS) — far more reliable to trigger programmatically
+    #    than a custom widget, and if the user's browser is set to "always
+    #    ask where to save files", this is exactly where the native OS
+    #    Save-As dialog will appear.
+    output$dl_all_zip_auto <- downloadHandler(
       filename = function() paste0(out_root_r(), out_suffix_r(), "SPG_null_alleles_export_", Sys.Date(), ".zip"),
       content  = function(file) {
         req(results_r())
@@ -1779,6 +1753,11 @@ server_null_alleles <- function(id, rv) {
         zip::zip(zipfile = file, files = basename(all_files), root = tmpdir)
       }
     )
+
+    observeEvent(results_r(), {
+      showNotification("Downloading all files\u2026", type = "message", duration = 4)
+      session$sendCustomMessage("spg-click-null-alleles", session$ns("dl_all_zip_auto"))
+    }, ignoreInit = TRUE)
 
     # ── Run status ─────────────────────────────────────────────────────────────
     output$ui_run_status <- renderUI({
