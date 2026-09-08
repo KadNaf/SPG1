@@ -1737,13 +1737,8 @@ server_null_alleles <- function(id, rv) {
       all_files
     }
 
-    # ── Auto-download everything as one .zip, right after Compute finishes.
-    #    This is a plain browser download (a real <a> link, clicked
-    #    automatically via JS) — far more reliable to trigger programmatically
-    #    than a custom widget, and if the user's browser is set to "always
-    #    ask where to save files", this is exactly where the native OS
-    #    Save-As dialog will appear.
-    output$dl_all_zip_auto <- downloadHandler(
+    # ── Download everything at once, as one .zip (browser download) ────────
+    output$dl_all_zip <- downloadHandler(
       filename = function() paste0(out_root_r(), out_suffix_r(), "SPG_null_alleles_export_", Sys.Date(), ".zip"),
       content  = function(file) {
         req(results_r())
@@ -1753,11 +1748,6 @@ server_null_alleles <- function(id, rv) {
         zip::zip(zipfile = file, files = basename(all_files), root = tmpdir)
       }
     )
-
-    observeEvent(results_r(), {
-      showNotification("Downloading all files\u2026", type = "message", duration = 4)
-      session$sendCustomMessage("spg-click-null-alleles", session$ns("dl_all_zip_auto"))
-    }, ignoreInit = TRUE)
 
     # ── Run status ─────────────────────────────────────────────────────────────
     output$ui_run_status <- renderUI({

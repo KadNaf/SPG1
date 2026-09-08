@@ -72,14 +72,6 @@ null_alleles_UI <- function(id) {
   fluidPage(
     tags$head(gs_head()),
     supplemental_css,
-    tags$script(HTML("
-      Shiny.addCustomMessageHandler('spg-click-null-alleles', function(id) {
-        setTimeout(function(){
-          var el = document.getElementById(id);
-          if (el) el.click();
-        }, 400);
-      });
-    ")),
 
     module_banner("circle-notch", "Null Allele Estimation · FST-ENA · DCSE-INA",""),
 
@@ -268,9 +260,8 @@ null_alleles_UI <- function(id) {
           uiOutput(ns("ui_dl_file6"))
         ),
         uiOutput(ns("ui_file7_card")),
-        tags$div(style = "position:absolute; opacity:0; width:1px; height:1px; overflow:hidden; pointer-events:none;",
-          downloadLink(ns("dl_all_zip_auto"), "auto-download")
-        )
+        tags$hr(),
+        downloadButton(ns("dl_all_zip"), "Download all files (.zip)", class = "btn-action-primary")
       )
     )
   )
