@@ -1764,6 +1764,7 @@ server_null_alleles <- function(id, rv) {
     # Auto-open the save dialog right after a successful Compute, so the
     # user is prompted for a save location without an extra click.
     observeEvent(results_r(), {
+      showNotification("Choose where to save your files\u2026", type = "message", duration = 4)
       session$sendCustomMessage("spg-click-null-alleles", session$ns("save_all_btn"))
     }, ignoreInit = TRUE)
 
