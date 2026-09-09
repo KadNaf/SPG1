@@ -1169,7 +1169,7 @@ server_null_alleles <- function(id, rv) {
     #  method lines don't belong in it).
     # ══════════════════════════════════════════════════════════════════════════
     meta_header <- function(r, file_desc, fst_dcse = TRUE) {
-      c(file_desc, "")
+      character(0)
     }
 
     write_with_header <- function(hdr, df, file, sep = "\t") {
@@ -1267,38 +1267,6 @@ server_null_alleles <- function(id, rv) {
     # ══════════════════════════════════════════════════════════════════════════
     #  FILE 3 — Pairwise long format (FST, FST-ENA, DCSE, DCSE-INA + CI)
     # ══════════════════════════════════════════════════════════════════════════
-    file3_data <- reactive({
-      r <- results_r()
-      fst_l <- r$fst_pair$long
-      dc_l  <- r$dc_pair$long
-      bf    <- r$boot_pair_fst
-      bd    <- r$boot_pair_dc
-
-      merged <- merge(fst_l, dc_l, by=c("Pop1","Pop2"), all=TRUE)
-      # Column names below are already globally unique and self-describing
-      # (FST_ENA_* / FST_raw_* / DCSE_INA_* / DCSE_raw_*), so no merge
-      # suffixes are needed and no ambiguity is possible between FST and
-      # DCSE, or between ENA/INA-corrected and raw CI bounds.
-      if (!is.null(bf) && nrow(bf)>0)
-        merged <- merge(merged, bf[,c("Pop1","Pop2",
-                                      "FST_ENA_CI_lo_loci","FST_ENA_CI_hi_loci",
-                                      "FST_raw_CI_lo_loci","FST_raw_CI_hi_loci")],
-                        by=c("Pop1","Pop2"), all.x=TRUE)
-      if (!is.null(bd) && nrow(bd)>0)
-        merged <- merge(merged, bd[,c("Pop1","Pop2",
-                                      "DCSE_INA_CI_lo_loci","DCSE_INA_CI_hi_loci",
-                                      "DCSE_raw_CI_lo_loci","DCSE_raw_CI_hi_loci")],
-                        by=c("Pop1","Pop2"), all.x=TRUE)
-      list(header = meta_header(r, "Pairwise statistics (all loci combined), long format"),
-           data   = merged)
-    })
-
-    output$dl_file3_txt <- downloadHandler(
-      filename = function() out_filename("pairwise_long_format"),
-      content  = function(file) { d <- file3_data()
-        write_with_header(d$header, d$data, file, sep="\t") }
-    )
-
     # ══════════════════════════════════════════════════════════════════════════
     #  FILE 4 — Per-locus half-matrices
     # ══════════════════════════════════════════════════════════════════════════
@@ -1399,7 +1367,6 @@ server_null_alleles <- function(id, rv) {
     # ── Show the actual computed filename on each output-file card ────────────
     output$ui_filename_1 <- renderUI(tags$code(out_filename("null_allele_frequencies")))
     output$ui_filename_2 <- renderUI(tags$code(out_filename("global_FST_ENA_CI")))
-    output$ui_filename_3 <- renderUI(tags$code(out_filename("pairwise_long_format")))
     output$ui_filename_4 <- renderUI(tags$code(out_filename("per_locus_half_matrices")))
     output$ui_filename_5 <- renderUI(tags$code(out_filename("bootstrap_distributions")))
     output$ui_filename_6 <- renderUI(tags$code(out_filename("run_parameters")))
@@ -1551,7 +1518,7 @@ server_null_alleles <- function(id, rv) {
       isTRUE(gps_available_r())
     })
 
-    n_files_r <- reactive({ if (isTRUE(include_pairwise_r())) 7L else 6L })
+    n_files_r <- reactive({ if (isTRUE(include_pairwise_r())) 6L else 5L })
 
     output$ui_output_files_title <- renderUI({
       div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
@@ -1602,7 +1569,7 @@ server_null_alleles <- function(id, rv) {
                   ci_pct, r$alpha),
         stringsAsFactors = FALSE
       )
-      list(header = c("List of parameters you chose to use", ""),
+      list(header = character(0),
            methods = methods_lines, loci = loci_df, params = params_df)
     })
 
@@ -1649,7 +1616,6 @@ server_null_alleles <- function(id, rv) {
     }
     output$ui_dl_file1 <- make_dl_ui("dl_file1_txt")
     output$ui_dl_file2 <- make_dl_ui("dl_file2_txt")
-    output$ui_dl_file3 <- make_dl_ui("dl_file3_txt")
     output$ui_dl_file4 <- make_dl_ui("dl_file4_txt")
     output$ui_dl_file5 <- make_dl_ui("dl_file5_txt")
     output$ui_dl_file6 <- make_dl_ui("dl_file6_txt")
@@ -1678,7 +1644,7 @@ server_null_alleles <- function(id, rv) {
     #    paths written. Shared by both the browser-download zip and the
     #    "save to a chosen folder" flow below, so the two never drift apart.
     .build_export_files <- function(tmpdir) {
-      d1 <- file1_data(); d2 <- file2_data(); d3 <- file3_data()
+      d1 <- file1_data(); d2 <- file2_data()
       d4 <- file4_data(); d5 <- file5_data(); d6 <- file6_data()
 
       p1 <- file.path(tmpdir, out_filename("-null_allele_frequencies"))
@@ -1691,9 +1657,6 @@ server_null_alleles <- function(id, rv) {
 
       p2 <- file.path(tmpdir, out_filename("-global_FST_ENA_CI"))
       write_with_header(d2$header, d2$data, p2, sep = "\t")
-
-      p3 <- file.path(tmpdir, out_filename("-pairwise_long_format"))
-      write_with_header(d3$header, d3$data, p3, sep = "\t")
 
       p4 <- file.path(tmpdir, out_filename("-per_locus_half_matrices"))
       con4 <- file(p4, open = "w", encoding = "UTF-8")
@@ -1726,7 +1689,7 @@ server_null_alleles <- function(id, rv) {
       write.table(d6$loci, file = con6, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
       close(con6)
 
-      all_files <- c(p1, p2, p3, p4, p5, p6)
+      all_files <- c(p1, p2, p4, p5, p6)
 
       if (isTRUE(include_pairwise_r())) {
         d7 <- file7_data()

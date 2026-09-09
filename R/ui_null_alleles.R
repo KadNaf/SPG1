@@ -232,13 +232,6 @@ null_alleles_UI <- function(id) {
           uiOutput(ns("ui_dl_file2"))
         ),
         tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
-          # tags$div(class = "card-icon", icon("route")),
-          h5("Pairwise (long format)"),
-          p("Table of all genetic distances between all subsample pairs, corrected or not for null alleles, with CI of bootstrap over loci."),
-          tags$div(class = "fname", uiOutput(ns("ui_filename_3"), inline = TRUE)),
-          uiOutput(ns("ui_dl_file3"))
-        ),
-        tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
           # tags$div(class = "card-icon", icon("th")),
           h5("Per-locus half-matrices"),
           p("Paired genetic distances in half left matrices, for use by other software."),
