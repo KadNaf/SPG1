@@ -190,12 +190,12 @@ null_alleles_UI <- function(id) {
         h4(icon("save"), "Choose names for output files"),
         tags$div(style = "max-width:320px;",
           textInput(ns("out_root"), NULL, value = "", placeholder = "auto-filled from the imported data file name")),
-        tags$p(style="color:#777;font-size:11px;",
-          "Defaults to the imported dataset's name. Change it and every output file below will use that name instead."),
+        # tags$p(style="color:#777;font-size:11px;",
+        #   "Defaults to the imported dataset's name. Change it and every output file below will use that name instead."),
 
         tags$hr(),
 
-        h4(icon("rocket"), "Run all computations + generate output files"),
+        # h4(icon("rocket"), "Run all computations + generate output files"),
         fluidRow(
           column(4,
             actionButton(ns("run_all"),
