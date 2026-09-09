@@ -72,6 +72,14 @@ null_alleles_UI <- function(id) {
   fluidPage(
     tags$head(gs_head()),
     supplemental_css,
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('spg-click-null-alleles', function(id) {
+        setTimeout(function(){
+          var el = document.getElementById(id);
+          if (el) el.click();
+        }, 400);
+      });
+    ")),
 
     module_banner("circle-notch", "Null Allele Estimation · FST-ENA · DCSE-INA",""),
 
@@ -190,16 +198,16 @@ null_alleles_UI <- function(id) {
         h4(icon("save"), "Choose names for output files"),
         tags$div(style = "max-width:320px;",
           textInput(ns("out_root"), NULL, value = "", placeholder = "auto-filled from the imported data file name")),
-        # tags$p(style="color:#777;font-size:11px;",
-        #   "Defaults to the imported dataset's name. Change it and every output file below will use that name instead."),
+        tags$p(style="color:#777;font-size:11px;",
+          "Defaults to the imported dataset's name. Change it and every output file below will use that name instead."),
 
         tags$hr(),
 
-        # h4(icon("rocket"), "Run all computations + generate output files"),
+        h4(icon("rocket"), "Run all computations + generate output files"),
         fluidRow(
           column(4,
             actionButton(ns("run_all"),
-              label = tagList(icon("rocket"), tags$strong(" Run")),
+              label = tagList(icon("rocket"), tags$strong(" Compute & Download (.zip)")),
               class = "btn-action-primary btn-block",
               style = "font-weight: bold;"))
         ),
@@ -253,8 +261,9 @@ null_alleles_UI <- function(id) {
           uiOutput(ns("ui_dl_file6"))
         ),
         uiOutput(ns("ui_file7_card")),
-        tags$hr(),
-        downloadButton(ns("dl_all_zip"), "Download all files (.zip)", class = "btn-action-primary")
+        tags$div(style = "position:absolute; opacity:0; width:1px; height:1px; overflow:hidden; pointer-events:none;",
+          downloadLink(ns("dl_all_zip"), "auto-download")
+        )
       )
     )
   )

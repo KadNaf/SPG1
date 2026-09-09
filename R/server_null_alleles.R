@@ -1712,6 +1712,13 @@ server_null_alleles <- function(id, rv) {
       }
     )
 
+    # One button, one click, two actions: as soon as Compute finishes, the
+    # zip download fires automatically (a real <a> link clicked via JS) —
+    # no separate "Download all files" button needed anymore.
+    observeEvent(results_r(), {
+      session$sendCustomMessage("spg-click-null-alleles", session$ns("dl_all_zip"))
+    }, ignoreInit = TRUE)
+
     # ── Run status ─────────────────────────────────────────────────────────────
     output$ui_run_status <- renderUI({
       r <- tryCatch(results_r(), error = function(e) NULL)
