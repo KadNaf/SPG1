@@ -72,20 +72,6 @@ null_alleles_UI <- function(id) {
   fluidPage(
     tags$head(gs_head()),
     supplemental_css,
-    tags$script(HTML("
-      Shiny.addCustomMessageHandler('spg-click-null-alleles', function(id) {
-        setTimeout(function(){
-          var el = document.getElementById(id);
-          if (!el) return;
-          var href = el.getAttribute('href');
-          if (href) {
-            window.location.href = href;
-          } else {
-            el.click();
-          }
-        }, 250);
-      });
-    ")),
 
     module_banner("circle-notch", "Null Allele Estimation · FST-ENA · DCSE-INA",""),
 
@@ -212,8 +198,9 @@ null_alleles_UI <- function(id) {
         h4(icon("rocket"), "Run all computations + generate output files"),
         fluidRow(
           column(4,
-            actionButton(ns("run_all"),
-              label = tagList(icon("rocket"), tags$strong(" Compute & Download (.zip)")),
+            downloadButton(ns("run_all"),
+              label = "Compute & Download (.zip)",
+              icon = icon("rocket"),
               class = "btn-action-primary btn-block",
               style = "font-weight: bold;"))
         ),
@@ -266,10 +253,7 @@ null_alleles_UI <- function(id) {
           tags$div(class = "fname", uiOutput(ns("ui_filename_6"), inline = TRUE)),
           uiOutput(ns("ui_dl_file6"))
         ),
-        uiOutput(ns("ui_file7_card")),
-        tags$div(style = "position:absolute; opacity:0; width:1px; height:1px; overflow:hidden; pointer-events:none;",
-          downloadLink(ns("dl_all_zip"), "auto-download")
-        )
+        uiOutput(ns("ui_file7_card"))
       )
     )
   )

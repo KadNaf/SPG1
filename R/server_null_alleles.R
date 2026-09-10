@@ -945,7 +945,7 @@ server_null_alleles <- function(id, rv) {
     # ══════════════════════════════════════════════════════════════════════════
     #  MAIN REACTIVE — single "run_all" button
     # ══════════════════════════════════════════════════════════════════════════
-    results_r <- eventReactive(input$run_all, {
+    .run_computation <- function() {
       req(db_ready())
       nboot      <- max(100L, min(99999L, as.integer(input$nboot %||% 5000L)))
       nboot_subs <- max(50L,  min(20000L, as.integer(input$nboot_subs %||% 500L)))
@@ -1121,7 +1121,10 @@ server_null_alleles <- function(id, rv) {
           em_res = em_res
         )
       })
-    })
+    }
+
+    results_store <- reactiveVal(NULL)
+    results_r <- function() results_store()
 
     # ══════════════════════════════════════════════════════════════════════════
     #  OUTPUT FILE NAMING — root (proposed from the imported data file's name,
@@ -1700,24 +1703,22 @@ server_null_alleles <- function(id, rv) {
       all_files
     }
 
-    # ── Download everything at once, as one .zip (browser download) ────────
-    output$dl_all_zip <- downloadHandler(
+    # ── One button, one click, one action: clicking "Compute & Download"
+    #    IS the download request itself — the computation happens inside
+    #    this same content() function, before the file is zipped and
+    #    streamed back. No JS auto-click, no server round-trip in between:
+    #    a real, single, native browser download click.
+    output$run_all <- downloadHandler(
       filename = function() paste0(out_root_r(), out_suffix_r(), "SPG_null_alleles_export_", Sys.Date(), ".zip"),
       content  = function(file) {
-        req(results_r())
+        r <- .run_computation()
+        results_store(r)
         tmpdir <- tempfile("spg_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
         all_files <- .build_export_files(tmpdir)
         zip::zip(zipfile = file, files = basename(all_files), root = tmpdir)
       }
     )
-
-    # One button, one click, two actions: as soon as Compute finishes, the
-    # zip download fires automatically (a real <a> link clicked via JS) —
-    # no separate "Download all files" button needed anymore.
-    observeEvent(results_r(), {
-      session$sendCustomMessage("spg-click-null-alleles", session$ns("dl_all_zip"))
-    }, ignoreInit = TRUE)
 
     # ── Run status ─────────────────────────────────────────────────────────────
     output$ui_run_status <- renderUI({
