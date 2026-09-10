@@ -199,7 +199,7 @@ null_alleles_UI <- function(id) {
         fluidRow(
           column(4,
             downloadButton(ns("run_all"),
-              label = "Compute & Download (.zip)",
+              label = " Run",
               icon = icon("rocket"),
               class = "btn-action-primary btn-block",
               style = "font-weight: bold;"))
