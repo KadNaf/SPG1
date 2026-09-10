@@ -103,7 +103,7 @@ isolation_by_distance_UI <- function(id) {
           ),
           column(4,
             tags$div(style="margin-top:22px;"),
-            actionButton(ns("run_ibd"), " Run",
+            downloadButton(ns("run_ibd"), " Run",
                          icon = icon("rocket"), class = "btn-action-primary btn-block",
                          style = "font-weight:bold;")
           )
@@ -125,9 +125,7 @@ isolation_by_distance_UI <- function(id) {
         tags$div(class = "spg-module-card", style = "margin-bottom:8px; max-width:400px; display:inline-block;",
           tags$div(style="font-size:11px;color:#555;", "Parameters"),
           tags$div(class = "fname", uiOutput(ns("ui_ibd_filename_params"), inline = TRUE))
-        ),
-        tags$br(), tags$br(),
-        downloadButton(ns("dl_ibd_both_zip"), "Download both files (.zip)", class = "btn-action-primary btn-sm")
+        )
       )
     ),
 
@@ -209,7 +207,7 @@ isolation_by_distance_UI <- function(id) {
                          value = 10000, min = 99, max = 200000, step = 1000)
           ),
           column(3,
-            actionButton(ns("run_mantel"), " Run",
+            downloadButton(ns("run_mantel"), " Run",
                          icon = icon("rocket"), class = "btn-action-primary btn-block",
                          style = "font-weight:bold;")
           )
@@ -255,18 +253,14 @@ isolation_by_distance_UI <- function(id) {
           title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
                       icon("chart-bar"), " Results"),
         uiOutput(ns("ui_mantel_key_values")),
-        uiOutput(ns("ui_mantel_summary")),
-        tags$br(),
-        downloadButton(ns("dl_mantel_txt"), ".txt", class = "btn-action-secondary btn-sm")
+        uiOutput(ns("ui_mantel_summary"))
       )
     ),
     fluidRow(
       box(width = 12, solidHeader = FALSE,
           title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
                       icon("table"), " Result summary"),
-        DT::DTOutput(ns("dt_mantel_summary")),
-        tags$br(),
-        downloadButton(ns("dl_mantel_summary_txt"), ".txt", class = "btn-action-secondary btn-sm")
+        DT::DTOutput(ns("dt_mantel_summary"))
       )
     )
   )

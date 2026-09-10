@@ -313,7 +313,7 @@ server_isolation_by_distance <- function(id, rv) {
                   selected = .guess_col(cols, c("^FR_hi$", "^FR_raw_hi$"), if (length(cols)) cols[1] else NULL))
     })
 
-    ibd_results_r <- eventReactive(input$run_ibd, {
+    .run_ibd_computation <- function() {
       df <- full_pair_table_r()
       shiny::req(input$ibd_col_geo, input$ibd_col_avg, input$ibd_col_lo, input$ibd_col_hi)
       shiny::validate(
@@ -352,7 +352,10 @@ server_isolation_by_distance <- function(id, rv) {
            col_lo = input$ibd_col_lo, col_hi = input$ibd_col_hi,
            reg_avg = reg_avg, reg_lo = reg_lo, reg_hi = reg_hi,
            summary = summ)
-    })
+    }
+
+    ibd_results_store <- reactiveVal(NULL)
+    ibd_results_r <- function() ibd_results_store()
 
     # ── Results file: the regression summary table only ────────────────────
     .write_ibd_results <- function(con) {
@@ -396,10 +399,15 @@ server_isolation_by_distance <- function(id, rv) {
     output$ui_ibd_filename_res    <- renderUI(tags$code(ibd_out_filename("IBD")))
     output$ui_ibd_filename_params <- renderUI(tags$code(ibd_out_filename("IBD-parameters")))
 
-    output$dl_ibd_both_zip <- downloadHandler(
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — the regression computation happens inside this
+    #    same content() function before the two files are zipped and
+    #    streamed back. No JS auto-click, no server round-trip in between.
+    output$run_ibd <- downloadHandler(
       filename = function() paste0(ibd_out_root_r(), "IBD-", Sys.Date(), ".zip"),
       content  = function(file) {
-        shiny::req(ibd_results_r())
+        r <- .run_ibd_computation()
+        ibd_results_store(r)
         tmpdir <- tempfile("spg_ibd_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
 
@@ -685,7 +693,7 @@ server_isolation_by_distance <- function(id, rv) {
       rousset2d = list(label = "Rousset's 2D", calc = "b",        force_log = TRUE)
     )
 
-    mantel_result_r <- eventReactive(input$run_mantel, {
+    .run_mantel_computation <- function() {
       df <- mt_base_df_r()
       p1c <- input$mt_col_pop1; p2c <- input$mt_col_pop2
       shiny::req(p1c, p2c)
@@ -840,7 +848,10 @@ server_isolation_by_distance <- function(id, rv) {
 
       list(n_perm = n_perm, p_formula = p_formula,
            selected = input$mt_stats, stats = stats_res)
-    })
+    }
+
+    mantel_results_store <- reactiveVal(NULL)
+    mantel_result_r <- function() mantel_results_store()
 
     # R² is reported once, from the statistic that best represents a "base"
     # linear fit: the first Rousset stat if any is selected (since that's
@@ -923,11 +934,59 @@ server_isolation_by_distance <- function(id, rv) {
         class = "compact stripe hover")
     })
 
-    output$dl_mantel_summary_txt <- downloadHandler(
-      filename = function() paste0("mantel_result_summary_", Sys.Date(), ".txt"),
+    .write_mantel_summary_txt <- function(con, r) {
+      d <- .mantel_summary_df(r)
+      write.table(d, con, sep = "\t", row.names = FALSE, quote = FALSE)
+    }
+
+    .write_mantel_txt <- function(con, r) {
+      d_summary <- .mantel_summary_df(r)
+
+      probs <- c(0.005, 0.01, 0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975, 0.99, 0.995)
+      cols <- lapply(r$selected, function(k) {
+        s <- r$stats[[k]]
+        if (length(s$perm_stats) == 0L) return(rep(NA_character_, length(probs) + 1L))
+        q <- stats::quantile(s$perm_stats, probs = probs, na.rm = TRUE, type = 7)
+        c(vapply(unname(q), .fmt_stat, character(1L)), .fmt_stat(s$stat_obs))
+      })
+      names(cols) <- vapply(r$selected, function(k) r$stats[[k]]$label, character(1L))
+      d_quant <- data.frame(Percentile = c(paste0(probs * 100, "%"), "OBSERVED"),
+                             cols, check.names = FALSE, stringsAsFactors = FALSE)
+
+      ref <- .mantel_r2_stat(r)
+      d_data <- data.frame(Pop1 = ref$pop1, Pop2 = ref$pop2, X = round(ref$x, 6), Y = round(ref$y, 6))
+      names(d_data)[3:4] <- c(ref$x_label, ref$y_label)
+
+      writeLines(c("Mantel test results", ""), con = con, useBytes = TRUE)
+      writeLines("Summary (one row per selected statistic):", con = con)
+      write.table(d_summary, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+      writeLines("", con = con)
+      writeLines("Null distribution quantiles (one column per selected statistic):", con = con)
+      write.table(d_quant, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+      writeLines("", con = con)
+      writeLines("Data used:", con = con)
+      write.table(d_data, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+    }
+
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — the Mantel permutation test(s) run inside this
+    #    same content() function before the two files are zipped and
+    #    streamed back.
+    output$run_mantel <- downloadHandler(
+      filename = function() paste0("mantel_test_", Sys.Date(), ".zip"),
       content  = function(file) {
-        d <- .mantel_summary_df(mantel_result_r())
-        write.table(d, file, sep = "\t", row.names = FALSE, quote = FALSE)
+        r <- .run_mantel_computation()
+        mantel_results_store(r)
+        tmpdir <- tempfile("spg_mantel_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("mantel_test_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8"); .write_mantel_txt(con1, r); close(con1)
+
+        p2 <- file.path(tmpdir, paste0("mantel_result_summary_", Sys.Date(), ".txt"))
+        con2 <- file(p2, open = "w", encoding = "UTF-8"); .write_mantel_summary_txt(con2, r); close(con2)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
       }
     )
 
@@ -960,40 +1019,6 @@ server_isolation_by_distance <- function(id, rv) {
         options = list(scrollX = TRUE, pageLength = 10, dom = "lrtip"),
         class = "compact stripe hover")
     })
-
-    output$dl_mantel_txt <- downloadHandler(
-      filename = function() paste0("mantel_test_", Sys.Date(), ".txt"),
-      content  = function(file) {
-        r <- mantel_result_r()
-        d_summary <- .mantel_summary_df(r)
-
-        probs <- c(0.005, 0.01, 0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975, 0.99, 0.995)
-        cols <- lapply(r$selected, function(k) {
-          s <- r$stats[[k]]
-          if (length(s$perm_stats) == 0L) return(rep(NA_character_, length(probs) + 1L))
-          q <- stats::quantile(s$perm_stats, probs = probs, na.rm = TRUE, type = 7)
-          c(vapply(unname(q), .fmt_stat, character(1L)), .fmt_stat(s$stat_obs))
-        })
-        names(cols) <- vapply(r$selected, function(k) r$stats[[k]]$label, character(1L))
-        d_quant <- data.frame(Percentile = c(paste0(probs * 100, "%"), "OBSERVED"),
-                               cols, check.names = FALSE, stringsAsFactors = FALSE)
-
-        ref <- .mantel_r2_stat(r)
-        d_data <- data.frame(Pop1 = ref$pop1, Pop2 = ref$pop2, X = round(ref$x, 6), Y = round(ref$y, 6))
-        names(d_data)[3:4] <- c(ref$x_label, ref$y_label)
-
-        con <- file(file, open = "w", encoding = "UTF-8"); on.exit(close(con))
-        writeLines(c("Mantel test results", ""), con = con, useBytes = TRUE)
-        writeLines("Summary (one row per selected statistic):", con = con)
-        write.table(d_summary, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con)
-        writeLines("Null distribution quantiles (one column per selected statistic):", con = con)
-        write.table(d_quant, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con)
-        writeLines("Data used:", con = con)
-        write.table(d_data, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-      }
-    )
 
   })
 }
