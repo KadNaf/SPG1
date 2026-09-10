@@ -423,6 +423,7 @@ server_isolation_by_distance <- function(id, rv) {
 
     output$ui_ibd_key_values <- renderUI({
       r <- ibd_results_r()
+      req(r)
       tags$div(style = "font-size:13px; color:#333; margin-bottom:14px;",
         tags$div(tags$strong("Geographic distance (X): "), r$col_geo),
         tags$div(tags$strong("Genetic distance (Y) \u2014 average: "), r$col_avg,
@@ -440,6 +441,7 @@ server_isolation_by_distance <- function(id, rv) {
 
     output$dt_ibd_reg <- DT::renderDT({
       r <- ibd_results_r()
+      req(r)
       s <- as.data.frame(r$summary, stringsAsFactors = FALSE)
       s$b   <- round(as.numeric(s$b), 6)
       s$Nb  <- round(as.numeric(s$Nb), 2)
@@ -864,6 +866,7 @@ server_isolation_by_distance <- function(id, rv) {
 
     output$ui_mantel_key_values <- renderUI({
       r <- mantel_result_r()
+      req(r)
       fmt_lbl <- if (identical(r$p_formula, "plain")) "b/m" else "(b+1)/(m+1)"
       ref <- .mantel_r2_stat(r)
       rows <- lapply(r$selected, function(k) {
@@ -890,6 +893,7 @@ server_isolation_by_distance <- function(id, rv) {
 
     output$ui_mantel_summary <- renderUI({
       r <- mantel_result_r()
+      req(r)
       tags$div(style = "margin-top:8px; font-family:monospace; font-size:12px; color:#555;",
         lapply(r$selected, function(k) {
           s <- r$stats[[k]]
@@ -927,7 +931,9 @@ server_isolation_by_distance <- function(id, rv) {
     }
 
     output$dt_mantel_summary <- DT::renderDT({
-      d <- .mantel_summary_df(mantel_result_r())
+      r <- mantel_result_r()
+      req(r)
+      d <- .mantel_summary_df(r)
       names(d) <- gsub("_", " ", names(d))
       DT::datatable(d, rownames = FALSE,
         options = list(dom = "t", pageLength = nrow(d), ordering = FALSE, scrollX = TRUE),
@@ -992,6 +998,7 @@ server_isolation_by_distance <- function(id, rv) {
 
     output$dt_mantel_quantiles <- DT::renderDT({
       r <- mantel_result_r()
+      req(r)
       probs <- c(0.005, 0.01, 0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975, 0.99, 0.995)
       cols <- lapply(r$selected, function(k) {
         s <- r$stats[[k]]
@@ -1012,6 +1019,7 @@ server_isolation_by_distance <- function(id, rv) {
 
     output$dt_mantel_data <- DT::renderDT({
       r <- mantel_result_r()
+      req(r)
       ref <- .mantel_r2_stat(r)
       df <- data.frame(Pop1 = ref$pop1, Pop2 = ref$pop2, X = round(ref$x, 6), Y = round(ref$y, 6))
       names(df)[3:4] <- c(ref$x_label, ref$y_label)
