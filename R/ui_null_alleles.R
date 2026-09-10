@@ -76,8 +76,14 @@ null_alleles_UI <- function(id) {
       Shiny.addCustomMessageHandler('spg-click-null-alleles', function(id) {
         setTimeout(function(){
           var el = document.getElementById(id);
-          if (el) el.click();
-        }, 400);
+          if (!el) return;
+          var href = el.getAttribute('href');
+          if (href) {
+            window.location.href = href;
+          } else {
+            el.click();
+          }
+        }, 250);
       });
     ")),
 
