@@ -946,32 +946,24 @@ server_isolation_by_distance <- function(id, rv) {
     }
 
     .write_mantel_txt <- function(con, r) {
-      d_summary <- .mantel_summary_df(r)
+      fmt_lbl <- if (identical(r$p_formula, "plain")) "b/m \u2014 plain proportion" else "(b+1)/(m+1) \u2014 corrected proportion"
+      data_source <- if (identical(input$mt_source, "upload")) "Uploaded file" else "Internal pairwise table (from Null Alleles module)"
 
-      probs <- c(0.005, 0.01, 0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975, 0.99, 0.995)
-      cols <- lapply(r$selected, function(k) {
+      hdr <- c(
+        "Mantel test \u2014 parameters used",
+        sprintf("Data source: %s", data_source),
+        sprintf("Population columns: Pop1 = %s, Pop2 = %s", input$mt_col_pop1, input$mt_col_pop2),
+        sprintf("p-value formula: %s", fmt_lbl),
+        sprintf("Permutations: %d", r$n_perm),
+        ""
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+
+      writeLines("Statistics run (X / Y columns used for each):", con = con)
+      for (k in r$selected) {
         s <- r$stats[[k]]
-        if (length(s$perm_stats) == 0L) return(rep(NA_character_, length(probs) + 1L))
-        q <- stats::quantile(s$perm_stats, probs = probs, na.rm = TRUE, type = 7)
-        c(vapply(unname(q), .fmt_stat, character(1L)), .fmt_stat(s$stat_obs))
-      })
-      names(cols) <- vapply(r$selected, function(k) r$stats[[k]]$label, character(1L))
-      d_quant <- data.frame(Percentile = c(paste0(probs * 100, "%"), "OBSERVED"),
-                             cols, check.names = FALSE, stringsAsFactors = FALSE)
-
-      ref <- .mantel_r2_stat(r)
-      d_data <- data.frame(Pop1 = ref$pop1, Pop2 = ref$pop2, X = round(ref$x, 6), Y = round(ref$y, 6))
-      names(d_data)[3:4] <- c(ref$x_label, ref$y_label)
-
-      writeLines(c("Mantel test results", ""), con = con, useBytes = TRUE)
-      writeLines("Summary (one row per selected statistic):", con = con)
-      write.table(d_summary, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-      writeLines("", con = con)
-      writeLines("Null distribution quantiles (one column per selected statistic):", con = con)
-      write.table(d_quant, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-      writeLines("", con = con)
-      writeLines("Data used:", con = con)
-      write.table(d_data, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        writeLines(sprintf("  %s: X = %s, Y = %s", s$label, s$x_label, s$y_label), con = con)
+      }
     }
 
     # ── One button, one click, one action: clicking "Run" IS the download
@@ -986,7 +978,7 @@ server_isolation_by_distance <- function(id, rv) {
         tmpdir <- tempfile("spg_mantel_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
 
-        p1 <- file.path(tmpdir, paste0("mantel_test_", Sys.Date(), ".txt"))
+        p1 <- file.path(tmpdir, paste0("mantel_test_parameters_", Sys.Date(), ".txt"))
         con1 <- file(p1, open = "w", encoding = "UTF-8"); .write_mantel_txt(con1, r); close(con1)
 
         p2 <- file.path(tmpdir, paste0("mantel_result_summary_", Sys.Date(), ".txt"))
