@@ -490,7 +490,7 @@ server_general_stats <- function(id, rv) {
     ## Observer Basic stats ####
     ## =========================================================#
     
-    observeEvent(input$run_basic_stats, {
+    .run_basic_stats_computation <- function() {
       db_ready()
       
       result_stats <- .get_basic_stats_cached()
@@ -545,9 +545,11 @@ server_general_stats <- function(id, rv) {
         showNotification("No valid statistics to display", type = "warning")
         result_stats_download(NULL)
         result_stats_numeric_reactive(NULL)
+        return(NULL)
       }
-    })
-    
+      result_stats_select
+    }
+
     
     # ---- Basic stats table output ----
     output$basic_stats_table <- DT::renderDT({
@@ -563,18 +565,67 @@ server_general_stats <- function(id, rv) {
     ")
       )
     })
-    output$download_basic_stats <- downloadHandler(
-      filename = function() paste0("basic_statistics_", Sys.Date(), ".csv"),
-      content = function(file) {
-        df <- shiny::req(result_stats_select_reactive())
-        utils::write.csv(df, file, row.names = FALSE)
-      }
-    )
-    output$download_basic_stats_txt <- downloadHandler(
-      filename = function() paste0("basic_statistics_", Sys.Date(), ".txt"),
-      content = function(file) {
-        df <- shiny::req(result_stats_select_reactive())
-        utils::write.table(df, file, sep = "\t", row.names = FALSE, quote = FALSE)
+    .write_general_stats_params <- function(con, keep) {
+      hdr <- c(
+        "General Statistics \u2014 parameters used",
+        sprintf("Selected indices: %s", paste(keep, collapse = ", ")),
+        sprintf("Population shown in detail: %s", input$selected_pop_overall %||% "(none selected)")
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
+
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — computes the selected basic statistics, and also
+    #    bundles the always-available gene-diversity / by-population tables,
+    #    into one zip with 4 result files + 1 parameters file.
+    output$run_basic_stats <- downloadHandler(
+      filename = function() paste0("general_stats_", Sys.Date(), ".zip"),
+      content  = function(file) {
+        result_stats_select <- .run_basic_stats_computation()
+        req(result_stats_select)
+        keep <- setdiff(names(result_stats_select), "ID")
+
+        tmpdir <- tempfile("spg_gs_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("basic_statistics_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("Basic statistics \u2014 selected indices", ""), con = con1, useBytes = TRUE)
+        write.table(result_stats_select, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+
+        p2 <- file.path(tmpdir, paste0("gene_diversity_hs_by_pop_", Sys.Date(), ".txt"))
+        con2 <- file(p2, open = "w", encoding = "UTF-8")
+        writeLines(c("Expected heterozygosity (Hs) per locus and population", ""), con = con2, useBytes = TRUE)
+        write.table(hs_by_pop_wide_r(), file = con2, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con2)
+
+        db_ready(); con <- con_r(); base <- base_r()
+        df_overall <- duck_pop_stats_overall(con = con, tbl_hf = tbl_hf_r(), tbl_meta = tbl_meta_r(),
+                                              base = base, missing_code = 0L)
+        if (is.null(df_overall) || nrow(df_overall) == 0) df_overall <- data.frame(Message = "No population data")
+        p3 <- file.path(tmpdir, paste0("overall_by_population_", Sys.Date(), ".txt"))
+        con3 <- file(p3, open = "w", encoding = "UTF-8")
+        writeLines(c("All populations \u2014 Ho, Hs, Fis (WC) averaged over loci", ""), con = con3, useBytes = TRUE)
+        write.table(df_overall, file = con3, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con3)
+
+        pop_sel <- input$selected_pop_overall
+        df_pop <- if (!is.null(pop_sel) && nzchar(pop_sel)) {
+          duck_pop_stats_by_pop_one(con = con, pop_name = pop_sel, tbl_hf = tbl_hf_r(),
+                                     tbl_meta = tbl_meta_r(), base = base, missing_code = 0L)
+        } else NULL
+        if (is.null(df_pop) || nrow(df_pop) == 0) df_pop <- data.frame(Message = "No data available")
+        p4 <- file.path(tmpdir, paste0("pop_stats_", pop_sel %||% "selected", "_", Sys.Date(), ".txt"))
+        con4 <- file(p4, open = "w", encoding = "UTF-8")
+        writeLines(c(sprintf("Per-locus statistics \u2014 population: %s", pop_sel %||% "(none)"), ""), con = con4, useBytes = TRUE)
+        write.table(df_pop, file = con4, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con4)
+
+        p5 <- file.path(tmpdir, paste0("general_stats_parameters_", Sys.Date(), ".txt"))
+        con5 <- file(p5, open = "w", encoding = "UTF-8"); .write_general_stats_params(con5, keep); close(con5)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2, p3, p4, p5)), root = tmpdir)
       }
     )
     # =========================================================#
@@ -692,113 +743,8 @@ server_general_stats <- function(id, rv) {
     ## Download handlers (population section) ####
     # =========================================================#
     
-    # 1) Population-specific (per locus) stats
-    output$download_pop_stats <- downloadHandler(
-      filename = function() paste0("pop_stats_", input$selected_pop_overall, "_", Sys.Date(), ".csv"),
-      content  = function(file) {
-        db_ready()
-        con  <- con_r()
-        base <- base_r()
-        shiny::req(input$selected_pop_overall)
-
-        df <- duck_pop_stats_by_pop_one(
-          con          = con,
-          pop_name     = input$selected_pop_overall,
-          tbl_hf       = tbl_hf_r(),
-          tbl_meta     = tbl_meta_r(),
-          base         = base,
-          missing_code = 0L
-        )
-
-        if (is.null(df) || nrow(df) == 0) {
-          df <- data.frame(Message = "No data available")
-        } else {
-          locus_col_name <- intersect(c("Locus", "Marker", "locus_id", "locus"), names(df))[1]
-          if (!is.na(locus_col_name)) {
-            loci_ordered <- loci_order_r()
-            reorder_idx  <- match(loci_ordered, df[[locus_col_name]])
-            reorder_idx  <- reorder_idx[!is.na(reorder_idx)]
-            if (length(reorder_idx) > 0)
-              df <- df[reorder_idx, , drop = FALSE]
-          }
-        }
-        write.csv(df, file, row.names = FALSE)
-      }
-    )
-
-    output$download_pop_stats_txt <- downloadHandler(
-      filename = function() paste0("pop_stats_", input$selected_pop_overall, "_", Sys.Date(), ".txt"),
-      content  = function(file) {
-        db_ready()
-        con  <- con_r()
-        base <- base_r()
-        shiny::req(input$selected_pop_overall)
-
-        df <- duck_pop_stats_by_pop_one(
-          con          = con,
-          pop_name     = input$selected_pop_overall,
-          tbl_hf       = tbl_hf_r(),
-          tbl_meta     = tbl_meta_r(),
-          base         = base,
-          missing_code = 0L
-        )
-
-        if (is.null(df) || nrow(df) == 0) {
-          df <- data.frame(Message = "No data available")
-        } else {
-          locus_col_name <- intersect(c("Locus", "Marker", "locus_id", "locus"), names(df))[1]
-          if (!is.na(locus_col_name)) {
-            loci_ordered <- loci_order_r()
-            reorder_idx  <- match(loci_ordered, df[[locus_col_name]])
-            reorder_idx  <- reorder_idx[!is.na(reorder_idx)]
-            if (length(reorder_idx) > 0)
-              df <- df[reorder_idx, , drop = FALSE]
-          }
-        }
-        write.table(df, file, sep = "\t", row.names = FALSE, quote = FALSE)
-      }
-    )
-    
-    # 2) Overall by population (Ho/Hs/Fis Nei)
-    output$download_overall_by_pop <- downloadHandler(
-      filename = function() paste0("overall_by_population_", Sys.Date(), ".csv"),
-      content = function(file) {
-        db_ready()
-        con  <- con_r()
-        base <- base_r()
-        
-        df <- duck_pop_stats_overall(
-          con       = con,
-          tbl_hf    = tbl_hf_r(),
-          tbl_meta  = tbl_meta_r(),
-          base      = base,
-          missing_code = 0L
-        )
-        
-        if (is.null(df) || nrow(df) == 0) df <- data.frame(Message = "No population data")
-        write.csv(df, file, row.names = FALSE)
-      }
-    )
-    
-    output$download_overall_by_pop_txt <- downloadHandler(
-      filename = function() paste0("overall_by_population_", Sys.Date(), ".txt"),
-      content = function(file) {
-        db_ready()
-        con  <- con_r()
-        base <- base_r()
-        
-        df <- duck_pop_stats_overall(
-          con       = con,
-          tbl_hf    = tbl_hf_r(),
-          tbl_meta  = tbl_meta_r(),
-          base      = base,
-          missing_code = 0L
-        )
-        
-        if (is.null(df) || nrow(df) == 0) df <- data.frame(Message = "No population data")
-        write.table(df, file, sep = "\t", row.names = FALSE, quote = FALSE)
-      }
-    )
+    # 2) Overall by population (Ho/Hs/Fis Nei) — rendered on-screen only,
+    #    downloadable via the merged Run+Download button above.
 
     output$gene_diversity_table <- DT::renderDT({
       df <- shiny::req(hs_by_pop_wide_r())
@@ -831,21 +777,6 @@ server_general_stats <- function(id, rv) {
         )
     })
     
-    output$download_gene_diversity <- downloadHandler(
-      filename = function() paste0("gene_diversity_hs_by_pop_", Sys.Date(), ".csv"),
-      content = function(file) {
-        df <- shiny::req(hs_by_pop_wide_r())
-        utils::write.csv(df, file, row.names = FALSE)
-      }
-    )
-    output$download_gene_diversity_txt <- downloadHandler(
-      filename = function() paste0("gene_diversity_hs_by_pop_", Sys.Date(), ".txt"),
-      content = function(file) {
-        df <- shiny::req(hs_by_pop_wide_r())
-        utils::write.table(df, file, sep = "\t", row.names = FALSE, quote = FALSE)
-      }
-    )
-
     # ==================================== FIS SECTION ANALYSIS ===============================================
     fis_context <- reactive({
       level <- input$analysis_level
@@ -1656,43 +1587,61 @@ server_general_stats <- function(id, rv) {
         )
     })
 
-    ### Download per-allele table ----
-    output$download_fis_allele_table <- downloadHandler(
-      filename = function() paste0("fis_per_allele_", Sys.Date(), ".csv"),
-      content  = function(file) {
-        shiny::req(fis_allele_results())
-        utils::write.csv(fis_allele_results(), file, row.names = FALSE)
-      }
-    )
+    .write_allele_fstats_params <- function(con) {
+      hdr <- c(
+        "F-statistics per allele (Weir & Cockerham) \u2014 parameters used",
+        "FIS = b/(b+c), FST = a/(a+b+c), FIT = (a+b)/(a+b+c) \u2014 WC84 variance components",
+        "(a = between-populations, b = between-individuals, c = within-individuals)."
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
 
-    output$download_fis_allele_table_txt <- downloadHandler(
-      filename = function() paste0("fis_per_allele_", Sys.Date(), ".txt"),
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself.
+    output$compute_allele_fstats <- downloadHandler(
+      filename = function() paste0("fis_per_allele_", Sys.Date(), ".zip"),
       content  = function(file) {
-        shiny::req(fis_allele_results())
-        utils::write.table(fis_allele_results(), file,
-                           row.names = FALSE, sep = "\t", quote = FALSE)
+        res <- .run_allele_fstats_computation()
+        req(res)
+        tmpdir <- tempfile("spg_allele_fstats_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("fis_per_allele_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("F-statistics per allele (Weir & Cockerham)", ""), con = con1, useBytes = TRUE)
+        write.table(res, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+
+        p2 <- file.path(tmpdir, paste0("fis_per_allele_parameters_", Sys.Date(), ".txt"))
+        con2 <- file(p2, open = "w", encoding = "UTF-8"); .write_allele_fstats_params(con2); close(con2)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
       }
     )
 
     ## Compute per-allele F-statistics (independent of bootstrap analyses) ----
-    observeEvent(input$compute_allele_fstats, {
+    .run_allele_fstats_computation <- function() {
       shiny::req(hf_mat_r(), base_r())
-      tryCatch({
+      res <- tryCatch({
         allele_mat  <- as.matrix(hf_mat_r())
         storage.mode(allele_mat) <- "integer"
         allele_base <- as.integer(base_r())
-        fis_allele_results(wc84_per_allele_fstats_cpp(
+        out <- wc84_per_allele_fstats_cpp(
           dat          = allele_mat,
           pop_col      = 0L,
           base         = allele_base,
           missing_code = 0L
-        ))
+        )
+        fis_allele_results(out)
         showNotification("Per-allele F-statistics computed successfully!", type = "message")
+        out
       }, error = function(e) {
         fis_allele_results(NULL)
         showNotification(paste("Error computing per-allele F-statistics:", e$message), type = "error")
+        NULL
       })
-    })
+      res
+    }
 
     # ==================================== FIT SECTION ANALYSIS ===============================================
     ## FIT Analysis reactives ----

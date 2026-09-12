@@ -32,8 +32,9 @@ mod_general_stats_ui <- function(id) {
         checkboxInput(ns("GST_checkbox"),      "GST (Nei's genetic differentiation)", FALSE),
         checkboxInput(ns("GST_sec_checkbox"),  "GST'' (Hedrick's correction)", FALSE),
         tags$hr(),
-        actionButton(ns("run_basic_stats"),
-                     label = tagList(icon("rocket"), tags$strong(" Run")),
+        downloadButton(ns("run_basic_stats"),
+                     label = "Run",
+                     icon = icon("rocket"),
                      class = "btn-action-primary btn-block")
       ),
       box(
@@ -43,37 +44,21 @@ mod_general_stats_ui <- function(id) {
         solidHeader = TRUE, status = "primary",
         tabsetPanel(
           tabPanel("Statistic estimates",
-            DTOutput(ns("basic_stats_table")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_basic_stats"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_basic_stats_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("basic_stats_table"))
           ),
           tabPanel("Gene Diversity by Population",
             h5("Expected heterozygosity (Hs) per locus and population",
                style = "margin-top: 10px;"),
-            DTOutput(ns("gene_diversity_table")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_gene_diversity"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_gene_diversity_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("gene_diversity_table"))
           ),
           tabPanel("By Population",
             h5("All populations — Ho, Hs, Fis (WC) averaged over loci",
                style = "margin-top: 10px;"),
-            tableOutput(ns("overall_by_pop")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_overall_by_pop"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_overall_by_pop_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            ),
+            tableOutput(ns("overall_by_pop")),
             tags$hr(),
             h5("Per-locus detail for selected population"),
             selectInput(ns("selected_pop_overall"), "Select Population:", choices = NULL),
-            DTOutput(ns("basic_stats_by_pop_selected")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_pop_stats"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_pop_stats_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("basic_stats_by_pop_selected"))
           )
         ),
         style = "overflow-y: auto; max-height: 600px; padding: 10px;"
@@ -98,24 +83,17 @@ mod_general_stats_ui <- function(id) {
         solidHeader = TRUE, status = "primary",
         fluidRow(
           column(3,
-            actionButton(ns("compute_allele_fstats"),
-              label = tagList(icon("rocket"),
-                              tags$strong(" Run")),
+            downloadButton(ns("compute_allele_fstats"),
+              label = "Run",
+              icon = icon("rocket"),
               class = "btn-action-primary btn-block", style = "font-weight: bold;")
           ),
           column(9,
             h5("Results table")
-            # p("FIS, FST and FIT are reported per allele and per locus from WC84
-            #   variance components. Run independently of the bootstrap/permutation
-            #   analyses.")
           )
         ),
         br(),
-        DTOutput(ns("fis_allele_table")), br(),
-        fluidRow(
-          column(6, downloadButton(ns("download_fis_allele_table"),     ".csv", class = "btn-download-primary btn-block")),
-          column(6, downloadButton(ns("download_fis_allele_table_txt"), ".txt", class = "btn-download-secondary btn-block"))
-        ),
+        DTOutput(ns("fis_allele_table")),
         style = "padding: 10px;"
       )
     )
