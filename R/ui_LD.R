@@ -33,7 +33,7 @@ linkage_desequilibrium_UI <- function(id) {
                      value = 10000, min = 1000, max = 100000, step = 1000),
         
         tags$hr(),
-        actionButton(ns("run_LD"), " Run",
+        downloadButton(ns("run_LD"), " Run",
                      icon = icon("rocket"),
                      class = "btn-action-primary btn-block")
       ),
@@ -128,9 +128,7 @@ linkage_desequilibrium_UI <- function(id) {
                                     "P-value (Descending)" = "pval_desc")),
             numericInput(ns("decimal_places"), "Decimal Places:",
                          value = 5, min = 2, max = 10, step = 1),
-            checkboxInput(ns("highlight_sig"), "Highlight Significant", TRUE),
-            downloadButton(ns("download_LD_csv"), ".csv", class = "btn-download-primary"),
-            downloadButton(ns("download_LD_txt"), ".txt", class = "btn-download-secondary")
+            checkboxInput(ns("highlight_sig"), "Highlight Significant", TRUE)
           ),
           column(
             9,

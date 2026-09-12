@@ -187,28 +187,12 @@ server_LD <- function(id, rv) {
       loci
     })
     
-    # Warn when fewer than 1000 permutations are requested
-    shiny::observeEvent(input$run_LD, {
-      np <- suppressWarnings(as.integer(input$n_iterations))
-      if (!is.na(np) && np < 1000L) {
-        shinyalert::shinyalert(
-          title = "Low number of permutations",
-          text  = paste0(
-            "You have set B = ", np, " permutations.\n\n",
-            "The Monte Carlo p-value formula p = (n\u2265obs + 1) / B gives ",
-            "a slight overestimation when B is small, which may mislead ",
-            "naive users and produce unreliable significance calls.\n\n",
-            "A minimum of 1000 permutations is strongly recommended; ",
-            "10\u202f000 or more for publication-quality results."
-          ),
-          type = "warning",
-          confirmButtonText = "Continue anyway",
-          showCancelButton  = FALSE
-        )
-      }
-    }, ignoreInit = TRUE)
+    # Note: the low-permutations warning that used to pop up on click is now
+    # written into the generated parameters file instead (see .run_ld_computation
+    # and the parameters writer below) — downloadButton clicks don't have a
+    # "before the file starts" interactive step to show a modal in.
 
-    ld_results_reactive <- eventReactive(input$run_LD, {
+    .run_ld_computation <- function() {
       df <- ld_data()
       loci <- loci_names()
 
@@ -247,7 +231,10 @@ server_LD <- function(id, rv) {
       ld_timing(round(difftime(Sys.time(), start_time, units = "secs"), 1))
       
       pv
-    }, ignoreInit = TRUE)
+    }
+
+    ld_results_store <- reactiveVal(NULL)
+    ld_results_reactive <- function() ld_results_store()
     
     # ---- Table formatting / filtering ----
     summary_table_reactive <- reactive({
@@ -340,7 +327,7 @@ server_LD <- function(id, rv) {
     })
     
     output$analysis_time_ld_box <- renderValueBox({
-      req(input$run_LD > 0, !is.null(ld_timing()))
+      req(ld_timing())
       time_sec <- ld_timing()
       time_display <- if (time_sec < 60) paste0(time_sec, " s") else paste0(round(time_sec / 60, 1), " min")
       valueBox(time_display, HTML("<small>Analysis time<br>LD computation</small>"), color = "aqua", icon = icon("clock"))
@@ -405,21 +392,52 @@ server_LD <- function(id, rv) {
     })
     
     # -----------------------------#
-    # downloads
+    # One button, one click, one action: clicking "Run" IS the download
+    # request itself — the LD permutation test runs inside this same
+    # content() function before the two files are zipped and streamed back.
     # -----------------------------#
-    output$download_LD_csv <- downloadHandler(
-      filename = function() paste0("LD_results_", Sys.Date(), ".csv"),
-      content  = function(file) {
-        df <- summary_table_reactive()
-        if (!is.null(df) && nrow(df) > 0) write.csv(df, file, row.names = FALSE, quote = FALSE)
+    .write_ld_params <- function(con) {
+      np <- suppressWarnings(as.integer(input$n_iterations))
+      loci <- tryCatch(loci_names(), error = function(e) character(0))
+      hdr <- c(
+        "Linkage Disequilibrium \u2014 parameters used",
+        sprintf("Include missing data: %s", if (isTRUE(input$include_missing)) "Yes" else "No"),
+        sprintf("Number of permutations: %d", np),
+        sprintf("Genotype base: %s", base_r()),
+        sprintf("Loci tested (n = %d): %s", length(loci), paste(loci, collapse = ", "))
+      )
+      if (!is.na(np) && np < 1000L) {
+        hdr <- c(hdr, "",
+          "WARNING: fewer than 1000 permutations were requested. The Monte Carlo",
+          "p-value formula p = (n\u2265obs + 1) / B gives a slight overestimation when B",
+          "is small, which may produce unreliable significance calls. A minimum of",
+          "1000 permutations is recommended; 10 000 or more for publication-quality",
+          "results.")
       }
-    )
-    
-    output$download_LD_txt <- downloadHandler(
-      filename = function() paste0("LD_results_", Sys.Date(), ".txt"),
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
+
+    .write_ld_results <- function(con, pv) {
+      writeLines(c("Linkage Disequilibrium \u2014 results (all locus pairs)", ""), con = con, useBytes = TRUE)
+      write.table(pv, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+    }
+
+    output$run_LD <- downloadHandler(
+      filename = function() paste0("LD_", Sys.Date(), ".zip"),
       content  = function(file) {
-        df <- summary_table_reactive()
-        if (!is.null(df) && nrow(df) > 0) write.table(df, file, sep = "\t", row.names = FALSE, quote = FALSE)
+        pv <- .run_ld_computation()
+        ld_results_store(pv)
+        req(pv)
+        tmpdir <- tempfile("spg_ld_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("LD_parameters_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8"); .write_ld_params(con1); close(con1)
+
+        p2 <- file.path(tmpdir, paste0("LD_results_", Sys.Date(), ".txt"))
+        con2 <- file(p2, open = "w", encoding = "UTF-8"); .write_ld_results(con2, pv); close(con2)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
       }
     )
   })
