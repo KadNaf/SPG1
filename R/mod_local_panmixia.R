@@ -115,7 +115,7 @@ mod_local_panmixia_ui <- function(id) {
           ),
           column(9,
             br(),
-            downloadButton(ns("run_fis_locus_pop"), " Run"
+            downloadButton(ns("run_fis_locus_pop"), " Run",
                          icon = icon("rocket"),
                          class = "btn-action-primary btn-block", style = "font-weight: bold;")
           )
