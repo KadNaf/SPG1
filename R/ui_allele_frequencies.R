@@ -41,20 +41,10 @@ ui_allele_frequencies <- function(id) {
               choices = NULL, multiple = FALSE,
               options = list(placeholder = "Select a marker")),
             br(),
-            actionButton(ns("update_fstat"),
-              label = tagList(icon("rocket"), " Run"),
+            downloadButton(ns("update_fstat"),
+              label = "Run",
+              icon = icon("rocket"),
               class = "btn-action-primary btn-block", style = "font-weight: bold;")
-          ),
-          column(8,
-            br(),
-            fluidRow(
-              column(12,
-                div(style = "display: flex; justify-content: flex-end; gap: 8px;",
-                  downloadButton(ns("download_fstat_csv"), ".csv", class = "btn-download-primary"),
-                  downloadButton(ns("download_fstat_txt"), ".txt", class = "btn-download-secondary")
-                )
-              )
-            )
           )
         )
       )

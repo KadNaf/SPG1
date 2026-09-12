@@ -139,8 +139,7 @@ server_allele_frequencies <- function(id, rv) {
     fstat_population_r <- reactive(safe_choice(input$fstat_population, "all"))
     fstat_marker_r     <- reactive(safe_choice(input$fstat_marker,     "all"))
 
-    fstat_ready_r <- reactive({
-      req(input$update_fstat > 0L); db_ready(); TRUE })
+    fstat_shown_r <- reactiveVal(FALSE)
 
     # ── Missing data (value box only) ──────────────────────────────────────
     missing_by_pop_locus_r <- reactive({
@@ -172,7 +171,6 @@ server_allele_frequencies <- function(id, rv) {
 
     # ── Fstat long reactive ────────────────────────────────────────────────
     fstat_long_r <- reactive({
-      fstat_ready_r()
       con <- con_r(); hs <- hf_schema_r(); ms <- meta_schema_r()
       base <- as.integer(base_r())
       hf_q <- sql_id(con,tbl_hf_r()); meta_q <- sql_id(con,tbl_meta_r())
@@ -328,6 +326,7 @@ ORDER BY lo._lo_rank ASC, f.Population, f.Allele",
 
     # ── Fstat DT render ────────────────────────────────────────────────────
     output$fstat_table <- DT::renderDT({
+      req(fstat_shown_r())
       wide <- req(fstat_wide_r())
       pops <- attr(wide,"pops") %||%
         setdiff(names(wide),c("Locus","Row_label","Row_type","Global"))
@@ -413,21 +412,39 @@ function(row,data,index){
       tags$div(class="af-vbox-val",style=paste0("color:",color,";"),prop)
     })
 
-    # ── Downloads fstat ────────────────────────────────────────────────────
-    output$download_fstat_csv <- downloadHandler(
-      filename=function() paste0("allele_freq_by_locus_",Sys.Date(),".csv"),
-      content=function(file){
-        wide <- fstat_wide_r(); if(is.null(wide)) return(NULL)
-        pops <- attr(wide,"pops")
-        write.csv(wide[,c("Locus","Row_label",pops,"Global")],file,row.names=FALSE)
-      })
-    output$download_fstat_txt <- downloadHandler(
-      filename=function() paste0("allele_freq_by_locus_",Sys.Date(),".txt"),
-      content=function(file){
-        wide <- fstat_wide_r(); if(is.null(wide)) return(NULL)
-        pops <- attr(wide,"pops")
-        write.table(wide[,c("Locus","Row_label",pops,"Global")],
-                    file,sep="\t",row.names=FALSE,quote=FALSE)
-      })
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — the allele-frequency query runs inside this same
+    #    content() function (via fstat_wide_r()) before the results file +
+    #    parameters file are zipped and streamed back. Also flips
+    #    fstat_shown_r() so the on-screen table appears too.
+    output$update_fstat <- downloadHandler(
+      filename = function() paste0("allele_frequencies_", Sys.Date(), ".zip"),
+      content  = function(file) {
+        fstat_shown_r(TRUE)
+        wide <- fstat_wide_r()
+        req(wide)
+        pops <- attr(wide, "pops")
+        tmpdir <- tempfile("spg_af_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("allele_freq_by_locus_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("Allele frequencies \u2014 populations in columns", ""), con = con1, useBytes = TRUE)
+        write.table(wide[, c("Locus", "Row_label", pops, "Global")], file = con1,
+                    sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+
+        p2 <- file.path(tmpdir, paste0("allele_frequencies_parameters_", Sys.Date(), ".txt"))
+        con2 <- file(p2, open = "w", encoding = "UTF-8")
+        writeLines(c(
+          "Allele Frequencies \u2014 parameters used",
+          sprintf("Population filter: %s", if (identical(fstat_population_r(), "all")) "All populations" else fstat_population_r()),
+          sprintf("Marker filter: %s", if (identical(fstat_marker_r(), "all")) "All markers" else fstat_marker_r())
+        ), con = con2, useBytes = TRUE)
+        close(con2)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
+      }
+    )
   })
 }
