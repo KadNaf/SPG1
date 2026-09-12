@@ -2698,7 +2698,7 @@ server_general_stats <- function(id, rv) {
     })
 
     ## Run FST bootstrap and permutation (button from Genetic diversities tab) ----
-    observeEvent(input$run_FST_Analysis_div, {
+    .run_diversities_computation <- function() {
 
       db_ready()
 
@@ -2707,16 +2707,7 @@ server_general_stats <- function(id, rv) {
         return(NULL)
       }
 
-      waiter <- Waiter$new(
-        id    = c(session$ns("hs_indiv_table"), session$ns("hs_pop_table"),
-                  session$ns("hs_locus_table"), session$ns("ht_results_table")),
-        html  = spin_3(),
-        color = transparent(0.7)
-      )
-      waiter$show()
-      on.exit(waiter$hide(), add = TRUE)
-
-      tryCatch({
+      results <- tryCatch({
         start_time <- Sys.time()
 
         shinyWidgets::updateProgressBar(session, "fst_progress_div", value = 0,
@@ -2741,13 +2732,17 @@ server_general_stats <- function(id, rv) {
           paste("FST analysis completed successfully! Time:", duration, "seconds"),
           type = "message"
         )
+        results
 
       }, error = function(e) {
         fst_boot_results(NULL)
         fst_boot_timing(NULL)
         showNotification(paste("Error in FST analysis:", e$message), type = "error")
+        NULL
       })
-    })
+
+      results
+    }
 
     ## ===== FST value boxes =====
     
@@ -3317,75 +3312,107 @@ server_general_stats <- function(id, rv) {
     }) 
     
     ## ===== FST, HT, HS  download handlers =====
-    ### HT ####
-    output$download_ht_table <- downloadHandler(
-      filename = function() sprintf("ht_results_%s.csv", Sys.Date()),
-      content = function(file) {
-        res <- fst_boot_results()
-        shiny::req(is.list(res), !is.null(res$ht_table))
-        utils::write.csv(res$ht_table, file, row.names = FALSE)
-      }
-    )
-    output$download_ht_table_txt <- downloadHandler(
-      filename = function() sprintf("ht_results_%s.txt", Sys.Date()),
-      content = function(file) {
-        res <- fst_boot_results()
-        shiny::req(is.list(res), !is.null(res$ht_table))
-        utils::write.table(res$ht_table, file,
-                           sep = "\t", row.names = FALSE, quote = FALSE)
-      }
-    )
-    output$download_ht_plot <- downloadHandler(
-      filename = function() sprintf("ht_plot_%s.png", Sys.Date()),
-      content = function(file) {
-        res <- fst_boot_results()
-        shiny::req(is.list(res), !is.null(res$ht_table))
-        
-        df <- res$ht_table %>% dplyr::filter(ID != "Overall")
-        shiny::req(is.data.frame(df), nrow(df) > 0)
-        
-        p <- ggplot(df, aes(x = ID, y = Observed_HT)) +
-          geom_point(size = 3, color = "#3498db") +
-          geom_errorbar(aes(ymin = CI_L, ymax = CI_U), width = 0.2, color = "#3498db") +
-          labs(
-            title = "HT estimates with confidence intervals",
-            x = "Locus",
-            y = "HT"
-          ) +
-          theme_minimal() +
-          theme(
-            axis.text.x = element_text(angle = 45, hjust = 1),
-            plot.title  = element_text(face = "bold", hjust = 0.5)
-          )
-        
-        ggsave(file, plot = p, width = 12, height = 6, dpi = 300)
-      }
-    )
-    ### HS ####
-    output$download_hs_table <- downloadHandler(
-      filename = function() sprintf("hs_pop_results_%s.csv", Sys.Date()),
-      content = function(file) {
-        res <- fst_boot_results()
-        shiny::req(is.list(res), !is.null(res$hs_pop_tbl))
-        utils::write.csv(res$hs_pop_tbl, file, row.names = FALSE)
-      }
-    )
-    output$download_hs_table_txt <- downloadHandler(
-      filename = function() sprintf("hs_pop_results_%s.txt", Sys.Date()),
-      content = function(file) {
-        res <- fst_boot_results()
-        shiny::req(is.list(res), !is.null(res$hs_pop_tbl))
-        utils::write.table(res$hs_pop_tbl, file, sep="\t", row.names=FALSE, quote=FALSE)
-      }
-    )
-    output$download_hs_plot <- downloadHandler(
-      filename = function() sprintf("hs_plot_%s.png", Sys.Date()),
-      content = function(file) {
-        res <- fst_boot_results()
-        shiny::req(is.list(res), !is.null(res$hs_pop_tbl))
-        p <- .diversity_plot(res$hs_pop_tbl, "Observed_HS", "CI_L", "CI_U", "HS",
-                             "HS per locus \u2014 populations block bootstrap CI")
-        ggsave(file, plot = p, width = 12, height = 6, dpi = 300)
+    ### HS/HT/locus-bootstrap — merged into the single Run+Download button ###
+    .write_div_params <- function(con, res) {
+      md <- if (is.list(res)) res$metadata else NULL
+      hdr <- c(
+        "Genetic Diversities (HS / HT) \u2014 parameters used",
+        sprintf("Dataset: %s", if (!is.null(md$dataset_name)) md$dataset_name else "default_dataset"),
+        sprintf("Number of permutations: %s", if (!is.null(md$n_permutations)) md$n_permutations else input$n_perm_fst_div),
+        sprintf("Number of bootstrap replicates: %s", if (!is.null(md$n_bootstrap)) md$n_bootstrap else input$n_boot_fst_div),
+        sprintf("Confidence level: %s", if (!is.null(md$conf_level)) md$conf_level else (input$conf_level_fst_div %||% 0.95)),
+        sprintf("Loci (n = %d): %s", length(md$loci_names %||% character(0)), paste(md$loci_names, collapse = ", ")),
+        sprintf("Populations (n = %d): %s", length(md$pop_names %||% character(0)), paste(md$pop_names, collapse = ", ")),
+        "",
+        "Resampling schemes: HS per locus (individuals within population, and populations);",
+        "HS/HT overall (loci); FST/FIT/FIS/HS/HT multilocus estimators (locus bootstrap)."
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
+
+    .write_div_table <- function(con, title, df) {
+      writeLines(c(title, ""), con = con, useBytes = TRUE)
+      write.table(df, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+    }
+
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — the FST/HS/HT bootstrap analysis runs inside this
+    #    same content() function before the 7 result files + 1 parameters
+    #    file are zipped and streamed back.
+    output$run_FST_Analysis_div <- downloadHandler(
+      filename = function() paste0("genetic_diversities_", Sys.Date(), ".zip"),
+      content  = function(file) {
+        res <- .run_diversities_computation()
+        req(res)
+        tmpdir <- tempfile("spg_div_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        all_files <- character(0)
+
+        # 1) HS per locus — individuals CI + populations CI, one file, two sections
+        p1 <- file.path(tmpdir, paste0("hs_per_locus_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("HS per locus", ""), con = con1, useBytes = TRUE)
+        writeLines("Section 1: CI from resampling individuals within each population", con = con1)
+        write.table(res$hs_indiv_tbl, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        writeLines("", con = con1)
+        writeLines("Section 2: CI from resampling populations", con = con1)
+        write.table(res$hs_pop_tbl, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+        all_files <- c(all_files, p1)
+
+        # 2) HS per population
+        p2 <- file.path(tmpdir, paste0("hs_per_population_", Sys.Date(), ".txt"))
+        con2 <- file(p2, open = "w", encoding = "UTF-8")
+        .write_div_table(con2, "HS per population", res$hs_per_pop_tbl)
+        close(con2)
+        all_files <- c(all_files, p2)
+
+        # 3) Overall HS (loci bootstrap)
+        p3 <- file.path(tmpdir, paste0("overall_hs_loci_", Sys.Date(), ".txt"))
+        con3 <- file(p3, open = "w", encoding = "UTF-8")
+        .write_div_table(con3, "Overall HS \u2014 loci bootstrap", res$hs_locus_tbl)
+        close(con3)
+        all_files <- c(all_files, p3)
+
+        # 4) HS plot (.png)
+        p4 <- file.path(tmpdir, paste0("hs_plot_", Sys.Date(), ".png"))
+        p_hs <- .diversity_plot(res$hs_pop_tbl, "Observed_HS", "CI_L", "CI_U", "HS",
+                                 "HS per locus \u2014 populations block bootstrap CI")
+        ggsave(p4, plot = p_hs, width = 12, height = 6, dpi = 300)
+        all_files <- c(all_files, p4)
+
+        # 5) HT results
+        p5 <- file.path(tmpdir, paste0("ht_results_", Sys.Date(), ".txt"))
+        con5 <- file(p5, open = "w", encoding = "UTF-8")
+        .write_div_table(con5, "Total gene diversity (HT)", res$ht_table)
+        close(con5)
+        all_files <- c(all_files, p5)
+
+        # 6) HT plot (.png)
+        p6 <- file.path(tmpdir, paste0("ht_plot_", Sys.Date(), ".png"))
+        ci_l <- if ("Subsamp_CI_L" %in% names(res$ht_table)) "Subsamp_CI_L" else "CI_L"
+        ci_u <- if ("Subsamp_CI_U" %in% names(res$ht_table)) "Subsamp_CI_U" else "CI_U"
+        p_ht <- .diversity_plot(res$ht_table, "Observed_HT", ci_l, ci_u, "HT",
+                                 "HT per locus \u2014 populations bootstrap CI")
+        ggsave(p6, plot = p_ht, width = 12, height = 6, dpi = 300)
+        all_files <- c(all_files, p6)
+
+        # 7) Locus bootstrap (multilocus estimators)
+        p7 <- file.path(tmpdir, paste0("locus_bootstrap_", Sys.Date(), ".txt"))
+        con7 <- file(p7, open = "w", encoding = "UTF-8")
+        .write_div_table(con7, "Multilocus estimators \u2014 locus bootstrap", res$locus_boot_table)
+        close(con7)
+        all_files <- c(all_files, p7)
+
+        # 8) Parameters
+        p8 <- file.path(tmpdir, paste0("diversities_parameters_", Sys.Date(), ".txt"))
+        con8 <- file(p8, open = "w", encoding = "UTF-8")
+        .write_div_params(con8, res)
+        close(con8)
+        all_files <- c(all_files, p8)
+
+        zip::zip(zipfile = file, files = basename(all_files), root = tmpdir)
       }
     )
     ### FST ####

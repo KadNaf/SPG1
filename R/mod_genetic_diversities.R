@@ -37,7 +37,7 @@ mod_genetic_diversities_ui <- function(id) {
             h4(icon("sliders"), "Parameters"),
             numericInput(ns("n_perm_fst_div"),    "Number of Permutations:",        value = 5000, min = 100, max = 20000, step = 100),
             numericInput(ns("n_boot_fst_div"),    "Number of Bootstrap Replicates:", value = 5000, min = 100, max = 20000, step = 100),
-            actionButton(ns("run_FST_Analysis_div"), " Run",
+            downloadButton(ns("run_FST_Analysis_div"), " Run",
                          icon = icon("rocket"),
                          class = "btn-action-primary btn-block", style = "font-weight: bold;"),
             tags$small(
@@ -93,11 +93,7 @@ mod_genetic_diversities_ui <- function(id) {
             br(),
             h4(icon("info-circle"), "HS per locus"),
             # p("Confidence interval obtained by resampling populations with replacement."),
-            DTOutput(ns("hs_pop_table")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_hs_table"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_hs_table_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("hs_pop_table")), br()
           ),
           tabPanel("HS per population",
             br(),
@@ -113,23 +109,17 @@ mod_genetic_diversities_ui <- function(id) {
           ),
           tabPanel("HS visualization",
             h4(icon("chart-line"), "HS per locus \u2014 CI from resampling populations"),
-            plotOutput(ns("hs_plot"), height = "400px"), br(),
-            downloadButton(ns("download_hs_plot"), ".png", class = "btn-download-primary")
+            plotOutput(ns("hs_plot"), height = "400px")
           ),
           tabPanel("HT results",
             br(),
             h4(icon("info-circle"), "Total gene diversity (HT)"),
             # p("HT per locus. Confidence interval obtained by resampling populations with replacement. The Overall row also shows CI from resampling loci with replacement."),
-            DTOutput(ns("ht_results_table")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_ht_table"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_ht_table_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("ht_results_table")), br()
           ),
           tabPanel("HT visualization",
             h4(icon("chart-line"), "HT estimates by locus"),
-            plotOutput(ns("ht_plot"), height = "400px"), br(),
-            downloadButton(ns("download_ht_plot"), ".png", class = "btn-download-primary")
+            plotOutput(ns("ht_plot"), height = "400px")
           ),
           tabPanel("Locus bootstrap",
             h4(icon("retweet"), "Multilocus estimators \u2014 locus bootstrap"),
