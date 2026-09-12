@@ -37,7 +37,7 @@ mod_local_panmixia_ui <- function(id) {
             numericInput(ns("conf_level"),"Confidence Level:",               value = 0.95, min = 0.80, max = 0.99, step = 0.01),
             selectInput(ns("analysis_level"), "Analysis Level:",
                         choices = c("By Locus", "By Population"), selected = "By Locus"),
-            actionButton(ns("Run_FIS_Analysis"), " Run",
+            downloadButton(ns("Run_FIS_Analysis"), " Run",
                          icon = icon("rocket"),
                          class = "btn-action-primary btn-block", style = "font-weight: bold;")
           ),
@@ -83,16 +83,11 @@ mod_local_panmixia_ui <- function(id) {
             # p("Bootstrap CI derived from resampling individuals within populations.
             #   P-values from allele permutation within populations (two-sided |FIS| test).
             #   CI excluding zero indicates significant departure from HWE."),
-            DTOutput(ns("fis_results_table")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_fis_table"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_fis_table_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("fis_results_table")), br()
           ),
           tabPanel("Visualization",
             h4(icon("chart-line"), "Bootstrap-based FIS inference"),
-            plotOutput(ns("fis_plot"), height = "400px"), br(),
-            downloadButton(ns("download_fis_plot"), ".png", class = "btn-download-primary")
+            plotOutput(ns("fis_plot"), height = "400px")
           ),
         ),
         style = "padding: 10px;"
@@ -120,7 +115,7 @@ mod_local_panmixia_ui <- function(id) {
           ),
           column(9,
             br(),
-            actionButton(ns("run_fis_locus_pop"),
+            downloadButton(ns("run_fis_locus_pop"),
                          label = tagList(icon("rocket"), tags$strong(" Run")),
                          class = "btn-action-primary")
           )
@@ -130,10 +125,6 @@ mod_local_panmixia_ui <- function(id) {
         DTOutput(ns("fis_locus_pop_obs")), br(),
         h5("Permutation p-values (two-sided)"),
         DTOutput(ns("fis_locus_pop_pval")), br(),
-        fluidRow(
-          column(6, downloadButton(ns("download_fis_locus_pop"),     ".csv", class = "btn-download-primary btn-block")),
-          column(6, downloadButton(ns("download_fis_locus_pop_txt"), ".txt", class = "btn-download-secondary btn-block"))
-        ),
         style = "padding: 10px;"
       )
     )

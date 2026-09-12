@@ -33,7 +33,7 @@ mod_global_panmixia_ui <- function(id) {
             numericInput(ns("n_perm_fit"),    "Number of Permutations:",        value = 5000, min = 100, max = 20000, step = 100),
             numericInput(ns("n_boot_fit"),    "Number of Bootstrap Replicates:", value = 5000, min = 100, max = 20000, step = 100),
             numericInput(ns("conf_level_fit"),"Confidence Level:",               value = 0.95, min = 0.80, max = 0.99, step = 0.01),
-            actionButton(ns("Run_FIT_Analysis"), " Run",
+            downloadButton(ns("Run_FIT_Analysis"), " Run",
                          icon = icon("rocket"),
                          class = "btn-action-primary btn-block", style = "font-weight: bold;")
           ),
@@ -90,16 +90,11 @@ mod_global_panmixia_ui <- function(id) {
             h4(icon("info-circle"), "FIT estimates with bootstrap CI and permutation p-values"),
             # p("FIT estimates per locus. Bootstrap CI: population-block resampling (populations resampled with replacement).
             #   Permutation p-values: global allele shuffle, two-sided |FIT| test, consistent with the FIS permutation test."),
-            DTOutput(ns("fit_results_table")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_fit_table"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_fit_table_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("fit_results_table")), br()
           ),
           tabPanel("Visualization",
             h4(icon("chart-line"), "FIT estimates by locus"),
-            plotOutput(ns("fit_plot"), height = "400px"), br(),
-            downloadButton(ns("download_fit_plot"), ".png", class = "btn-download-primary")
+            plotOutput(ns("fit_plot"), height = "400px")
           ),
         ),
         style = "padding: 10px;"

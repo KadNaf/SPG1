@@ -1196,7 +1196,7 @@ server_general_stats <- function(id, rv) {
     }
     
     
-    observeEvent(input$Run_FIS_Analysis, {
+    .run_fis_computation <- function() {
       db_ready()
       
       if (input$n_perm < 10 || input$n_boot < 10) {
@@ -1206,15 +1206,7 @@ server_general_stats <- function(id, rv) {
         )
       }
       
-      waiter <- Waiter$new(
-        id    = session$ns("fis_results_table"),
-        html  = spin_3(),
-        color = transparent(0.7)
-      )
-      waiter$show()
-      on.exit(waiter$hide(), add = TRUE)
-      
-      tryCatch({
+      results <- tryCatch({
         start_time <- Sys.time()
         shinyWidgets::updateProgressBar(session, "fis_progress", value = 5)
         
@@ -1254,15 +1246,19 @@ server_general_stats <- function(id, rv) {
         ))
 
         showNotification("Bootstrap FIS analysis completed successfully!", type = "message")
+        results
 
       }, error = function(e) {
         fis_boot_results(NULL)
         perm_results(NULL)
         fis_allele_results(NULL)
         showNotification(paste("Error in bootstrap analysis:", e$message), type = "error")
+        NULL
       })
-    })
-    
+
+      results
+    }
+
     
     ## FIS value boxes ----
     ### Global FIS ----
@@ -1398,25 +1394,42 @@ server_general_stats <- function(id, rv) {
     })
     
     
-    ### Download FIS table (TXT)
-    output$download_fis_table_txt <- downloadHandler(
-      filename = function() paste("fis_results_", Sys.Date(), ".txt", sep = ""),
+    .write_fis_params <- function(con, res) {
+      hdr <- c(
+        "Local Panmixia \u2014 FIS \u2014 parameters used",
+        sprintf("Analysis level: %s", if (is.null(input$analysis_level)) "By Locus" else input$analysis_level),
+        sprintf("Number of permutations: %s", input$n_perm),
+        sprintf("Number of bootstrap replicates: %s", input$n_boot),
+        sprintf("Confidence level: %s", input$conf_level)
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
+
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — the FIS bootstrap/permutation runs inside this same
+    #    content() function before the 2 result files + 1 parameters file
+    #    are zipped and streamed back.
+    output$Run_FIS_Analysis <- downloadHandler(
+      filename = function() paste0("local_panmixia_FIS_", Sys.Date(), ".zip"),
       content  = function(file) {
-        shiny::req(fis_boot_results())
-        write.table(fis_boot_results()$final_table, file,
-                    sep = "\t", row.names = FALSE, quote = FALSE)
-      }
-    )
-    ### Download FIS table (CSV)
-    output$download_fis_table <- downloadHandler(
-      filename = function() paste("fis_results_", Sys.Date(), ".csv", sep = ""),
-      content = function(file) {
-        shiny::req(fis_boot_results())
-        write.csv(
-          fis_boot_results()$final_table,
-          file,
-          row.names = FALSE
-        )
+        res <- .run_fis_computation()
+        req(res)
+        tmpdir <- tempfile("spg_fis_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("fis_results_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("FIS estimates with bootstrap CI and permutation p-values", ""), con = con1, useBytes = TRUE)
+        write.table(res$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+
+        p2 <- file.path(tmpdir, paste0("fis_plot_", Sys.Date(), ".png"))
+        ggsave(p2, plot = make_fis_plot(), width = 10, height = 6, dpi = 300)
+
+        p3 <- file.path(tmpdir, paste0("fis_parameters_", Sys.Date(), ".txt"))
+        con3 <- file(p3, open = "w", encoding = "UTF-8"); .write_fis_params(con3, res); close(con3)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2, p3)), root = tmpdir)
       }
     )
     
@@ -1469,22 +1482,12 @@ server_general_stats <- function(id, rv) {
     output$fis_plot <- renderPlot({ make_fis_plot() 
     })
     
-    ### Download FIS plot ----
-    
-    output$download_fis_plot <- downloadHandler(
-      filename = function() paste0("fis_plot_", Sys.Date(), ".png"),
-      content = function(file) {
-        p <- make_fis_plot()
-        ggsave(file, plot = p, width = 10, height = 6, dpi = 300)
-      }
-    )
-    
     
     
     ## ---- Locus × Population cross-table ----
     fis_locus_pop_r <- reactiveVal(NULL)
 
-    observeEvent(input$run_fis_locus_pop, {
+    .run_fis_locus_pop_computation <- function() {
       db_ready()
       shiny::req(hf_mat_r(), base_r(), con_r())
 
@@ -1547,9 +1550,11 @@ server_general_stats <- function(id, rv) {
         }
       })
 
-      fis_locus_pop_r(list(fis = fis_m, pval = pval_m,
-                           pop_names = pop_names, locus_names = locus_names))
-    })
+      res <- list(fis = fis_m, pval = pval_m,
+                  pop_names = pop_names, locus_names = locus_names)
+      fis_locus_pop_r(res)
+      res
+    }
 
     output$fis_locus_pop_obs <- DT::renderDT({
       shiny::req(fis_locus_pop_r())
@@ -1578,31 +1583,43 @@ server_general_stats <- function(id, rv) {
         )
     })
 
-    output$download_fis_locus_pop <- downloadHandler(
-      filename = function() paste0("fis_locus_by_pop_", Sys.Date(), ".csv"),
+    .write_fis_lp_params <- function(con) {
+      hdr <- c(
+        "Local Panmixia \u2014 FIS per locus \u00d7 population \u2014 parameters used",
+        sprintf("Number of permutations: %s", input$fis_lp_n_perm)
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
+
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself.
+    output$run_fis_locus_pop <- downloadHandler(
+      filename = function() paste0("fis_locus_by_pop_", Sys.Date(), ".zip"),
       content  = function(file) {
-        shiny::req(fis_locus_pop_r())
-        r    <- fis_locus_pop_r()
+        r <- .run_fis_locus_pop_computation()
+        req(r)
+        tmpdir <- tempfile("spg_fis_lp_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
         fis  <- as.data.frame(round(r$fis,  4))
         pval <- as.data.frame(round(r$pval, 4))
         fis  <- tibble::rownames_to_column(fis,  "Locus")
         pval <- tibble::rownames_to_column(pval, "Locus")
-        names(pval)[-1] <- paste0(names(pval)[-1], "_pval")
-        write.csv(merge(fis, pval, by = "Locus", sort = FALSE), file, row.names = FALSE)
-      }
-    )
-    output$download_fis_locus_pop_txt <- downloadHandler(
-      filename = function() paste0("fis_locus_by_pop_", Sys.Date(), ".txt"),
-      content  = function(file) {
-        shiny::req(fis_locus_pop_r())
-        r    <- fis_locus_pop_r()
-        fis  <- as.data.frame(round(r$fis,  4))
-        pval <- as.data.frame(round(r$pval, 4))
-        fis  <- tibble::rownames_to_column(fis,  "Locus")
-        pval <- tibble::rownames_to_column(pval, "Locus")
-        names(pval)[-1] <- paste0(names(pval)[-1], "_pval")
-        write.table(merge(fis, pval, by = "Locus", sort = FALSE),
-                    file, sep = "\t", row.names = FALSE, quote = FALSE)
+
+        p1 <- file.path(tmpdir, paste0("fis_locus_by_pop_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("FIS (WC84) per locus \u00d7 population", ""), con = con1, useBytes = TRUE)
+        writeLines("Section 1: Observed FIS", con = con1)
+        write.table(fis, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        writeLines("", con = con1)
+        writeLines("Section 2: Permutation p-values (two-sided)", con = con1)
+        write.table(pval, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+
+        p2 <- file.path(tmpdir, paste0("fis_locus_by_pop_parameters_", Sys.Date(), ".txt"))
+        con2 <- file(p2, open = "w", encoding = "UTF-8"); .write_fis_lp_params(con2); close(con2)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
       }
     )
 
@@ -1838,7 +1855,7 @@ server_general_stats <- function(id, rv) {
     
     ## FIT observeEvent bootstrap and permutation (button) ====
     
-    observeEvent(input$Run_FIT_Analysis, {
+    .run_fit_computation <- function() {
       db_ready()
       
       if (input$n_perm_fit < 10 || input$n_boot_fit < 10) {
@@ -1848,15 +1865,7 @@ server_general_stats <- function(id, rv) {
         )
       }
       
-      waiter <- Waiter$new(
-        id    = c("fit_results_table", "fit_permutation_plot", "fit_bootstrap_plot"),
-        html  = spin_3(),
-        color = transparent(0.7)
-      )
-      waiter$show()
-      on.exit(waiter$hide(), add = TRUE)
-      
-      tryCatch({
+      results <- tryCatch({
         
         start_time <- Sys.time()
         shinyWidgets::updateProgressBar(session, "fit_progress", value = 5)
@@ -1881,16 +1890,19 @@ server_general_stats <- function(id, rv) {
         # If you use perm_results() elsewhere for plotting, keep this:
         fit_perm_results(results$permutation_results)
         
-        
         showNotification("Bootstrap FIT analysis completed successfully!", type = "message")
+        results
         
       }, error = function(e) {
         showNotification(paste("Error in FIT analysis:", e$message), type = "error")
         fit_boot_results(NULL)
         fit_perm_results(NULL)
+        NULL
       })
-    })
-    
+
+      results
+    }
+
     
     ## ===== FIT value boxes =====
     ### Global FIT =====
@@ -2039,7 +2051,7 @@ server_general_stats <- function(id, rv) {
     
     
     ## FIT visualization ====
-    output$fit_plot <- renderPlot({
+    .make_fit_plot <- function() {
       shiny::req(fit_boot_results())
       
       df <- fit_boot_results()$final_table %>%
@@ -2075,61 +2087,45 @@ server_general_stats <- function(id, rv) {
           axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
           plot.title  = ggplot2::element_text(face = "bold", hjust = 0.5)
         )
-    })
+    }
+
+    output$fit_plot <- renderPlot({ .make_fit_plot() })
     
-    
-    
-    # ===== FIT DOWNLOAD HANDLERS =====
-    output$download_fit_table <- downloadHandler(
-      filename = function() {
-        paste("fit_results_", Sys.Date(), ".csv", sep = "")
-      },
-      content = function(file) {
-        shiny::req(fit_boot_results())
-        write.csv(fit_boot_results()$final_table, file, row.names = FALSE)
-      }
-    )
-    
-    output$download_fit_table_txt <- downloadHandler(
-      filename = function() {
-        paste("fit_results_", Sys.Date(), ".txt", sep = "")
-      },
-      content = function(file) {
-        shiny::req(fit_boot_results())
-        write.table(fit_boot_results()$final_table, file, sep = "\t", row.names = FALSE, quote = FALSE)
-      }
-    )
-    
-    output$download_fit_plot <- downloadHandler(
-      filename = function() {
-        paste("fit_plot_", Sys.Date(), ".png", sep = "")
-      },
-      content = function(file) {
-        shiny::req(fit_boot_results())
-        
-        df <- fit_boot_results()$final_table %>%
-          dplyr::filter(ID != "Overall")
-        
-        if (nrow(df) == 0) {
-          p <- ggplot() + labs(title = "No FIT data available") + theme_minimal()
-        } else {
-          p <- ggplot(df, aes(x = ID, y = Observed_FIT)) +
-            geom_point(size = 3, color = "#ff9800") +
-            geom_errorbar(aes(ymin = CI_L, ymax = CI_U), width = 0.2, color = "#ff9800") +
-            geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-            labs(
-              title = "FIT Estimates with Confidence Intervals",
-              x = "Locus",
-              y = "FIT Estimate"
-            ) +
-            theme_minimal() +
-            theme(
-              axis.text.x = element_text(angle = 45, hjust = 1),
-              plot.title = element_text(face = "bold", hjust = 0.5)
-            )
-        }
-        
-        ggsave(file, plot = p, width = 12, height = 6, dpi = 300)
+    .write_fit_params <- function(con) {
+      hdr <- c(
+        "Global Panmixia \u2014 FIT \u2014 parameters used",
+        sprintf("Number of permutations: %s", input$n_perm_fit),
+        sprintf("Number of bootstrap replicates: %s", input$n_boot_fit),
+        sprintf("Confidence level: %s", input$conf_level_fit)
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
+
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — the FIT bootstrap/permutation runs inside this same
+    #    content() function before the 2 result files + 1 parameters file
+    #    are zipped and streamed back.
+    output$Run_FIT_Analysis <- downloadHandler(
+      filename = function() paste0("global_panmixia_FIT_", Sys.Date(), ".zip"),
+      content  = function(file) {
+        res <- .run_fit_computation()
+        req(res)
+        tmpdir <- tempfile("spg_fit_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("fit_results_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("FIT estimates with bootstrap CI and permutation p-values", ""), con = con1, useBytes = TRUE)
+        write.table(res$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+
+        p2 <- file.path(tmpdir, paste0("fit_plot_", Sys.Date(), ".png"))
+        ggsave(p2, plot = .make_fit_plot(), width = 12, height = 6, dpi = 300)
+
+        p3 <- file.path(tmpdir, paste0("fit_parameters_", Sys.Date(), ".txt"))
+        con3 <- file(p3, open = "w", encoding = "UTF-8"); .write_fit_params(con3); close(con3)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2, p3)), root = tmpdir)
       }
     )
     
