@@ -46,7 +46,7 @@ mod_subdivision_ui <- function(id) {
             numericInput(ns("n_perm_fst"),     "Number of Permutations:",        value = 5000, min = 100,  max = 20000, step = 100),
             numericInput(ns("n_boot_fst"),     "Number of Bootstrap Replicates:", value = 5000, min = 100,  max = 20000, step = 100),
             numericInput(ns("conf_level_fst"), "Confidence Level:",               value = 0.95, min = 0.80, max = 0.99,  step = 0.01),
-            actionButton(ns("run_FST_Analysis"), " Run",
+            downloadButton(ns("run_FST_Analysis"), " Run",
                          icon  = icon("rocket"),
                          class = "btn-action-primary btn-block",
                          style = "font-weight: bold;"),
@@ -120,11 +120,7 @@ mod_subdivision_ui <- function(id) {
             h4(icon("info-circle"), "Bootstrap confidence intervals \u2014 subsamples resampled as blocks"),
             # p("FST per locus with population-block (subsample) bootstrap CI and
             #   permutation p-values (population labels shuffled, one-sided test)."),
-            DTOutput(ns("fst_results_table")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_fst_table"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_fst_table_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("fst_results_table")), br()
           ),
           tabPanel("FST results (bootstrap over loci)",
             h4(icon("info-circle"), "Bootstrap confidence intervals \u2014 loci resampled with replacement"),
@@ -133,16 +129,11 @@ mod_subdivision_ui <- function(id) {
             #   "resampling <b>loci</b> (with replacement, across the whole locus set) instead of subsamples. ",
             #   "It complements, and is independent from, the subsample-block bootstrap in the previous tab."
             # ))),
-            DTOutput(ns("fst_locus_boot_table")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_fst_locus_boot_table"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_fst_locus_boot_table_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("fst_locus_boot_table")), br()
           ),
           tabPanel("Visualization",
             h4(icon("chart-line"), "FST estimates by locus"),
-            plotOutput(ns("fst_plot"), height = "400px"), br(),
-            downloadButton(ns("download_fst_plot"), ".png", class = "btn-download-primary")
+            plotOutput(ns("fst_plot"), height = "400px")
           )
         ),
         style = "padding: 10px;"
@@ -180,7 +171,7 @@ mod_subdivision_ui <- function(id) {
                          value = 10000, min = 1000, max = 50000, step = 1000),
             numericInput(ns("conf_level_g"), "Confidence Level:",
                          value = 0.95, min = 0.80, max = 0.99,  step = 0.01),
-            actionButton(ns("run_G_test"), " Run",
+            downloadButton(ns("run_G_test"), " Run",
                          icon  = icon("rocket"),
                          class = "btn-action-primary btn-block",
                          style = "font-weight: bold;")
@@ -238,16 +229,11 @@ mod_subdivision_ui <- function(id) {
             #   "p<sub>\u2265</sub> and p<sub>&gt;</sub> (format \u00ab [p<sub>\u2265</sub>  p<sub>&gt;</sub>] \u00bb). ",
             #   "Overall row = global G (sum of per-locus G) with its global p-values."
             # ))),
-            DTOutput(ns("g_results_table")), br(),
-            fluidRow(
-              column(6, downloadButton(ns("download_g_table"),     ".csv", class = "btn-download-primary btn-block")),
-              column(6, downloadButton(ns("download_g_table_txt"), ".txt", class = "btn-download-secondary btn-block"))
-            )
+            DTOutput(ns("g_results_table")), br()
           ),
           tabPanel("Visualization",
             h4(icon("chart-bar"), "G-statistic by locus"),
-            plotOutput(ns("g_plot"), height = "400px"), br(),
-            downloadButton(ns("download_g_plot"), ".png", class = "btn-download-primary")
+            plotOutput(ns("g_plot"), height = "400px")
           )
         ),
         style = "padding: 10px;"

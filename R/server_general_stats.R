@@ -2647,7 +2647,7 @@ server_general_stats <- function(id, rv) {
     
     
     ## Run FST bootstrap and permutation (button) ----
-    observeEvent(input$run_FST_Analysis, {
+    .run_subdivision_fst_computation <- function() {
       
       db_ready()
       
@@ -2656,15 +2656,7 @@ server_general_stats <- function(id, rv) {
         return(NULL)
       }
       
-      waiter <- Waiter$new(
-        id    = c(session$ns("fst_results_table"), session$ns("fst_plot")),
-        html  = spin_3(),
-        color = transparent(0.7)
-      )
-      waiter$show()
-      on.exit(waiter$hide(), add = TRUE)
-      
-      tryCatch({
+      results <- tryCatch({
         start_time <- Sys.time()
         
         shinyWidgets::updateProgressBar(session, "fst_progress", value = 0,
@@ -2689,13 +2681,17 @@ server_general_stats <- function(id, rv) {
           paste("FST analysis completed successfully! Time:", duration, "seconds"),
           type = "message"
         )
+        results
         
       }, error = function(e) {
         fst_boot_results(NULL)
         fst_boot_timing(NULL)
         showNotification(paste("Error in FST analysis:", e$message), type = "error")
+        NULL
       })
-    })
+
+      results
+    }
 
     ## Run FST bootstrap and permutation (button from Genetic diversities tab) ----
     .run_diversities_computation <- function() {
@@ -2819,34 +2815,77 @@ server_general_stats <- function(id, rv) {
     })
 
     ### FST \u2014 loci bootstrap downloads (with metadata header) ----
-    output$download_fst_locus_boot_table <- downloadHandler(
-      filename = function() paste0("fst_bootstrap_over_loci_", Sys.Date(), ".csv"),
-      content = function(file) {
-        shiny::req(fst_boot_results())
-        lb <- fst_boot_results()$locus_boot_table
-        shiny::req(is.data.frame(lb))
-        spg_write_csv_with_header(
-          lb[lb$Statistic %in% c("FST", "FIT", "FIS", "HS", "HT"), , drop = FALSE], file,
-          .fst_export_header(
-            "FST/FIT/FIS/HS/HT \u2014 bootstrap over LOCI (resampled with replacement)",
-            extra = list("Bootstrap unit" = "loci (resampled with replacement across the whole locus set); rows = overall (multilocus) statistics, not per-locus")
-          )
-        )
-      }
-    )
-    output$download_fst_locus_boot_table_txt <- downloadHandler(
-      filename = function() paste0("fst_bootstrap_over_loci_", Sys.Date(), ".txt"),
-      content = function(file) {
-        shiny::req(fst_boot_results())
-        lb <- fst_boot_results()$locus_boot_table
-        shiny::req(is.data.frame(lb))
-        spg_write_txt_with_header(
-          lb[lb$Statistic %in% c("FST", "FIT", "FIS", "HS", "HT"), , drop = FALSE], file,
-          .fst_export_header(
-            "FST/FIT/FIS/HS/HT \u2014 bootstrap over LOCI (resampled with replacement)",
-            extra = list("Bootstrap unit" = "loci (resampled with replacement across the whole locus set); rows = overall (multilocus) statistics, not per-locus")
-          )
-        )
+    .make_fst_plot <- function() {
+      res <- fst_boot_results()
+      shiny::req(is.list(res), !is.null(res$final_table))
+      df <- res$final_table
+      loci_only <- df$ID[df$ID != "Overall"]
+      df$ID <- factor(df$ID, levels = c(unique(loci_only), "Overall"))
+      df <- df %>% dplyr::mutate(Significant = !is.na(P_value) & P_value < 0.05)
+      ggplot(df, aes(x = ID, y = Observed_FST)) +
+        geom_point(aes(shape = Significant), size = 3, color = "#3498db") +
+        geom_errorbar(aes(ymin = CI_L, ymax = CI_U), width = 0.2, color = "#3498db") +
+        labs(title = "FST estimates with confidence intervals",
+             x = "Locus", y = "FST estimate", shape = "p < 0.05") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1),
+              plot.title  = element_text(face = "bold", hjust = 0.5))
+    }
+
+    .write_fst_params <- function(con, res) {
+      md <- if (is.list(res)) res$metadata else NULL
+      hdr <- c(
+        "Population Subdivision \u2014 FST \u2014 parameters used",
+        sprintf("Dataset: %s", if (!is.null(md$dataset_name)) md$dataset_name else "default_dataset"),
+        sprintf("Number of permutations: %s", if (!is.null(md$n_permutations)) md$n_permutations else input$n_perm_fst),
+        sprintf("Number of bootstrap replicates: %s", if (!is.null(md$n_bootstrap)) md$n_bootstrap else input$n_boot_fst),
+        sprintf("Confidence level: %s", if (!is.null(md$conf_level)) md$conf_level else input$conf_level_fst),
+        sprintf("Loci (n = %d): %s", length(md$loci_names %||% character(0)), paste(md$loci_names, collapse = ", ")),
+        sprintf("Populations (n = %d): %s", length(md$pop_names %||% character(0)), paste(md$pop_names, collapse = ", ")),
+        "",
+        "Bootstrap over SUBSAMPLES: whole populations resampled as blocks, percentile CI.",
+        "Permutation p-value: genotypes randomly reassigned among subsamples (one-sided, FST >= observed)."
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
+
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — the FST bootstrap/permutation runs inside this same
+    #    content() function before the 3 result files + 1 parameters file
+    #    are zipped and streamed back. Also populates the shared
+    #    fst_boot_results()/fst_boot_timing() used by the Genetic Diversities
+    #    tab, exactly as before.
+    output$run_FST_Analysis <- downloadHandler(
+      filename = function() paste0("subdivision_FST_", Sys.Date(), ".zip"),
+      content  = function(file) {
+        res <- .run_subdivision_fst_computation()
+        req(res)
+        tmpdir <- tempfile("spg_fst_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("fst_results_subsamples_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("FST per locus \u2014 bootstrap over subsamples (population blocks) + permutation p-value", ""),
+                   con = con1, useBytes = TRUE)
+        write.table(res$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+
+        p2 <- file.path(tmpdir, paste0("fst_results_loci_", Sys.Date(), ".txt"))
+        con2 <- file(p2, open = "w", encoding = "UTF-8")
+        writeLines(c("FST/FIT/FIS/HS/HT \u2014 bootstrap over LOCI (resampled with replacement)", ""),
+                   con = con2, useBytes = TRUE)
+        lb <- res$locus_boot_table
+        if (is.data.frame(lb)) lb <- lb[lb$Statistic %in% c("FST", "FIT", "FIS", "HS", "HT"), , drop = FALSE]
+        write.table(lb, file = con2, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con2)
+
+        p3 <- file.path(tmpdir, paste0("fst_plot_", Sys.Date(), ".png"))
+        ggsave(p3, plot = .make_fst_plot(), width = 12, height = 6, dpi = 300)
+
+        p4 <- file.path(tmpdir, paste0("fst_parameters_", Sys.Date(), ".txt"))
+        con4 <- file(p4, open = "w", encoding = "UTF-8"); .write_fst_params(con4, res); close(con4)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2, p3, p4)), root = tmpdir)
       }
     )
 
@@ -3287,29 +3326,7 @@ server_general_stats <- function(id, rv) {
     })
     ### FST ####
 
-    output$fst_plot <- renderPlot({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$final_table))
-
-      df <- res$final_table
-
-      # Ordre physique DuckDB : loci_names() déjà dans le bon ordre
-      loci_only <- df$ID[df$ID != "Overall"]
-      # Conserver l'ordre d'apparition dans final_table (= ordre DuckDB)
-      df$ID <- factor(df$ID, levels = c(unique(loci_only), "Overall"))
-
-      df <- df %>%
-        dplyr::mutate(Significant = !is.na(P_value) & P_value < 0.05)
-
-      ggplot(df, aes(x = ID, y = Observed_FST)) +
-        geom_point(aes(shape = Significant), size = 3, color = "#3498db") +
-        geom_errorbar(aes(ymin = CI_L, ymax = CI_U), width = 0.2, color = "#3498db") +
-        labs(title = "FST estimates with confidence intervals",
-             x = "Locus", y = "FST estimate", shape = "p < 0.05") +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1),
-              plot.title  = element_text(face = "bold", hjust = 0.5))
-    }) 
+    output$fst_plot <- renderPlot({ .make_fst_plot() })
     
     ## ===== FST, HT, HS  download handlers =====
     ### HS/HT/locus-bootstrap — merged into the single Run+Download button ###
@@ -3433,48 +3450,6 @@ server_general_stats <- function(id, rv) {
       )
     }
 
-    output$download_fst_table <- downloadHandler(
-      filename = function() paste0("fst_results_", Sys.Date(), ".csv"),
-      content = function(file) {
-        shiny::req(fst_boot_results())
-        spg_write_csv_with_header(
-          fst_boot_results()$final_table, file,
-          .fst_export_header("FST per locus \u2014 bootstrap over subsamples (population blocks) + permutation p-value")
-        )
-      }
-    )
-    output$download_fst_table_txt <- downloadHandler(
-      filename = function() paste0("fst_results_", Sys.Date(), ".txt"),
-      content = function(file) {
-        shiny::req(fst_boot_results())
-        spg_write_txt_with_header(
-          fst_boot_results()$final_table, file,
-          .fst_export_header("FST per locus \u2014 bootstrap over subsamples (population blocks) + permutation p-value")
-        )
-      }
-    )
-
-    output$download_fst_plot <- downloadHandler(
-      filename = function() paste0("fst_plot_", Sys.Date(), ".png"),
-      content = function(file) {
-        shiny::req(fst_boot_results())
-        df <- fst_boot_results()$final_table
-        shiny::req(is.data.frame(df), nrow(df) > 0)
-        loci_only <- df$ID[df$ID != "Overall"]
-        df$ID <- factor(df$ID, levels = c(unique(loci_only), "Overall"))
-        df <- df %>% dplyr::mutate(Significant = !is.na(P_value) & P_value < 0.05)
-        p <- ggplot(df, aes(x = ID, y = Observed_FST)) +
-          geom_point(aes(shape = Significant), size = 3, color = "#3498db") +
-          geom_errorbar(aes(ymin = CI_L, ymax = CI_U), width = 0.2, color = "#3498db") +
-          labs(title = "FST estimates with confidence intervals",
-               x = "Locus", y = "FST estimate", shape = "p < 0.05") +
-          theme_minimal() +
-          theme(axis.text.x = element_text(angle = 45, hjust = 1),
-                plot.title  = element_text(face = "bold", hjust = 0.5))
-        ggsave(file, plot = p, width = 12, height = 6, dpi = 300)
-      }
-    )
-    
     ## --- Testing outputs ---
     ### Testing local panmixia (FIS permutation) ---
     output$fis_pval_testing <- DT::renderDT({
@@ -3577,23 +3552,15 @@ server_general_stats <- function(id, rv) {
     }
 
     ## Observer: Run button ----
-    observeEvent(input$run_G_test, {
+    .run_g_test_computation <- function() {
       db_ready()
 
       if (input$n_perm_g < 1000) {
         showNotification("Minimum 1 000 permutations required.", type = "warning")
-        return(NULL)
+        return(FALSE)
       }
 
-      waiter <- Waiter$new(
-        id    = c(session$ns("g_results_table"), session$ns("g_plot")),
-        html  = spin_3(),
-        color = transparent(0.7)
-      )
-      waiter$show()
-      on.exit(waiter$hide(), add = TRUE)
-
-      tryCatch({
+      ok <- tryCatch({
         start_time <- Sys.time()
         shinyWidgets::updateProgressBar(session, "g_progress", value = 5)
 
@@ -3838,12 +3805,16 @@ server_general_stats <- function(id, rv) {
           paste("G-based test completed in", duration, "seconds"),
           type = "message"
         )
+        TRUE
 
       }, error = function(e) {
         g_test_results(NULL); g_test_timing(NULL)
         showNotification(paste("Error in G-based test:", e$message), type = "error")
+        FALSE
       })
-    })
+
+      ok
+    }
 
     ## ===== G-test value boxes =====
 
@@ -4028,30 +3999,51 @@ server_general_stats <- function(id, rv) {
       )
     }
 
-    output$download_g_table <- downloadHandler(
-      filename = function() paste0("g_test_results_", Sys.Date(), ".csv"),
+    .write_g_params <- function(con, res) {
+      md <- if (is.list(res)) res$metadata else NULL
+      hdr <- c(
+        "Population Subdivision \u2014 G-test \u2014 parameters used",
+        sprintf("Dataset: %s", if (!is.null(md$dataset_name)) md$dataset_name else "default_dataset"),
+        sprintf("Number of permutations: %s", if (!is.null(md$n_perm)) md$n_perm else input$n_perm_g),
+        sprintf("Confidence level: %s", input$conf_level_g %||% 0.95),
+        sprintf("Loci (n = %d): %s", length(md$loci_names %||% character(0)), paste(md$loci_names, collapse = ", ")),
+        sprintf("Populations (n = %d): %s", length(md$pop_names %||% character(0)), paste(md$pop_names, collapse = ", ")),
+        "",
+        "Permutation of COMPLETE MULTILOCUS GENOTYPES (whole individuals) among subsamples",
+        "\u2014 valid when Hardy-Weinberg is NOT assumed within samples (Goudet et al. 1996, \u00a77.1).",
+        "Two one-sided p-values per locus: p(>= obs.) and p(> obs.). Overall row = G summed over loci."
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
+
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — the G-test permutation runs inside this same
+    #    content() function before the 2 result files + 1 parameters file
+    #    are zipped and streamed back.
+    output$run_G_test <- downloadHandler(
+      filename = function() paste0("subdivision_Gtest_", Sys.Date(), ".zip"),
       content  = function(file) {
-        shiny::req(g_test_results())
-        spg_write_csv_with_header(
-          g_test_results()$final_table, file,
-          .g_export_header("G-based permutation test \u2014 subdivision (multilocus genotypes permuted among subsamples)")
-        )
-      }
-    )
-    output$download_g_table_txt <- downloadHandler(
-      filename = function() paste0("g_test_results_", Sys.Date(), ".txt"),
-      content  = function(file) {
-        shiny::req(g_test_results())
-        spg_write_txt_with_header(
-          g_test_results()$final_table, file,
-          .g_export_header("G-based permutation test \u2014 subdivision (multilocus genotypes permuted among subsamples)")
-        )
-      }
-    )
-    output$download_g_plot <- downloadHandler(
-      filename = function() paste0("g_test_plot_", Sys.Date(), ".png"),
-      content  = function(file) {
-        ggplot2::ggsave(file, plot = .make_g_plot(), width = 12, height = 6, dpi = 300)
+        ok <- .run_g_test_computation()
+        req(isTRUE(ok))
+        res <- g_test_results()
+        req(res)
+        tmpdir <- tempfile("spg_gtest_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("g_test_results_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("G-based permutation test \u2014 subdivision (multilocus genotypes permuted among subsamples)", ""),
+                   con = con1, useBytes = TRUE)
+        write.table(res$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+
+        p2 <- file.path(tmpdir, paste0("g_test_plot_", Sys.Date(), ".png"))
+        ggplot2::ggsave(p2, plot = .make_g_plot(), width = 12, height = 6, dpi = 300)
+
+        p3 <- file.path(tmpdir, paste0("g_test_parameters_", Sys.Date(), ".txt"))
+        con3 <- file(p3, open = "w", encoding = "UTF-8"); .write_g_params(con3, res); close(con3)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2, p3)), root = tmpdir)
       }
     )
     # ==================================== FIN G-TEST ===============================================
