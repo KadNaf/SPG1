@@ -116,7 +116,6 @@ isolation_by_distance_UI <- function(id) {
           title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
                       icon("chart-line"), " Regression summary (slope / b / Nb / Nem)"),
         uiOutput(ns("ui_ibd_key_values")),
-        DT::DTOutput(ns("dt_ibd_reg")),
         tags$br(),
         tags$div(class = "spg-module-card", style = "margin-bottom:8px; max-width:400px; display:inline-block; margin-right:14px;",
           tags$div(style="font-size:11px;color:#555;", "Results"),
@@ -254,13 +253,6 @@ isolation_by_distance_UI <- function(id) {
                       icon("chart-bar"), " Results"),
         uiOutput(ns("ui_mantel_key_values")),
         uiOutput(ns("ui_mantel_summary"))
-      )
-    ),
-    fluidRow(
-      box(width = 12, solidHeader = FALSE,
-          title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
-                      icon("table"), " Result summary"),
-        DT::DTOutput(ns("dt_mantel_summary"))
       )
     )
   )

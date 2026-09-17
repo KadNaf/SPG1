@@ -687,93 +687,10 @@ app_ui <- function() {
       shiny::div(
         class = "spg-hero-logo",
         shiny::tags$img(
-          src   = "spg_www/Logo1.svg",
+          src   = "spg_www/LogoPGAcmdr.png",
           height = "400px",
           alt   = "ShinyPopGen logo",
           style = "filter: drop-shadow(0 8px 32px rgba(0,0,0,0.55));"
-        )
-      )
-    ),
-
-    # ── Module grid ───────────────────────────────────────────────────────────
-    shinydashboard::box(
-      width = 12, solidHeader = FALSE,
-      title = shiny::div(
-        style = "background:#FFFFFF; padding:10px; color:#333a43; font-weight:600;",
-        shiny::icon("th"), " Analysis modules"
-      ),
-      shiny::div(
-        class = "spg-module-grid",
-        module_card("upload",      "Data Import",          "Import CSV/TXT, auto-detect columns, assign populations and markers, preview map.", "#6B64EF", "import"),
-        module_card("chart-pie",   "Allele Frequencies",   "Allele frequency tables and plots per population, missing data overview.", "#2CBF9F", "allele_frequencies"),
-        module_card("table",       "General Statistics",   "Na, Ne, Ho, He, sample sizes, F-statistics per allele (WC84).", "#3B9AB2", "general_stats"),
-        module_card("flask",       "Local Panmixia",       "Within-population HWE. FIS per locus and population, bootstrap CI, permutation p-value.", "#9986A5", "local_panmixia"),
-        module_card("globe",       "Global Panmixia",      "Overall HWE across all populations. Multilocus FIT, bootstrap CI, permutation p-value.", "#E1AF00", "global_panmixia"),
-        module_card("sitemap",     "Subdivision",          "Population differentiation. FST (WC84) per locus and overall, bootstrap CI, permutation p-value.", "#B40F20", "subdivision"),
-        module_card("chart-line",  "Genetic Diversities",  "HS and HT per locus. Locus bootstrap for multilocus FST, FIT, FIS, HS, HT.", "#78B7C5", "genetic_diversities"),
-        module_card("link",        "Linkage Disequilibrium","Pairwise LD tests among all loci with permutation p-values.", "#EBCC2A", "linkage_desequilibrium"),
-        module_card("circle-notch","Null Alleles",          "Null allele frequency estimation by locus \u00d7 population using the FreeNA EM algorithm.", "#8D8680", "null_alleles"),
-        module_card("map-marker-alt","Isolation by Distance","Pairwise FST\u2044(1\u2212FST) vs geographic distance. Mantel test (Rousset 1997).", "#2CBF9F", "isolation_by_distance")
-      )
-    ),
-
-    # ── Help shortcut card ───────────────────────────────────────────────────
-    shiny::div(
-      style = paste0(
-        "cursor:pointer; display:flex; align-items:center; gap:20px;",
-        "background:linear-gradient(135deg,#1a2035 0%,#26306B 60%,#333a43 100%);",
-        "border-radius:6px; padding:20px 28px; margin-bottom:24px;",
-        "border:1px solid rgba(107,100,239,0.35);",
-        "box-shadow:0 4px 18px rgba(0,0,0,0.18);",
-        "transition:box-shadow 0.18s, transform 0.12s;"
-      ),
-      onclick = "var el=document.querySelector('[data-value=\"help\"]'); if(el) el.click();",
-      onmouseover = "this.style.boxShadow='0 8px 28px rgba(107,100,239,0.35)'; this.style.transform='translateY(-2px)';",
-      onmouseout  = "this.style.boxShadow='0 4px 18px rgba(0,0,0,0.18)'; this.style.transform='';",
-      shiny::div(
-        style = "flex-shrink:0; width:48px; height:48px; border-radius:50%; background:rgba(107,100,239,0.25); display:flex; align-items:center; justify-content:center; font-size:1.4rem; color:#A9F0D8;",
-        shiny::icon("question-circle")
-      ),
-      shiny::div(
-        shiny::tags$p(style = "margin:0; font-size:1rem; font-weight:700; color:#FFFFFF;", "Need help?"),
-        shiny::tags$p(style = "margin:0; font-size:0.85rem; color:#A9F0D8;",
-          "Data format requirements, encoding options, statistical methods & key references.")
-      ),
-      shiny::div(
-        style = "margin-left:auto; flex-shrink:0; color:rgba(169,240,216,0.7); font-size:1.2rem;",
-        shiny::icon("arrow-right")
-      )
-    ),
-
-    # ── Citation + contact ────────────────────────────────────────────────────
-    shiny::fluidRow(
-      shinydashboard::box(
-        width = 8, solidHeader = FALSE,
-        title = shiny::div(
-          style = "background:#FFFFFF; padding:10px; color:#333a43; font-weight:600;",
-          shiny::icon("book"), " Citation"
-        ),
-        shiny::tags$blockquote(
-          style = "font-size:13px; line-height:1.7; border-left:3px solid #6B64EF; padding-left:14px; color:#555; margin:0;",
-          "ShinyPopGen: an interactive Shiny application for population genetics data import, exploration, and descriptive analyses. IRD / CIRAD / INTERTRYP."
-        )
-      ),
-      shinydashboard::box(
-        width = 4, solidHeader = FALSE,
-        title = shiny::div(
-          style = "background:#FFFFFF; padding:10px; color:#333a43; font-weight:600;",
-          shiny::icon("envelope"), " Contact"
-        ),
-        shiny::tags$p(
-          style = "font-size:13px; margin:0;",
-          "Bugs and suggestions:",
-          shiny::tags$br(),
-          shiny::tags$a(
-            href = "https://forge.ird.fr/intertryp/shiny_pop_gen",
-            target = "_blank",
-            style = "color:#6B64EF; font-weight:500;",
-            shiny::icon("code-branch"), " forge.ird.fr/intertryp/shiny_pop_gen"
-          )
         )
       )
     ),

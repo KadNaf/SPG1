@@ -48,25 +48,6 @@ ui_allele_frequencies <- function(id) {
           )
         )
       )
-    ),
-    
-    h2("Allele frequencies \u2014 populations in columns", class = "section-title"),
-    # tags$p(HTML(paste0(
-    #   "<b>Allele frequencies by locus</b> with populations as columns. ",
-    #   "Each cell shows: allele (frequency) with N genotyped · N missing. ",
-    #   "The last columns report Na (number of alleles), Ne (effective number of alleles), ",
-    #   "He (expected heterozygosity), Ho (observed heterozygosity), and Fis (inbreeding coefficient)."
-    # )), style = "font-size: 16px; line-height: 1.5; color: #2c3e50;"),
-    
-    fluidRow(
-      box(
-        width = 12,
-        title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    icon("th"), "Allele Frequency Table"),
-        solidHeader = TRUE, status = "primary",
-        DT::DTOutput(ns("fstat_table")),
-        style = "padding: 10px;"
-      )
     )
   )
 }
