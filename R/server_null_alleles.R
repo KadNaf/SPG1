@@ -1696,7 +1696,7 @@ server_null_alleles <- function(id, rv) {
       write.table(d6$loci, file = con6, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
       close(con6)
 
-      all_files <- c(p1, p2, p4, p5, p6)
+      all_files <- c(p1a, p1b, p2, p4, p5, p6)
 
       if (isTRUE(include_pairwise_r())) {
         d7 <- file7_data()
