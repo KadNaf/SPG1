@@ -885,7 +885,7 @@ server_isolation_by_distance <- function(id, rv) {
     }
 
     .mantel_summary_df <- function(r) {
-      do.call(rbind, lapply(r$selected, function(k) {
+      d <- do.call(rbind, lapply(r$selected, function(k) {
         s <- r$stats[[k]]
         p_pos <- s$p_pos; p_neg <- s$p_neg
         p_2sided <- if (is.na(p_pos) || is.na(p_neg)) NA_real_ else min(2 * min(p_pos, p_neg), 1)
@@ -896,13 +896,19 @@ server_isolation_by_distance <- function(id, rv) {
           Observed  = .fmt_stat(s$stat_obs),
           Slope     = .fmt_stat(s$slope),
           Intercept = .fmt_stat(s$intercept),
-          `R\u00b2`  = sprintf("%.4f", s$r2),
-          `p+`      = if (is.na(p_pos)) "NA" else sprintf("%.4f", p_pos),
-          `p-`      = if (is.na(p_neg)) "NA" else sprintf("%.4f", p_neg),
+          R2        = sprintf("%.4f", s$r2),
+          p_pos_col = if (is.na(p_pos)) "NA" else sprintf("%.4f", p_pos),
+          p_neg_col = if (is.na(p_neg)) "NA" else sprintf("%.4f", p_neg),
           p_2sided  = if (is.na(p_2sided)) "NA" else sprintf("%.4f", p_2sided),
           stringsAsFactors = FALSE, check.names = FALSE
         )
       }))
+      # \uXXXX escapes aren't allowed inside backtick-quoted names in R
+      # source code, so the "R\u00b2"/"p+"/"p-" column names are set here,
+      # as plain string literals, rather than at construction time above.
+      names(d) <- c("Statistic", "X", "Y", "Observed", "Slope", "Intercept",
+                     "R\u00b2", "p+", "p-", "p_2sided")
+      d
     }
 
     output$dt_mantel_summary <- DT::renderDT({
