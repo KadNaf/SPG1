@@ -107,16 +107,7 @@ isolation_by_distance_UI <- function(id) {
       box(width = 12, solidHeader = TRUE, status = "primary",
           title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
                       icon("chart-line"), " Regression summary (slope / b / Nb / Nem)"),
-        uiOutput(ns("ui_ibd_status")),
-        tags$br(),
-        tags$div(class = "spg-module-card", style = "margin-bottom:8px; max-width:400px; display:inline-block; margin-right:14px;",
-          tags$div(style="font-size:11px;color:#555;", "Results"),
-          tags$div(class = "fname", uiOutput(ns("ui_ibd_filename_res"), inline = TRUE))
-        ),
-        tags$div(class = "spg-module-card", style = "margin-bottom:8px; max-width:400px; display:inline-block;",
-          tags$div(style="font-size:11px;color:#555;", "Parameters"),
-          tags$div(class = "fname", uiOutput(ns("ui_ibd_filename_params"), inline = TRUE))
-        )
+        uiOutput(ns("ui_ibd_status"))
       )
     ),
 
