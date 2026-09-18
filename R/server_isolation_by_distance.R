@@ -421,22 +421,11 @@ server_isolation_by_distance <- function(id, rv) {
       }
     )
 
-    output$ui_ibd_key_values <- renderUI({
+    output$ui_ibd_status <- renderUI({
       r <- ibd_results_r()
       req(r)
-      tags$div(style = "font-size:13px; color:#333; margin-bottom:14px;",
-        tags$div(tags$strong("Geographic distance (X): "), r$col_geo),
-        tags$div(tags$strong("Genetic distance (Y) \u2014 average: "), r$col_avg,
-                 tags$strong("  \u2014 lower limit: "), r$col_lo,
-                 tags$strong("  \u2014 higher limit: "), r$col_hi),
-        tags$div(tags$strong("Data source: "),
-                 if (isTRUE(identical(input$ibd_source, "external"))) "External re-loaded pairwise file"
-                 else "Null Alleles module (this session)"),
-        tags$div(tags$strong("Pairs used: "), nrow(r$df)),
-        tags$div(tags$strong("Slope (b) / Nb / Nem \u2014 average: "),
-                 sprintf("b = %.6f, Nb = %.2f, Nem = %.2f",
-                         r$reg_avg$slope, 1/r$reg_avg$slope, (1/r$reg_avg$slope)/(2*pi)))
-      )
+      tags$div(class = "na-info",
+        icon("check-circle"), " ", tags$strong("Computations completed."))
     })
 
     output$dt_ibd_reg <- DT::renderDT({
@@ -864,48 +853,13 @@ server_isolation_by_distance <- function(id, rv) {
       r$stats[[pref[1]]]
     }
 
-    output$ui_mantel_key_values <- renderUI({
+    output$ui_mantel_status <- renderUI({
       r <- mantel_result_r()
       req(r)
-      fmt_lbl <- if (identical(r$p_formula, "plain")) "b/m" else "(b+1)/(m+1)"
-      ref <- .mantel_r2_stat(r)
-      rows <- lapply(r$selected, function(k) {
-        s <- r$stats[[k]]
-        tags$tr(
-          tags$td(tags$strong(s$label), style="padding:4px 18px 4px 0;"),
-          tags$td(sprintf("X: %s, Y: %s", s$x_label, s$y_label), style="padding:4px 18px 4px 0;color:#777;font-size:12px;"),
-          tags$td(.fmt_stat(s$stat_obs), style="padding:4px 18px 4px 0;font-weight:700;"),
-          tags$td(sprintf("p(+) = %s", if (is.na(s$p_pos)) "NA" else formatC(s$p_pos, format="f", digits=4)),
-                  style="padding:4px 18px 4px 0;color:#555;"),
-          tags$td(sprintf("p(\u2212) = %s", if (is.na(s$p_neg)) "NA" else formatC(s$p_neg, format="f", digits=4)),
-                  style="padding:4px 0;color:#555;")
-        )
-      })
-      tags$div(
-        tags$div(style = "font-size:13px; color:#333; margin-bottom:10px;",
-          tags$div(tags$strong("m (permutations): "), r$n_perm),
-          tags$div(tags$strong("R\u00b2: "), if (is.na(ref$r2)) "NA" else sprintf("%.4f", ref$r2)),
-          tags$div(tags$strong("p-value formula: "), fmt_lbl)
-        ),
-        tags$table(style = "border-collapse:collapse;font-size:14px;", tags$tbody(rows))
-      )
+      tags$div(class = "na-info",
+        icon("check-circle"), " ", tags$strong("Computations completed."))
     })
 
-    output$ui_mantel_summary <- renderUI({
-      r <- mantel_result_r()
-      req(r)
-      tags$div(style = "margin-top:8px; font-family:monospace; font-size:12px; color:#555;",
-        lapply(r$selected, function(k) {
-          s <- r$stats[[k]]
-          tags$div(
-            sprintf("[%s] Engine: %s \u2014 Slope = %.6f, Intercept = %.6f \u2014 Pairs used: %d \u2014 Common pops: %d",
-                    s$label, if (identical(s$engine, "cpp")) "C++ (native)" else "R (fallback)",
-                    s$slope, s$intercept, s$n_pairs, length(s$common)),
-            tags$br()
-          )
-        })
-      )
-    })
 
     .mantel_summary_df <- function(r) {
       do.call(rbind, lapply(r$selected, function(k) {

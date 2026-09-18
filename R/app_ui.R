@@ -83,6 +83,12 @@ app_ui <- function() {
       padding: 20px;
       min-height: calc(100vh - 56px);
     }
+    /* Welcome page is now short (module grid/help/citation removed) —
+       don't force it to fill the viewport, or a big empty gap appears
+       above the partner-logos footer. */
+    body.spg-welcome-mode .bslib-page-navbar > .tab-content {
+      min-height: auto;
+    }
 
     /* ===== WES ANDERSON COLOR MAP =====
        IsleofDogs2: #FAEFD1(Royal1-bg) #EAD3BF #AA9486 #B6854D #39312F #1C1718

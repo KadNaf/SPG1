@@ -158,12 +158,14 @@ null_alleles_UI <- function(id) {
           tags$div(style = "border-left:1px solid #dcdfe4; flex:1; min-width:190px; padding:0 16px;",
             numericInput(ns("nboot_subs"),
               label = "Bootstraps over subsamples (at least 100):",
-              value = 5000, min = 100, max = 99999, step = 1000, width = "100%")),
-          tags$div(style = "border-left:1px solid #dcdfe4; flex:0 0 220px; padding:0 16px;",
+              value = 5000, min = 100, max = 99999, step = 1000, width = "100%"))
+        ),
+        tags$div(style = "display:flex; align-items:flex-start; gap:0; flex-wrap:wrap; margin-top:8px;",
+          tags$div(style = "flex:1; min-width:190px; padding-right:16px;",
             numericInput(ns("alpha"),
               label = "Alpha (between 0.9999 and 0.0001):",
               value = 0.05, min = 0.0001, max = 0.5, step = 0.01, width = "100%")),
-          tags$div(style = "border-left:1px solid #dcdfe4; flex:0 0 200px; padding:0 0 0 16px;",
+          tags$div(style = "border-left:1px solid #dcdfe4; flex:1; min-width:190px; padding:0 16px;",
             numericInput(ns("boot_seed"),
               label = "Random seed (between 1 and 1000000):",
               value = 12345, min = 1, max = 1000000, step = 1, width = "100%"))
@@ -179,19 +181,16 @@ null_alleles_UI <- function(id) {
           fluidRow(
             column(3, uiOutput(ns("gps_lon_col_ui"))),
             column(3, uiOutput(ns("gps_lat_col_ui")))
-          ),
-          tags$p(style="color:#777;font-size:11px;",
-            icon("info-circle"), " Auto-detected from your imported data when possible \u2014 change if the ",
-            "wrong columns were picked. Used to compute geographic distances (Vincenty) for the Full pairwise table.")
+          )
         ),
 
         tags$hr(),
 
-        h4(icon("save"), "Choose names for output files"),
+        h4(icon("save"), "Choose a name for the output"),
         tags$div(style = "max-width:320px;",
           textInput(ns("out_root"), NULL, value = "", placeholder = "auto-filled from the imported data file name")),
-        # tags$p(style="color:#777;font-size:11px;",
-        #   "Defaults to the imported dataset's name. Change it and every output file below will use that name instead."),
+        tags$p(style="color:#777;font-size:11px;",
+          "All output files will be saved in a zipped file."),
 
         tags$hr(),
 

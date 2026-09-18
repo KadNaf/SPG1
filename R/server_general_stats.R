@@ -1176,7 +1176,7 @@ server_general_stats <- function(id, rv) {
           missing_code = 0L
         ))
 
-        showNotification("Bootstrap FIS analysis completed successfully!", type = "message")
+        showNotification("Computations completed.", type = "message")
         results
 
       }, error = function(e) {
@@ -1839,7 +1839,7 @@ server_general_stats <- function(id, rv) {
         # If you use perm_results() elsewhere for plotting, keep this:
         fit_perm_results(results$permutation_results)
         
-        showNotification("Bootstrap FIT analysis completed successfully!", type = "message")
+        showNotification("Computations completed.", type = "message")
         results
         
       }, error = function(e) {
@@ -2623,7 +2623,7 @@ server_general_stats <- function(id, rv) {
         fst_boot_results(results)
         
         showNotification(
-          paste("FST analysis completed successfully! Time:", duration, "seconds"),
+          "Computations completed.",
           type = "message"
         )
         results
@@ -2670,7 +2670,7 @@ server_general_stats <- function(id, rv) {
         fst_boot_results(results)
 
         showNotification(
-          paste("FST analysis completed successfully! Time:", duration, "seconds"),
+          "Computations completed.",
           type = "message"
         )
         results

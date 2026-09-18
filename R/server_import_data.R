@@ -947,6 +947,7 @@ server_import_data <- function(id, rv) {
           )
           
           rv$db_tick <- rv$db_tick + 1L
+          rv$load_status <- "Computations completed."
         },
         error = function(e) {
           shinyalert::shinyalert("HF build failed", conditionMessage(e), type = "error")

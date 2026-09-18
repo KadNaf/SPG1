@@ -1060,7 +1060,6 @@ server_null_alleles <- function(id, rv) {
             t1_rows[[length(t1_rows)+1L]] <- data.frame(
               Locus        = loc,
               Subsample    = pop,
-              Miss         = as.character(recoded_blanks[[loc]] %||% 0L),
               p_nulls      = round(e$rd, 6),
               N            = n_total,                        # total (genotyped + missing)
               N_blanks     = as.integer(e$n_absent + e$n_null_homo), # missing, either coding
@@ -1091,7 +1090,6 @@ server_null_alleles <- function(id, rv) {
             round(stats::pbinom(n_blanks, size = n_tot, prob = prob), 3) else NA_real_
           data.frame(
             Locus          = loc,
-            Miss           = as.character(recoded_blanks[[loc]] %||% 0L),
             Av_N_exp_blanks= round(av_nexp, 6),
             Av_p_nulls     = round(av_p,  6),
             N_tot          = n_tot,
@@ -1225,6 +1223,13 @@ server_null_alleles <- function(id, rv) {
         Locus           = "GLOBAL_MULTILOCUS",
         FST_raw         = round(r$fst_global$global_raw, 6),
         FST_ENA         = round(r$fst_global$global_ena, 6),
+        # CI from bootstrap over sub-samples (populations resampled as
+        # blocks) — the only bootstrap CI that is meaningful PER LOCUS too
+        # (see below), placed first for visibility.
+        CI_lo_raw_subs  = round(r$boot_gl_subs$raw[1], 6),
+        CI_hi_raw_subs  = round(r$boot_gl_subs$raw[3], 6),
+        CI_lo_ENA_subs  = round(r$boot_gl_subs$ena[1], 6),
+        CI_hi_ENA_subs  = round(r$boot_gl_subs$ena[3], 6),
         # CI from bootstrap over loci (multilocus only — not meaningful
         # for a single locus, since resampling loci for one fixed locus
         # just repeats the same value every time)
@@ -1232,12 +1237,6 @@ server_null_alleles <- function(id, rv) {
         CI_hi_raw_loci  = round(r$boot_gl_loci$raw[3], 6),
         CI_lo_ENA_loci  = round(r$boot_gl_loci$ena[1], 6),
         CI_hi_ENA_loci  = round(r$boot_gl_loci$ena[3], 6),
-        # CI from bootstrap over sub-samples (populations resampled as blocks)
-        CI_lo_raw_subs  = round(r$boot_gl_subs$raw[1], 6),
-        CI_hi_raw_subs  = round(r$boot_gl_subs$raw[3], 6),
-        CI_lo_ENA_subs  = round(r$boot_gl_subs$ena[1], 6),
-        CI_hi_ENA_subs  = round(r$boot_gl_subs$ena[3], 6),
-        N_pops_raw = NA_integer_, N_pops_ENA = NA_integer_,
         stringsAsFactors = FALSE
       )
 
@@ -1256,7 +1255,10 @@ server_null_alleles <- function(id, rv) {
         pl$CI_lo_ENA_subs <- NA_real_; pl$CI_hi_ENA_subs <- NA_real_
       }
 
-      out <- rbind(glob[, names(pl)], pl)
+      col_order <- c("Locus", "FST_raw", "FST_ENA",
+                     "CI_lo_raw_subs", "CI_hi_raw_subs", "CI_lo_ENA_subs", "CI_hi_ENA_subs",
+                     "CI_lo_raw_loci", "CI_hi_raw_loci", "CI_lo_ENA_loci", "CI_hi_ENA_loci")
+      out <- rbind(glob[, col_order], pl[, col_order])
       list(header = meta_header(r, "Global FST and FST-ENA with bootstrap CIs"),
            data   = out)
     })
@@ -1494,9 +1496,9 @@ server_null_alleles <- function(id, rv) {
         df$DCSE_INA_lo <- NA_real_; df$DCSE_INA_hi <- NA_real_
       }
 
-      df$FR        <- .linearise_na(df$FST_ENA)
-      df$FR_lo     <- .linearise_na(df$FST_ENA_lo)
-      df$FR_hi     <- .linearise_na(df$FST_ENA_hi)
+      df$FR_INA    <- .linearise_na(df$FST_ENA)
+      df$FR_INA_lo <- .linearise_na(df$FST_ENA_lo)
+      df$FR_INA_hi <- .linearise_na(df$FST_ENA_hi)
       df$FR_raw    <- .linearise_na(df$FST_raw)
       df$FR_raw_lo <- .linearise_na(df$FST_raw_lo)
       df$FR_raw_hi <- .linearise_na(df$FST_raw_hi)
@@ -1561,14 +1563,18 @@ server_null_alleles <- function(id, rv) {
         "FST: Weir & Cockerham (1984) unbiased moment estimator",
         "DCSE: Cavalli-Sforza & Edwards (1967) chord genetic distance"
       )
+      subsample_col <- tryCatch(
+        .duckdb_get_param(con_r(), "pop_col_raw", default = "Population"),
+        error = function(e) "Population"
+      )
       params_df <- data.frame(
-        Parameter = c("Dataset",
+        Parameter = c("Dataset", "Sub-samples column",
                       "Bootstrap replicates (over loci)", "Bootstrap replicates (over sub-samples)",
                       "Bootstrap random seed (set.seed)",
                       "Confidence interval", "Critical level (alpha)"),
-        Value = c(rv$dataset_filename %||% "default_dataset",
+        Value = c(rv$dataset_filename %||% "default_dataset", subsample_col,
                   r$nboot, r$nboot_subs %||% r$nboot,
-                  paste0(r$seed %||% "n/a", " \u2014 rerun with the same seed and nboot to reproduce these CI exactly"),
+                  paste0(r$seed %||% "n/a", " - rerun with the same seed and nboot to reproduce these CI exactly"),
                   ci_pct, r$alpha),
         stringsAsFactors = FALSE
       )
@@ -1650,13 +1656,11 @@ server_null_alleles <- function(id, rv) {
       d1 <- file1_data(); d2 <- file2_data()
       d4 <- file4_data(); d5 <- file5_data(); d6 <- file6_data()
 
-      p1 <- file.path(tmpdir, out_filename("-null_allele_frequencies"))
-      write_with_header(c(d1$header, "Section 1: p_nulls per locus x population",
-                           "N_exp_blanks: expected number of null homozygotes = N * p_nulls^2", ""),
-                         d1$t1, p1, sep = "\t")
-      write("", file = p1, append = TRUE)
-      write("Section 2: N-weighted mean per locus", file = p1, append = TRUE)
-      write.table(d1$t2, file = p1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE, col.names = TRUE)
+      p1a <- file.path(tmpdir, out_filename("-p_nulls-perLoc&Sbsp"))
+      write_with_header(character(0), d1$t1, p1a, sep = "\t")
+
+      p1b <- file.path(tmpdir, out_filename("-p_nulls-perLoc"))
+      write_with_header(character(0), d1$t2, p1b, sep = "\t")
 
       p2 <- file.path(tmpdir, out_filename("-global_FST_ENA_CI"))
       write_with_header(d2$header, d2$data, p2, sep = "\t")
@@ -1724,15 +1728,9 @@ server_null_alleles <- function(id, rv) {
     output$ui_run_status <- renderUI({
       r <- tryCatch(results_r(), error = function(e) NULL)
       if (is.null(r)) return(NULL)
-      ci_pct <- paste0(round((1-r$alpha)*100,3),"%")
-      dir <- trimws(input$out_dir_display %||% "")
       tags$div(class="na-info", style="margin-top:.5rem;",
         icon("check-circle"), " ",
-        tags$strong("Computation complete."),
-        sprintf(" %d loci \u00b7 %d populations \u00b7 %d loci-replicates \u00b7 %d sub-sample-replicates \u00b7 %s CI.",
-                length(r$markers), length(r$pops), r$nboot, r$nboot_subs %||% r$nboot, ci_pct),
-        if (nzchar(dir)) sprintf(" the files saved to %s.", dir)
-        else " Use the .txt buttons below each result to download the output files."
+        tags$strong("Computations completed.")
       )
     })
 
