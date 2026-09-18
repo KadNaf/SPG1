@@ -611,7 +611,22 @@ server_general_stats <- function(id, rv) {
         close(con3)
 
         pop_sel <- input$selected_pop_overall
-        df_pop <- if (!is.null(pop_sel) && nzchar(pop_sel)) {
+        df_pop <- if (!is.null(pop_sel) && nzchar(pop_sel) && identical(pop_sel, "All")) {
+          all_pops <- tryCatch(
+            DBI::dbGetQuery(con, sprintf(
+              "SELECT DISTINCT Population FROM %s WHERE Population IS NOT NULL ORDER BY Population",
+              sql_ident(con, tbl_meta_r())))$Population,
+            error = function(e) character(0)
+          )
+          if (length(all_pops)) {
+            rows <- lapply(all_pops, function(p) {
+              d <- duck_pop_stats_by_pop_one(con = con, pop_name = p, tbl_hf = tbl_hf_r(),
+                                              tbl_meta = tbl_meta_r(), base = base, missing_code = 0L)
+              if (!is.null(d) && nrow(d) > 0) cbind(Population = p, d, stringsAsFactors = FALSE) else NULL
+            })
+            do.call(rbind, rows)
+          } else NULL
+        } else if (!is.null(pop_sel) && nzchar(pop_sel)) {
           duck_pop_stats_by_pop_one(con = con, pop_name = pop_sel, tbl_hf = tbl_hf_r(),
                                      tbl_meta = tbl_meta_r(), base = base, missing_code = 0L)
         } else NULL
@@ -645,11 +660,11 @@ server_general_stats <- function(id, rv) {
   ", sql_ident(con, tbl_meta_r())))
       
       shiny::validate(need(nrow(df) > 0, "No populations available in meta table yet."))
-      choices <- df$Population
+      choices <- c("All", df$Population)
       
       updateSelectInput(session, "selected_pop_overall",
                         choices = choices,
-                        selected = choices[1])
+                        selected = "All")
     })
 
     # ---- Table: per-locus stats for selected population
