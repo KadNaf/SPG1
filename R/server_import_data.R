@@ -1,5 +1,6 @@
+# server_import_data.R
+
 server_import_data <- function(id, rv) {
-  
   shiny::moduleServer(id, function(input, output, session) {
     rv$preview_raw  <- NULL
     rv$preview_meta <- NULL

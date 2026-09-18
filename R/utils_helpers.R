@@ -1,6 +1,5 @@
 # helper.R
 
-# Shared CSS + JS injected by every general-stats module UI
 gs_head <- function() {
   tagList(
     tags$style(HTML("

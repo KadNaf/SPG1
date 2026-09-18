@@ -1,7 +1,4 @@
 # mod_global_panmixia.R
-# Tab: Global panmixia
-# Overall HWE across all populations - FIT (Weir & Cockerham): bootstrap CI + permutation test.
-# Golem module UI - server: server_general_stats("general_stats", rv)
 
 mod_global_panmixia_ui <- function(id) {
   ns <- NS(id)

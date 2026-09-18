@@ -1,4 +1,4 @@
-# ui_LD.R  (MODULE UI)
+# ui_LD.R
 
 linkage_desequilibrium_UI <- function(id) {
   ns <- NS(id)

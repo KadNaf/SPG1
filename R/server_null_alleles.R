@@ -1,23 +1,4 @@
 # module/server_null_alleles.R
-# Null allele frequency estimation (EM), FST-ENA, DCSE-INA
-# Simplified per supervisor feedback:
-#   - Radio buttons for coding, default = 000000 (absent/PCR failure)
-#   - Single "Compute + Bootstrap + Export" button
-#   - Configurable CI level (alpha)
-#   - Bootstrap over loci (vectorised, fast) AND over sub-samples (individuals)
-#   - 4 automatic output files with metadata headers
-#
-# KEY FIXES vs previous versions:
-#   1. cs_distance(): fi/fj (not pi/pj) — avoids collision with base::pi
-#   2. DCSE-INA: make_ina_freq() always appends rd, only checks ni_ci>0
-#   3. boot_tbl(): seq_len(nrow) loop, preserves locus name as character
-#   4. Default coding = "absent" (000000) as per Chapuis & Estoup (2007)
-#
-# References:
-#   Dempster, Laird & Rubin (1977)  — EM algorithm
-#   Chapuis & Estoup (2007)         — FreeNA: ENA and INA corrections
-#   Weir & Cockerham (1984)         — FST unbiased moment estimator
-#   Cavalli-Sforza & Edwards (1967) — Chord genetic distance (DCSE)
 
 server_null_alleles <- function(id, rv) {
   moduleServer(id, function(input, output, session) {

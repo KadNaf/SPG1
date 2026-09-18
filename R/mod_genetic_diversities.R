@@ -1,8 +1,4 @@
 # mod_genetic_diversities.R
-# Tab: Genetic diversities
-# HS, HT (within- and total-gene diversity) + locus bootstrap for all multilocus estimators.
-# Results are populated by running FST analysis from the Subdivision tab.
-# Golem module UI - server: server_general_stats("general_stats", rv)
 
 mod_genetic_diversities_ui <- function(id) {
   ns <- NS(id)

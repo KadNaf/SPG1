@@ -1,20 +1,4 @@
 # module/ui_null_alleles.R
-# Null allele frequency estimation (EM), FST-ENA, DCSE-INA
-# Simplified UI per supervisor feedback:
-#   - Radio buttons for missing genotype coding, default = 000000
-#   - Single bootstrap panel: n replicates + CI level choice
-#   - 4 automatic output files
-#
-# UI rebuilt to match the shared ShinyPopGen design system used by every
-# other module (module_banner, shinydashboard box(), valueBox, spg-method-note,
-# btn-action-primary/secondary, btn-download-primary/secondary, tabsetPanel).
-# Server output IDs are unchanged so server_null_alleles.R keeps working as-is.
-#
-# References:
-#   Dempster, Laird & Rubin (1977)  — EM algorithm
-#   Chapuis & Estoup (2007)         — FreeNA: ENA and INA corrections
-#   Weir & Cockerham (1984)         — FST unbiased moment estimator
-#   Cavalli-Sforza & Edwards (1967) — Chord genetic distance (DCSE)
 
 null_alleles_UI <- function(id) {
   ns <- NS(id)

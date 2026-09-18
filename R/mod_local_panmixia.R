@@ -1,7 +1,4 @@
 # mod_local_panmixia.R
-# Tab: Local panmixia
-# Within-population HWE - FIS (Weir & Cockerham): bootstrap CI + permutation test.
-# Golem module UI - server: server_general_stats("general_stats", rv)
 
 mod_local_panmixia_ui <- function(id) {
   ns <- NS(id)

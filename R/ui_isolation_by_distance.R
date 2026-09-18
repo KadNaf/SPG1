@@ -1,12 +1,4 @@
 # ui_isolation_by_distance.R
-# Isolation by Distance (Rousset 1997) + Mantel test.
-#
-# This module is a CONTINUATION of the "Null alleles" module — it reuses the
-# pairwise FST/FST-ENA/DCSE/DCSE-INA (+ bootstrap CI) already computed there
-# (rv$null_alleles_results) instead of recomputing them.
-#
-# Workflow: go to the "Null alleles" module first, choose your per-locus
-# coding, click "Compute + Bootstrap + Export" — THEN come here.
 
 isolation_by_distance_UI <- function(id) {
   ns <- NS(id)

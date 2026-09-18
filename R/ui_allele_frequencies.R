@@ -1,3 +1,5 @@
+# ui_allele_frequencies.R
+
 ui_allele_frequencies <- function(id) {
   ns <- NS(id)
   

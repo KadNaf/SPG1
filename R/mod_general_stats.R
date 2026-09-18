@@ -1,7 +1,4 @@
 # mod_general_stats.R
-# Tab: General stats
-# Basic observed statistics + per-allele F-statistics.
-# Golem module UI — server: server_general_stats("general_stats", rv)
 
 mod_general_stats_ui <- function(id) {
   ns <- NS(id)

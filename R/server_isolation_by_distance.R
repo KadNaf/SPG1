@@ -1,24 +1,4 @@
 # server_isolation_by_distance.R
-# Isolation by Distance (Rousset 1997) + Mantel test.
-#
-# This module is a CONTINUATION of the "Null alleles" module: it reuses the
-# pairwise FST/FST-ENA/DCSE/DCSE-INA (+ bootstrap CI) already computed there,
-# shared through `rv$null_alleles_results` — nothing is recomputed here
-# except geographic distance (D_geo), which the Null Alleles module doesn't
-# compute.
-#
-# Geographic distance (D_geo) is the Vincenty ellipsoidal geodesic distance
-# (WGS84), in metres.
-#
-# References:
-#   Rousset (1997)  — Isolation by distance regression: FR = FST/(1-FST)
-#                      regressed on ln(geographic distance) (2D habitat) or
-#                      on raw distance (1D habitat); Nb = 1/slope,
-#                      Nem = Nb/(2*pi).
-#   Mantel (1967)   — permutation test by joint row/column relabelling of
-#                      one distance matrix. Two one-sided p-value formulas
-#                      are offered: (b+1)/(m+1) (bias-corrected proportion,
-#                      Davison & Hinkley 1997) and the plain proportion b/m.
 
 server_isolation_by_distance <- function(id, rv) {
   moduleServer(id, function(input, output, session) {

@@ -1,34 +1,5 @@
 # server_general_stats.R
-# ==============================================================================#
-# server_general_stats.R  (DB-first refactor contract)
-#
-# Source of truth:
-#   DuckDB tables only: params, meta, hf  (optionally raw for diagnostics)
-#
-# Genotypes:
-#   Stored in DuckDB hf.gt as packed int: gt = a*base + b ; missing = 0
-#   This module MUST NOT decode gt to "a/b" strings in R for computation.
-#   (Decoding is allowed only for display/debug, never for stats pipelines.)
-#
-# Idempotency:
-#   Every computation is a pure function of (hf, meta, params, user inputs).
-#   No mutation, no hidden state. Re-running yields same result.
-#
-# Caching:
-#   Heavy computations MUST be cached by a stable cache key:
-#     key = list(db_tick, tbl_hf, tbl_meta, params_hash, user_inputs_hash)
-#   Invalidation happens ONLY when db_tick changes or inputs change.
-#
-# Outputs:
-#   All results tables are standardized:
-#     - ID column (Locus or Population label) + numeric columns
-#     - "Overall" row last
-# ==============================================================================#
 
-
-## =========================================================#
-# Helpers ####
-## =========================================================#
 hs_by_pop_locus_from_mat <- function(mat, base) {
   stopifnot(is.matrix(mat), ncol(mat) >= 2L, base > 1L)
   
