@@ -751,12 +751,11 @@ app_ui <- function() {
     )
   )
 
-  # -- Help tab content -------------------------------------------------------
-
+  ###
+  # --- Help tab content ---
+  ###
   help_content <- shiny::tagList(
-    module_banner("question-circle", "Help & Documentation",
-      "Data format requirements \u00b7 Statistical methods \u00b7 Key references",
-      "#6B64EF"),
+    module_banner("question-circle", "Help & Documentation",""),
     shiny::fluidRow(
       shinydashboard::box(
         width = 12, solidHeader = FALSE,
@@ -1035,9 +1034,9 @@ app_ui <- function() {
       )
     )
   )
-
-  # -- Assemble page ---------------------------------------------------------
-
+  ###
+  # --- Assemble page ---
+  ###
   bslib::page_navbar(
     id    = "main_nav",
     title = "ShinyPopGen",
@@ -1104,8 +1103,9 @@ app_ui <- function() {
 })();
       "))
     ),
-
-    # ── Module tabs ──────────────────────────────────────────────────────────
+    ###
+    # --- Module tabs ---
+    ###
     bslib::nav_panel(
       title = "Welcome",
       icon  = shiny::icon("home"),
@@ -1178,8 +1178,9 @@ app_ui <- function() {
       value = "help",
       help_content
     ),
-
-    # ── Right-side controls ──────────────────────────────────────────────────
+    ###
+    # --- Right-side controls ---
+    ###
     bslib::nav_spacer(),
     bslib::nav_item(
       bslib::input_dark_mode(id = "color_mode")
