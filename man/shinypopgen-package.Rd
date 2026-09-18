@@ -9,7 +9,7 @@
 ShinyPopGen is an interactive Shiny application for exploratory and descriptive population genetics analyses from individual-based multilocus datasets. It supports data import and formatting, marker inspection, estimation of standard diversity and differentiation statistics (Weir & Cockerham 1984), linkage disequilibrium analyses, and null allele screening.
 }
 \author{
-\strong{Maintainer}: Vincent Manzanilla \email{vincent.manzanilla@ird.fr}
+\strong{Maintainer}: Naffiou Kadiri \email{naffiou.kadiri@ird.fr}
 
 Other contributors:
 \itemize{
