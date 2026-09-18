@@ -64,13 +64,15 @@ isolation_by_distance_UI <- function(id) {
                         onclick = "var el=document.querySelector('a[data-value=\"help\"]'); if(el) el.click(); return false;",
                         "(please see documentation)")),
         fluidRow(
-          column(3, uiOutput(ns("ibd_col_geo_ui"))),
-          column(3, uiOutput(ns("ibd_col_avg_ui"))),
-          column(3,
+          column(6, uiOutput(ns("ibd_col_geo_ui"))),
+          column(6, uiOutput(ns("ibd_col_avg_ui")))
+        ),
+        fluidRow(
+          column(6,
             uiOutput(ns("ibd_col_lo_ui")),
             tags$p(style="color:#777;font-size:10.5px;margin-top:2px;", "Must be of the same format as the genetic distance used.")
           ),
-          column(3,
+          column(6,
             uiOutput(ns("ibd_col_hi_ui")),
             tags$p(style="color:#777;font-size:10.5px;margin-top:2px;", "Must be of the same format as the genetic distance used.")
           )
@@ -79,13 +81,6 @@ isolation_by_distance_UI <- function(id) {
         fluidRow(
           column(4,
             conditionalPanel(
-              condition = sprintf("input['%s'] == 'internal'", ns("ibd_source")),
-              tags$p(style="color:#777;font-size:11px;", icon("map-marker-alt"),
-                " D_geo (Dgeo_m / lnDgeo) is computed automatically from GPS coordinates (Vincenty geodesic ",
-                "distance, metres) \u2014 needs Latitude/Longitude set at import for \u2265 2 populations, same as in ",
-                "the Null Alleles module's Full pairwise table.")
-            ),
-            conditionalPanel(
               condition = sprintf("input['%s'] == 'external'", ns("ibd_source")),
               tags$p(style = "color:#777;font-size:11px;",
                 "D_geo is read directly from the uploaded file's Dgeo_m / lnDgeo columns.")
@@ -93,13 +88,10 @@ isolation_by_distance_UI <- function(id) {
           ),
           column(4,
             tags$div(style="font-size:12px;color:#555;margin-bottom:4px;", "Output file name:"),
-            fluidRow(
-              column(7, textInput(ns("ibd_out_root"), NULL, value = "",
-                                   placeholder = "auto-filled from imported file")),
-              column(5, textInput(ns("ibd_out_suffix"), NULL, value = "", placeholder = "suffix (optional)"))
-            ),
+            textInput(ns("ibd_out_root"), NULL, value = "",
+                      placeholder = "auto-filled from imported file"),
             tags$p(style="color:#777;font-size:11px;",
-              "File name = ", tags$code("<root>-IBD-<suffix>.txt"))
+              "All output files will be saved in a zipped file.")
           ),
           column(4,
             tags$div(style="margin-top:22px;"),
