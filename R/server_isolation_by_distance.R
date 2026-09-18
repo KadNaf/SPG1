@@ -95,6 +95,27 @@ server_isolation_by_distance <- function(id, rv) {
       paste0(ibd_out_root_r(), "-", desc, if (nzchar(suf)) paste0("-", suf) else "", ".txt")
     }
 
+    # ── Same auto-fill-from-dataset-name mechanism, for the Mantel Test
+    #    output name field. ───────────────────────────────────────────────
+    last_auto_root_mt <- reactiveVal("")
+    observeEvent(rv$dataset_filename, {
+      fn <- rv$dataset_filename
+      if (is.null(fn) || !nzchar(trimws(fn))) return(invisible(NULL))
+      root_guess <- tools::file_path_sans_ext(basename(trimws(fn)))
+      cur <- trimws(input$mt_out_root %||% "")
+      if (!nzchar(cur) || identical(cur, last_auto_root_mt())) {
+        updateTextInput(session, "mt_out_root", value = root_guess, placeholder = root_guess)
+        last_auto_root_mt(root_guess)
+      } else {
+        updateTextInput(session, "mt_out_root", placeholder = root_guess)
+      }
+    }, ignoreInit = FALSE, ignoreNULL = TRUE)
+
+    mt_out_root_r <- reactive({
+      r <- trimws(input$mt_out_root %||% "")
+      if (nzchar(r)) r else if (nzchar(last_auto_root_mt())) last_auto_root_mt() else "SPG_"
+    })
+
     # ── Population GPS centroids (needed for D_geo; IBD-specific) ───────────
     coords_r <- reactive({
       db_ready()
@@ -921,17 +942,25 @@ server_isolation_by_distance <- function(id, rv) {
     })
 
     # ── One button, one click, one action: clicking "Run" IS the download
-    #    request itself — a single results file, no separate "parameters"
-    #    file (not needed for Mantel).
+    #    request itself — a single results file, zipped, no separate
+    #    "parameters" file (not needed for Mantel).
     output$run_mantel <- downloadHandler(
-      filename = function() paste0("mantel_test_results_", Sys.Date(), ".txt"),
+      filename = function() paste0(mt_out_root_r(), "-Mantel-Res.zip"),
       content  = function(file) {
         r <- .run_mantel_computation()
         mantel_results_store(r)
         d <- .mantel_summary_df(r)
-        con <- file(file, open = "w", encoding = "UTF-8"); on.exit(close(con))
+
+        tmpdir <- tempfile("spg_mantel_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0(mt_out_root_r(), "-Mantel-Res.txt"))
+        con <- file(p1, open = "w", encoding = "UTF-8")
         writeLines("Mantel test results", con = con, useBytes = TRUE)
         write.table(d, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con)
+
+        zip::zip(zipfile = file, files = basename(p1), root = tmpdir)
       }
     )
 

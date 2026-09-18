@@ -198,6 +198,13 @@ isolation_by_distance_UI <- function(id) {
                          value = 10000, min = 99, max = 200000, step = 1000)
           ),
           column(3,
+            tags$div(style="font-size:12px;color:#555;margin-bottom:4px;", "Output file name:"),
+            textInput(ns("mt_out_root"), NULL, value = "",
+                      placeholder = "auto-filled from imported file"),
+            tags$p(style="color:#777;font-size:11px;",
+              "All output files will be saved in a zipped file.")
+          ),
+          column(3,
             downloadButton(ns("run_mantel"), " Run",
                          icon = icon("rocket"), class = "btn-action-primary btn-block",
                          style = "font-weight:bold;")
