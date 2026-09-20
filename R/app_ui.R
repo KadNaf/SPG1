@@ -294,7 +294,7 @@ app_ui <- function() {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin: -20px -20px 15px -20px;
+      margin: -20px -20px 0px -20px;
     }
     .spg-hero-text {
       flex: 1;
@@ -607,7 +607,7 @@ app_ui <- function() {
     /* Welcome footer logos */
     .spg-footer {
       background: #FFFFFF;
-      margin: 15px -20px -20px -20px;
+      margin: 0px -20px 0px -20px;
       padding: 24px 40px;
       display: flex;
       align-items: center;
