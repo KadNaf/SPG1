@@ -290,7 +290,7 @@ app_ui <- function() {
     /* ===== WELCOME PAGE ===== */
     .spg-hero {
       background: linear-gradient(145deg, #1a2035 0%, #26306B 55%, #333a43 100%);
-      padding: 40px 40px 40px;
+      padding: 35px 40px 35px;
       display: flex;
       align-items: center;
       justify-content: space-between;
