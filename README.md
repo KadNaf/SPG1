@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="\inst\app\www\LogoPGAcmdr.png" alt="ShinyPopGen" width="420"/>
+  <img src="\inst\app\www\LogoPGAcmdr.png" alt="ShinyPopGen" width="250"/>
 </p>
 
 <p align="center">
