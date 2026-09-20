@@ -608,13 +608,13 @@ app_ui <- function() {
     .spg-footer {
       background: #FFFFFF;
       margin: 0px -20px 0px -20px;
-      padding: 30px 40px;
+      padding: 35px 40px;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 50px;
     }
-    .spg-footer img { max-height: 56px; }
+    .spg-footer img { max-height: 60px; }
 
   ")
 
@@ -707,7 +707,7 @@ app_ui <- function() {
         href = "https://www.ird.fr/en", target = "_blank",
         style = "text-decoration:none;",
         if (!is.null(logos$ird))
-          shiny::tags$img(src = logos$ird, height = "52px",
+          shiny::tags$img(src = logos$ird, height = "55px",
             alt = "IRD", title = "Institut de Recherche pour le Developpement",
             style = "opacity:0.9;")
         else
@@ -718,7 +718,7 @@ app_ui <- function() {
         href = "https://www.ucad.sn", target = "_blank",
         style = "text-decoration:none;",
         if (!is.null(logos$ucad))
-          shiny::tags$img(src = logos$ucad, height = "52px",
+          shiny::tags$img(src = logos$ucad, height = "55px",
             alt = "UCAD", title = "Université Cheikh Anta Diop de Dakar",
             style = "opacity:0.9;")
         else
@@ -729,7 +729,7 @@ app_ui <- function() {
         href = "https://www.cirad.fr/en", target = "_blank",
         style = "text-decoration:none;",
         if (!is.null(logos$cirad))
-          shiny::tags$img(src = logos$cirad, height = "52px",
+          shiny::tags$img(src = logos$cirad, height = "55px",
             alt = "CIRAD", title = "Agricultural Research for Development",
             style = "opacity:0.9;")
         else
@@ -740,7 +740,7 @@ app_ui <- function() {
         href = "https://umr-intertryp.cirad.fr/en", target = "_blank",
         style = "text-decoration:none;",
         if (!is.null(logos$intertryp))
-          shiny::tags$img(src = logos$intertryp, height = "52px",
+          shiny::tags$img(src = logos$intertryp, height = "55px",
             alt = "INTERTRYP", title = "Hosts, Vectors and Infectious Agents",
             style = "opacity:0.9;")
         else
