@@ -98,7 +98,7 @@ isolation_by_distance_UI <- function(id) {
     fluidRow(
       box(width = 12, solidHeader = TRUE, status = "primary",
           title = div(style="background:#FFFFFF;padding:10px;color:#333a43;font-weight:600;",
-                      icon("chart-line"), " Regression summary (slope / b / Nb / Nem)"),
+                      icon("chart-bar"), " Results"),
         uiOutput(ns("ui_ibd_status"))
       )
     ),
