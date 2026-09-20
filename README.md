@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="spg_www/LogoPGAcmdr.png" alt="ShinyPopGen" width="420"/>
+  <img src="www/LogoPGAcmdr.png" alt="ShinyPopGen" width="420"/>
 </p>
 
 <p align="center">
@@ -101,6 +101,7 @@ the in-app **Help** tab for full references.
 ## Credits
 
 **Programming:** Naffiou Kadiri and Vincent Manzanilla
+
 **Conception:** Thierry de Meeûs
 
 ## License
