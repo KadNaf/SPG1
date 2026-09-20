@@ -294,8 +294,7 @@ app_ui <- function() {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin: -20px -20px 32px -20px;
-      border-bottom: 3px solid #6B64EF;
+      margin: -20px -20px 15px -20px;
     }
     .spg-hero-text {
       flex: 1;
@@ -608,13 +607,12 @@ app_ui <- function() {
     /* Welcome footer logos */
     .spg-footer {
       background: #FFFFFF;
-      margin: 32px -20px -20px -20px;
+      margin: 15px -20px -20px -20px;
       padding: 24px 40px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 48px;
-      border-top: 3px solid #6B64EF;
+      gap: 50px;
     }
     .spg-footer img { max-height: 56px; }
 
