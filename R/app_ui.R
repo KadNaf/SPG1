@@ -753,7 +753,7 @@ app_ui <- function() {
   # --- Help tab content ---
   ###
   help_content <- shiny::tagList(
-    module_banner("question-circle", "Help & Documentation",""),
+    module_banner("question-circle", "Help · Documentation",""),
     shiny::fluidRow(
       shinydashboard::box(
         width = 12, solidHeader = FALSE,
