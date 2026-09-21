@@ -605,7 +605,7 @@ app_ui <- function() {
     .spg-footer {
       background: #FFFFFF;
       margin: 0px -20px 0px -20px;
-      padding: 30px 40px 18px;
+      padding: 10px 40px 5px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -679,7 +679,7 @@ app_ui <- function() {
           class = "spg-credits",
           style = "margin: 10px 0 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08);",
           shiny::tags$p(
-            style = "color: #a0a8c0; font-size: 42px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
+            style = "color: #a0a8c0; font-size: 20px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
             shiny::tags$strong("Programming:", style = "color: #c8d0e8;"),
             " Naffiou Kadiri and Vincent Manzanilla",
             shiny::tags$br(),
@@ -710,7 +710,7 @@ app_ui <- function() {
       class = "spg-footer",
       shiny::div(
         class = "spg-footer-logos",
-        # INTERTRYP (lab) — shown first, visually separated from institutions
+        # INTERTRYP
         shiny::tags$a(
           href = "https://umr-intertryp.cirad.fr/en", target = "_blank",
           style = "text-decoration:none;",
@@ -721,17 +721,16 @@ app_ui <- function() {
           else
             shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "INTERTRYP")
         ),
-        shiny::div(class = "spg-footer-sep"),
-        # IRD
+        # Université de Montpellier
         shiny::tags$a(
-          href = "https://www.ird.fr/en", target = "_blank",
+          href = "https://www.umontpellier.fr/en/", target = "_blank",
           style = "text-decoration:none;",
-          if (!is.null(logos$ird))
-            shiny::tags$img(src = logos$ird, height = "88px",
-              alt = "IRD", title = "Institut de Recherche pour le Developpement",
+          if (!is.null(logos$montpellier))
+            shiny::tags$img(src = logos$montpellier, height = "80px",
+              alt = "Universite de Montpellier", title = "Universite de Montpellier",
               style = "opacity:0.9;")
           else
-            shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "IRD")
+            shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "UM")
         ),
         # CIRAD
         shiny::tags$a(
@@ -744,16 +743,16 @@ app_ui <- function() {
           else
             shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "CIRAD")
         ),
-        # Université de Montpellier
+        # IRD
         shiny::tags$a(
-          href = "https://www.umontpellier.fr/en/", target = "_blank",
+          href = "https://www.ird.fr/en", target = "_blank",
           style = "text-decoration:none;",
-          if (!is.null(logos$montpellier))
-            shiny::tags$img(src = logos$montpellier, height = "80px",
-              alt = "Universite de Montpellier", title = "Universite de Montpellier",
+          if (!is.null(logos$ird))
+            shiny::tags$img(src = logos$ird, height = "88px",
+              alt = "IRD", title = "Institut de Recherche pour le Developpement",
               style = "opacity:0.9;")
           else
-            shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "UM")
+            shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "IRD")
         ),
         # UCAD
         shiny::tags$a(

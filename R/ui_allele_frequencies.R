@@ -13,7 +13,7 @@ ui_allele_frequencies <- function(id) {
         width = 12,
         title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
                     icon("chart-pie"),
-                    "Allele Frequency Analysis Parameters"),
+                    "Allele Frequency Analysis"),
         solidHeader = TRUE, status = "primary",
         fluidRow(
           column(4,
