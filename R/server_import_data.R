@@ -784,9 +784,28 @@ server_import_data <- function(id, rv) {
       half <- ceiling(n / 2)
       left  <- df[seq_len(half), , drop = FALSE]
       right <- if (n > half) df[(half + 1):n, , drop = FALSE] else df[0, , drop = FALSE]
+
+      .col_table <- function(d) {
+        if (!nrow(d)) return(NULL)
+        tags$table(class = "table table-striped", style = "width:100%; font-size:12px;",
+          tags$thead(tags$tr(
+            tags$th(style = "text-align:right; width:30%;", "Index"),
+            tags$th(style = "text-align:left;", "Column")
+          )),
+          tags$tbody(
+            lapply(seq_len(nrow(d)), function(i) {
+              tags$tr(
+                tags$td(style = "text-align:right;", d$Index[i]),
+                tags$td(style = "text-align:left;", d$Column[i])
+              )
+            })
+          )
+        )
+      }
+
       fluidRow(
-        column(6, renderTable(left, striped = TRUE, spacing = "xs", width = "100%")()),
-        column(6, if (nrow(right)) renderTable(right, striped = TRUE, spacing = "xs", width = "100%")() else NULL)
+        column(6, .col_table(left)),
+        column(6, .col_table(right))
       )
     })
 
