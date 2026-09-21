@@ -1856,183 +1856,104 @@ format_numeric_cols <- function(df, digits = 5, exclude = "Locus") {
 duck_pop_stats_overall <- function(con, tbl_hf = "hf", tbl_meta = "meta",
                                    base, missing_code = 0L) {
   stopifnot(is.numeric(base), length(base) == 1L, base > 1)
-  
-  q <- sprintf("
-    WITH g0 AS (
-      SELECT
-        m.Population AS Population,
-        h.locus_id   AS Locus,
-        CAST(floor(h.gt / %d) AS INTEGER) AS a1,
-        CAST(h.gt %% %d AS INTEGER)       AS a2
-      FROM %s h
-      JOIN %s m
-        ON m.individual = h.indiv_id
-      WHERE h.gt IS NOT NULL
-        AND h.gt <> %d
-        AND h.gt > 0
-    ),
-    g AS (
-      SELECT * FROM g0 WHERE a1 > 0 AND a2 > 0
-    ),
-    per_pop_locus AS (
-      SELECT
-        Population,
-        Locus,
-        COUNT(*)::DOUBLE AS n,
-        SUM(CASE WHEN a1 <> a2 THEN 1 ELSE 0 END)::DOUBLE AS n_het
-      FROM g
-      GROUP BY Population, Locus
-    ),
-    allele_counts AS (
-      SELECT Population, Locus, a1 AS allele, COUNT(*)::DOUBLE AS c
-      FROM g
-      GROUP BY Population, Locus, a1
-      UNION ALL
-      SELECT Population, Locus, a2 AS allele, COUNT(*)::DOUBLE AS c
-      FROM g
-      GROUP BY Population, Locus, a2
-    ),
-    allele_summed AS (
-      SELECT
-        Population, Locus, allele,
-        SUM(c)::DOUBLE AS c
-      FROM allele_counts
-      GROUP BY Population, Locus, allele
-    ),
-    hs_by_pop_locus AS (
-      SELECT
-        s.Population,
-        s.Locus,
-        CASE
-          WHEN p.n > 1 THEN ((2.0 * p.n) / (2.0 * p.n - 1.0)) *
-               (1.0 - SUM(POWER(c / (2.0 * p.n), 2)))
-          ELSE NULL
-        END AS Hs
-      FROM allele_summed s
-      JOIN per_pop_locus p
-        USING (Population, Locus)
-      WHERE p.n > 0
-      GROUP BY s.Population, s.Locus, p.n
-    ),
-    locus_stats AS (
-      SELECT
-        p.Population,
-        p.Locus,
-        p.n       AS n,
-        p.n_het   AS n_het,
-        (p.n_het / NULLIF(p.n, 0)) AS Ho,
-        h.Hs AS Hs
-      FROM per_pop_locus p
-      LEFT JOIN hs_by_pop_locus h
-        USING (Population, Locus)
-    ),
-    overall AS (
-      SELECT
-        Population,
-        AVG(Ho) AS Ho,
-        AVG(Hs) AS Hs,
-        CASE
-          WHEN SUM(
-            CASE WHEN Hs IS NOT NULL AND Hs > 0 THEN n * Hs ELSE 0.0 END
-          ) = 0 THEN NULL
-          ELSE 1.0 - SUM(
-            CASE WHEN Hs IS NOT NULL AND Hs > 0 THEN n_het ELSE 0.0 END
-          ) / SUM(
-            CASE WHEN Hs IS NOT NULL AND Hs > 0 THEN n * Hs ELSE 0.0 END
-          )
-        END AS Fis_WC
-      FROM locus_stats
-      GROUP BY Population
-    )
-    SELECT
-      Population,
-      Ho,
-      Hs,
-      Fis_WC AS \"Fis (WC)\"
-    FROM overall
-    ORDER BY Population
-  ", as.integer(base), as.integer(base),
-               DBI::dbQuoteIdentifier(con, tbl_hf),
-               DBI::dbQuoteIdentifier(con, tbl_meta),
-               as.integer(missing_code))
-  
-  DBI::dbGetQuery(con, q)
+
+  # Population names, in the same order as their (1-based) codes in the hf
+  # matrix, so we can match rows below.
+  pop_names <- DBI::dbGetQuery(con, sprintf(
+    "SELECT DISTINCT Population FROM %s WHERE Population IS NOT NULL ORDER BY Population",
+    DBI::dbQuoteIdentifier(con, tbl_meta)))$Population
+  if (!length(pop_names)) return(data.frame(Population = character(0), Na = numeric(0), Ho = numeric(0), Hs = numeric(0), `Fis (WC)` = numeric(0), check.names = FALSE))
+
+  mat <- .hf_matrix_from_db(con, tbl_hf, tbl_meta, missing_code)
+  if (is.null(mat) || nrow(mat) == 0L) return(data.frame(Population = character(0), Na = numeric(0), Ho = numeric(0), Hs = numeric(0), `Fis (WC)` = numeric(0), check.names = FALSE))
+
+  pop_codes <- sort(unique(mat[, 1]))
+  rows <- lapply(pop_codes, function(pc) {
+    sub <- mat[mat[, 1] == pc, , drop = FALSE]
+    nei <- nei_het_stats_cpp(dat = sub, pop_col_1based = 1L, missing_code = 0L, base = base)
+    # Na: mean number of distinct alleles per locus, in this population.
+    na_per_locus <- vapply(2:ncol(sub), function(j) {
+      g <- sub[, j]; g <- g[is.finite(g) & g != as.integer(missing_code) & g > 0L]
+      if (!length(g)) return(NA_integer_)
+      a1 <- g %/% base; a2 <- g %% base
+      length(unique(c(a1[a1 > 0L], a2[a2 > 0L])))
+    }, integer(1))
+    data.frame(pop_code = pc,
+               Na = mean(na_per_locus, na.rm = TRUE),
+               Ho = mean(as.numeric(nei$Ho), na.rm = TRUE),
+               Hs = mean(as.numeric(nei$Hs), na.rm = TRUE),
+               stringsAsFactors = FALSE)
+  })
+  out <- do.call(rbind, rows)
+
+  # True Weir & Cockerham (1984) FIS per population (same validated
+  # function used in the Local Panmixia module), not Nei's 1-Ho/Hs.
+  fis_pop <- tryCatch(wc_fis_by_pop_wc84(dat = mat, pop_col = 0L, base = as.integer(base)),
+                       error = function(e) NULL)
+  out$`Fis (WC)` <- if (!is.null(fis_pop)) as.numeric(fis_pop[as.character(out$pop_code)]) else NA_real_
+
+  out$Population <- pop_names[match(out$pop_code, seq_along(pop_names))]
+  out <- out[order(out$Population), c("Population", "Na", "Ho", "Hs", "Fis (WC)")]
+  rownames(out) <- NULL
+  out
+}
+
+# Builds the same (pop_code, locus_col..) integer matrix used elsewhere
+# (hf_mat_r()) directly from the hf/meta DuckDB tables, for use by
+# functions that need the validated C++ per-locus routines rather than
+# ad-hoc SQL formulas.
+.hf_matrix_from_db <- function(con, tbl_hf, tbl_meta, missing_code = 0L) {
+  df <- tryCatch(DBI::dbGetQuery(con, sprintf("
+    SELECT m.individual AS indiv_id, m.Population AS Population, h.locus_id AS Locus, h.gt AS gt
+    FROM %s h JOIN %s m ON m.individual = h.indiv_id
+    ORDER BY m.individual, h.locus_id
+  ", DBI::dbQuoteIdentifier(con, tbl_hf), DBI::dbQuoteIdentifier(con, tbl_meta))),
+  error = function(e) NULL)
+  if (is.null(df) || !nrow(df)) return(NULL)
+
+  wide <- reshape(df[, c("indiv_id", "Population", "Locus", "gt")],
+                   idvar = c("indiv_id", "Population"), timevar = "Locus", direction = "wide")
+  names(wide) <- sub("^gt\\.", "", names(wide))
+  pop_names <- sort(unique(wide$Population))
+  pop_code  <- match(wide$Population, pop_names)
+  loci_cols <- setdiff(names(wide), c("indiv_id", "Population"))
+  m <- as.matrix(wide[, loci_cols, drop = FALSE])
+  storage.mode(m) <- "integer"
+  m[is.na(m)] <- as.integer(missing_code)
+  cbind(Population = as.integer(pop_code), m)
 }
 
 duck_pop_stats_by_pop_one <- function(con, pop_name,
                                       tbl_hf = "hf", tbl_meta = "meta",
                                       base, missing_code = 0L) {
   stopifnot(is.character(pop_name), length(pop_name) == 1L)
-  
-  q <- sprintf("
-    WITH g0 AS (
-      SELECT
-        h.locus_id AS Locus,
-        CAST(floor(h.gt / %d) AS INTEGER) AS a1,
-        CAST(h.gt %% %d AS INTEGER)       AS a2
-      FROM %s h
-      JOIN %s m
-        ON m.individual = h.indiv_id
-      WHERE m.Population = ?
-        AND h.gt IS NOT NULL
-        AND h.gt <> %d
-        AND h.gt > 0
-    ),
-    g AS (
-      SELECT * FROM g0 WHERE a1 > 0 AND a2 > 0
-    ),
-    per_locus AS (
-      SELECT
-        Locus,
-        COUNT(*)::DOUBLE AS n,
-        SUM(CASE WHEN a1 <> a2 THEN 1 ELSE 0 END)::DOUBLE AS n_het
-      FROM g
-      GROUP BY Locus
-    ),
-    allele_counts AS (
-      SELECT Locus, a1 AS allele, COUNT(*)::DOUBLE AS c
-      FROM g
-      GROUP BY Locus, a1
-      UNION ALL
-      SELECT Locus, a2 AS allele, COUNT(*)::DOUBLE AS c
-      FROM g
-      GROUP BY Locus, a2
-    ),
-    allele_summed AS (
-      SELECT Locus, allele, SUM(c)::DOUBLE AS c
-      FROM allele_counts
-      GROUP BY Locus, allele
-    ),
-    hs_by_locus AS (
-      SELECT
-        s.Locus,
-        CASE
-          WHEN p.n > 1 THEN ((2.0 * p.n) / (2.0 * p.n - 1.0)) *
-               (1.0 - SUM(POWER(c / (2.0 * p.n), 2)))
-          ELSE NULL
-        END AS Hs
-      FROM allele_summed s
-      JOIN per_locus p USING (Locus)
-      WHERE p.n > 0
-      GROUP BY s.Locus, p.n
-    )
-    SELECT
-      p.Locus,
-      (p.n_het / NULLIF(p.n, 0)) AS Ho,
-      h.Hs AS Hs,
-      CASE
-        WHEN h.Hs IS NULL OR h.Hs <= 0 THEN NULL
-        ELSE 1.0 - (p.n_het / p.n) / h.Hs
-      END AS \"Fis (WC)\"
-    FROM per_locus p
-    LEFT JOIN hs_by_locus h USING (Locus)
-    ORDER BY p.Locus
-  ", as.integer(base), as.integer(base),
-               DBI::dbQuoteIdentifier(con, tbl_hf),
-               DBI::dbQuoteIdentifier(con, tbl_meta),
-               as.integer(missing_code))
-  
-  DBI::dbGetQuery(con, q, params = list(pop_name))
+
+  mat <- .hf_matrix_from_db(con, tbl_hf, tbl_meta, missing_code)
+  if (is.null(mat) || nrow(mat) == 0L) return(data.frame(Locus = character(0), Ho = numeric(0), Hs = numeric(0), `Fis (Nei)` = numeric(0), check.names = FALSE))
+
+  pop_names <- DBI::dbGetQuery(con, sprintf(
+    "SELECT DISTINCT Population FROM %s WHERE Population IS NOT NULL ORDER BY Population",
+    DBI::dbQuoteIdentifier(con, tbl_meta)))$Population
+  pc <- match(pop_name, pop_names)
+  if (is.na(pc)) return(data.frame(Locus = character(0), Ho = numeric(0), Hs = numeric(0), `Fis (Nei)` = numeric(0), check.names = FALSE))
+
+  sub <- mat[mat[, 1] == pc, , drop = FALSE]
+  if (nrow(sub) == 0L) return(data.frame(Locus = character(0), Ho = numeric(0), Hs = numeric(0), `Fis (Nei)` = numeric(0), check.names = FALSE))
+
+  # Ho/Hs: the same validated per-locus routine used everywhere else
+  # (nei_het_stats_cpp) — matches the confirmed-correct
+  # gene_diversity_hs_by_pop values. A true per-locus Weir & Cockerham FIS
+  # requires >=2 populations to decompose variance, which isn't meaningful
+  # for a single population's detail table — Nei's 1-Ho/Hs is reported
+  # instead, honestly labelled.
+  nei <- nei_het_stats_cpp(dat = sub, pop_col_1based = 1L, missing_code = 0L, base = base)
+  Ho <- as.numeric(nei$Ho); Hs <- as.numeric(nei$Hs)
+  Fis <- rep(NA_real_, length(Ho))
+  ok <- is.finite(Ho) & is.finite(Hs) & Hs > 0
+  Fis[ok] <- 1 - Ho[ok] / Hs[ok]
+
+  data.frame(Locus = colnames(mat)[-1L], Ho = Ho, Hs = Hs, `Fis (Nei)` = Fis,
+             check.names = FALSE, stringsAsFactors = FALSE)
 }
 
 

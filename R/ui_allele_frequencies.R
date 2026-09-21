@@ -8,25 +8,6 @@ ui_allele_frequencies <- function(id) {
     
     module_banner("table", "Allele Frequencies",""),
     
-    # tags$div(class = "spg-method-note", style = "border-left-color:#78B7C5;",
-    #   HTML(paste0(
-    #     "<b>Allele frequency analysis</b> following the Fstat format. ",
-    #     "Displays allele frequencies for each marker across populations, ",
-    #     "with sample sizes (N genotyped, N missing) and diversity indices ",
-    #     "per locus-population combination.",
-    #     "<br><br>",
-    #     "<b>Diversity indices reported:</b>",
-    #     "<ul style='margin:4px 0 0 16px;'>",
-    #     "<li><b>Na</b>: Number of alleles</li>",
-    #     "<li><b>Ne</b>: Effective number of alleles</li>",
-    #     "<li><b>He</b>: Expected heterozygosity (gene diversity)</li>",
-    #     "<li><b>Ho</b>: Observed heterozygosity</li>",
-    #     "<li><b>Fis</b>: Inbreeding coefficient (per locus-population)</li>",
-    #     "</ul>",
-    #     "Allele frequencies include zeros for missing alleles."
-    #   ))
-    # ),
-    
     fluidRow(
       box(
         width = 12,
@@ -36,12 +17,11 @@ ui_allele_frequencies <- function(id) {
         solidHeader = TRUE, status = "primary",
         fluidRow(
           column(4,
-            h4(icon("filter"), "Selection"),
-            selectInput(ns("fstat_population"), "Population:",
-              choices = c("All populations" = "all"), multiple = FALSE),
-            selectizeInput(ns("fstat_marker"), "Marker:",
-              choices = NULL, multiple = FALSE,
-              options = list(placeholder = "Select a marker")),
+            h4(icon("save"), "Output file name"),
+            tags$div(style = "max-width:320px;",
+              textInput(ns("fstat_out_root"), NULL, value = "",
+                        placeholder = "auto-filled from imported file")),
+            uiOutput(ns("ui_fstat_out_status")),
             br(),
             downloadButton(ns("update_fstat"),
               label = "Run",

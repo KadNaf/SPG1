@@ -871,6 +871,26 @@ server_null_alleles <- function(id, rv) {
     # loop automatically if the native call errors for any reason.
     boot_subsamples_fst <- function(em_res, nboot, alpha, progress_cb = NULL) {
       markers <- names(em_res); L <- length(markers)
+
+      # Fewer than 5 sub-samples (populations): bootstrap over sub-samples
+      # is not meaningful (resampling with replacement from <5 blocks gives
+      # an unreliable CI) — report NA instead of computing.
+      n_subs_avail <- length(unique(unlist(lapply(em_res, names))))
+      if (n_subs_avail < 5L) {
+        na3 <- c(NA_real_, NA_real_, NA_real_)
+        names(na3) <- c("2.5%", "50%", "97.5%")
+        return(list(
+          raw = na3, ena = na3,
+          boot_raw_vec = numeric(0), boot_ena_vec = numeric(0),
+          per_locus = data.frame(
+            Locus = markers,
+            CI_lo_raw_subs = NA_real_, CI_hi_raw_subs = NA_real_,
+            CI_lo_ENA_subs = NA_real_, CI_hi_ENA_subs = NA_real_,
+            stringsAsFactors = FALSE, row.names = NULL
+          )
+        ))
+      }
+
       per_locus_data <- tryCatch(.precompute_boot_subs_data(em_res), error = function(e) NULL)
 
       cpp_ok <- !is.null(per_locus_data)

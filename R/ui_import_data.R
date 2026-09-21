@@ -74,5 +74,16 @@ import_data_ui <- function(id) {
         )
       )
     ))  # closes fluidRow + tags$div(.import-top-row)
+    ,
+    fluidRow(
+      box(
+        width = 12,
+        title = div(style = box_title_style, icon("list-ol"), " Column reference"),
+        solidHeader = TRUE,
+        tags$p(style = "color:#777;font-size:11px;",
+          "Column numbers, for reference when filling in the fields above (e.g. the loci range)."),
+        uiOutput(ns("ui_columns_index"))
+      )
+    )
   )
 }

@@ -13,6 +13,32 @@ server_allele_frequencies <- function(id, rv) {
     sql_id  <- function(con, x) as.character(DBI::dbQuoteIdentifier(con, x))
     sql_str <- function(con, x) as.character(DBI::dbQuoteString(con, x))
 
+    # ── Output file name: auto-filled from the imported dataset's name ─────
+    last_auto_root_af <- reactiveVal("")
+    observeEvent(rv$dataset_filename, {
+      fn <- rv$dataset_filename
+      if (is.null(fn) || !nzchar(trimws(fn))) return(invisible(NULL))
+      root_guess <- tools::file_path_sans_ext(basename(trimws(fn)))
+      cur <- trimws(input$fstat_out_root %||% "")
+      if (!nzchar(cur) || identical(cur, last_auto_root_af())) {
+        updateTextInput(session, "fstat_out_root", value = root_guess, placeholder = root_guess)
+        last_auto_root_af(root_guess)
+      } else {
+        updateTextInput(session, "fstat_out_root", placeholder = root_guess)
+      }
+    }, ignoreInit = FALSE, ignoreNULL = TRUE)
+
+    fstat_out_root_r <- reactive({
+      r <- trimws(input$fstat_out_root %||% "")
+      if (nzchar(r)) r else if (nzchar(last_auto_root_af())) last_auto_root_af() else "SPG_"
+    })
+    fstat_out_filename <- function() paste0(fstat_out_root_r(), "-allele_freq_by_locus.txt")
+
+    output$ui_fstat_out_status <- renderUI({
+      tags$p(style = "color:#555;font-size:12px;margin-top:6px;",
+        "Allele frequencies will be saved in the file ", tags$code(fstat_out_filename()), ".")
+    })
+
     # ── Defensive DB wrapper ─────────────────────────────────────────────────
     # Converts any DBI/DuckDB error (dropped connection, unexpected schema,
     # malformed query) into a clean shiny::validate() message instead of an
@@ -416,36 +442,21 @@ function(row,data,index){
 
     # ── One button, one click, one action: clicking "Run" IS the download
     #    request itself — the allele-frequency query runs inside this same
-    #    content() function (via fstat_wide_r()) before the results file +
-    #    parameters file are zipped and streamed back. Also flips
-    #    fstat_shown_r() so the on-screen table appears too.
+    #    content() function (via fstat_wide_r()) before the single results
+    #    file is streamed back. Also flips fstat_shown_r() so the on-screen
+    #    table appears too.
     output$update_fstat <- downloadHandler(
-      filename = function() paste0("allele_frequencies_", Sys.Date(), ".zip"),
+      filename = function() fstat_out_filename(),
       content  = function(file) {
         fstat_shown_r(TRUE)
         wide <- fstat_wide_r()
         req(wide)
         pops <- attr(wide, "pops")
-        tmpdir <- tempfile("spg_af_export_"); dir.create(tmpdir)
-        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
-
-        p1 <- file.path(tmpdir, paste0("allele_freq_by_locus_", Sys.Date(), ".txt"))
-        con1 <- file(p1, open = "w", encoding = "UTF-8")
-        writeLines(c("Allele frequencies \u2014 populations in columns", ""), con = con1, useBytes = TRUE)
-        write.table(wide[, c("Locus", "Row_label", pops, "Global")], file = con1,
-                    sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        close(con1)
-
-        p2 <- file.path(tmpdir, paste0("allele_frequencies_parameters_", Sys.Date(), ".txt"))
-        con2 <- file(p2, open = "w", encoding = "UTF-8")
-        writeLines(c(
-          "Allele Frequencies \u2014 parameters used",
-          sprintf("Population filter: %s", if (identical(fstat_population_r(), "all")) "All populations" else fstat_population_r()),
-          sprintf("Marker filter: %s", if (identical(fstat_marker_r(), "all")) "All markers" else fstat_marker_r())
-        ), con = con2, useBytes = TRUE)
-        close(con2)
-
-        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
+        # Diversity-index rows (Na/Ne/He/Ho/Fis) are reported in the
+        # General Statistics module instead — not needed in this table.
+        wide <- wide[wide$Row_type != "div_stat", , drop = FALSE]
+        write.table(wide[, c("Locus", "Row_label", pops, "Global")], file = file,
+                    sep = "\t", row.names = FALSE, quote = FALSE)
       }
     )
   })

@@ -773,6 +773,23 @@ server_import_data <- function(id, rv) {
         icon("check-circle"), " ", rv$load_status)
     })
 
+    # ── Numbered column reference: lets the operator see exactly which
+    #    number corresponds to which column name, so the loci range (and
+    #    Population/Latitude/Longitude choices) can be entered correctly.
+    output$ui_columns_index <- renderUI({
+      cn <- rv$colnames_all
+      shiny::req(length(cn) > 0)
+      df <- data.frame(Index = seq_along(cn), Column = cn, check.names = FALSE)
+      n <- nrow(df)
+      half <- ceiling(n / 2)
+      left  <- df[seq_len(half), , drop = FALSE]
+      right <- if (n > half) df[(half + 1):n, , drop = FALSE] else df[0, , drop = FALSE]
+      fluidRow(
+        column(6, renderTable(left, striped = TRUE, spacing = "xs", width = "100%")()),
+        column(6, if (nrow(right)) renderTable(right, striped = TRUE, spacing = "xs", width = "100%")() else NULL)
+      )
+    })
+
     # ── Loci range: Create-style input (number of loci + first locus
     #    column), with a read-only preview of the resulting range kept for
     #    verification. ──────────────────────────────────────────────────────
