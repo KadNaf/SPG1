@@ -311,12 +311,6 @@ app_ui <- function() {
       margin: 0 0 8px 0 !important;
       border: none !important;
     }
-    .spg-hero .spg-tagline {
-      color: #A9F0D8;
-      font-size: 1.1rem;
-      margin: 0 0 28px 0;
-      letter-spacing: 0.04em;
-    }
     .spg-cta {
       display: inline-block;
       background: #A9F0D8 !important;
@@ -669,17 +663,12 @@ app_ui <- function() {
           style = "font-size: 5.2rem; font-weight: 600; letter-spacing: -2px; line-height: 1.05; margin: 0 0 18px 0; background: linear-gradient(90deg, #8F86FF, #5AA7FF); -webkit-background-clip: text; background-clip: text; color: transparent;",
           "SPG-V1"
         ),
-        shiny::tags$p(
-          class = "spg-tagline",
-          "A Versatile, user-friendly and multi-OS application", shiny::tags$br(),
-          "to analyse population genetic data"
-        ),
         #
         shiny::div(
           class = "spg-credits",
-          style = "margin: 10px 0 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08);",
+          style = "margin: 10px 0 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08);",
           shiny::tags$p(
-            style = "color: #a0a8c0; font-size: 25px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
+            style = "color: #A9F0D8; font-size: 25px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
             "A Versatile, user-friendly and multi-OS application", shiny::tags$br(),
           "to analyse population genetic data"
           )
