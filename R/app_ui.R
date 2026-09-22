@@ -599,7 +599,7 @@ app_ui <- function() {
     .spg-footer {
       background: #FFFFFF;
       margin: 0px -20px 0px -20px;
-      padding: 20px 40px 10px;
+      padding: 25px 40px 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -657,11 +657,11 @@ app_ui <- function() {
         class = "spg-hero-text",
         shiny::tags$h1(
           style = "font-size: 5.2rem; font-weight: 300; color: #F4F6FF; margin: 0 0 6px 0; letter-spacing: -1.5px; line-height: 1.05;",
-          "ShinyPopGen V1"
+          "PGA-commander V1"
         ),
         shiny::tags$div(
           style = "font-size: 5.2rem; font-weight: 600; letter-spacing: -2px; line-height: 1.05; margin: 0 0 18px 0; background: linear-gradient(90deg, #8F86FF, #5AA7FF); -webkit-background-clip: text; background-clip: text; color: transparent;",
-          "SPG-V1"
+          "PGA-cmdr V1"
         ),
         #
         shiny::div(
@@ -747,7 +747,7 @@ app_ui <- function() {
           href = "https://www.ird.fr/en", target = "_blank",
           style = "text-decoration:none;",
           if (!is.null(logos$ird))
-            shiny::tags$img(src = logos$ird, height = "100px",
+            shiny::tags$img(src = logos$ird, height = "110px",
               alt = "IRD", title = "Institut de Recherche pour le Developpement",
               style = "opacity:0.9;")
           else
