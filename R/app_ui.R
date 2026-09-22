@@ -599,7 +599,7 @@ app_ui <- function() {
     .spg-footer {
       background: #FFFFFF;
       margin: 0px -20px 0px -20px;
-      padding: 10px 40px 5px;
+      padding: 20px 40px 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -747,7 +747,7 @@ app_ui <- function() {
           href = "https://www.ird.fr/en", target = "_blank",
           style = "text-decoration:none;",
           if (!is.null(logos$ird))
-            shiny::tags$img(src = logos$ird, height = "90px",
+            shiny::tags$img(src = logos$ird, height = "100px",
               alt = "IRD", title = "Institut de Recherche pour le Developpement",
               style = "opacity:0.9;")
           else
