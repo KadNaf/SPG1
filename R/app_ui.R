@@ -747,7 +747,7 @@ app_ui <- function() {
           href = "https://www.ird.fr/en", target = "_blank",
           style = "text-decoration:none;",
           if (!is.null(logos$ird))
-            shiny::tags$img(src = logos$ird, height = "110px",
+            shiny::tags$img(src = logos$ird, height = "130px",
               alt = "IRD", title = "Institut de Recherche pour le Developpement",
               style = "opacity:0.9;")
           else
