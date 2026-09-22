@@ -609,7 +609,7 @@ app_ui <- function() {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 14px;
+      gap: 20px;
     }
     .spg-footer-logos {
       display: flex;
@@ -674,12 +674,22 @@ app_ui <- function() {
           "A Versatile, user-friendly and multi-OS application", shiny::tags$br(),
           "to analyse population genetic data"
         ),
-        # Credits section
+        #
         shiny::div(
           class = "spg-credits",
           style = "margin: 10px 0 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08);",
           shiny::tags$p(
-            style = "color: #a0a8c0; font-size: 20px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
+            style = "color: #a0a8c0; font-size: 25px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
+            "A Versatile, user-friendly and multi-OS application", shiny::tags$br(),
+          "to analyse population genetic data"
+          )
+        ),
+        #
+        shiny::div(
+          class = "spg-credits",
+          style = "margin: 10px 0 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08);",
+          shiny::tags$p(
+            style = "color: #a0a8c0; font-size: 25px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
             shiny::tags$strong("Programming:", style = "color: #c8d0e8;"),
             " Naffiou Kadiri and Vincent Manzanilla",
             shiny::tags$br(),
@@ -698,7 +708,7 @@ app_ui <- function() {
         class = "spg-hero-logo",
         shiny::tags$img(
           src   = "spg_www/LogoPGAcmdr.png",
-          height = "150px",
+          height = "200px",
           alt   = "ShinyPopGen logo",
           style = "filter: drop-shadow(0 8px 32px rgba(0,0,0,0.55));"
         )
@@ -715,7 +725,7 @@ app_ui <- function() {
           href = "https://umr-intertryp.cirad.fr/en", target = "_blank",
           style = "text-decoration:none;",
           if (!is.null(logos$intertryp))
-            shiny::tags$img(src = logos$intertryp, height = "70px",
+            shiny::tags$img(src = logos$intertryp, height = "90px",
               alt = "INTERTRYP", title = "Hosts, Vectors and Infectious Agents",
               style = "opacity:0.9;")
           else
@@ -726,7 +736,7 @@ app_ui <- function() {
           href = "https://www.umontpellier.fr/en/", target = "_blank",
           style = "text-decoration:none;",
           if (!is.null(logos$montpellier))
-            shiny::tags$img(src = logos$montpellier, height = "80px",
+            shiny::tags$img(src = logos$montpellier, height = "90px",
               alt = "Universite de Montpellier", title = "Universite de Montpellier",
               style = "opacity:0.9;")
           else
@@ -737,7 +747,7 @@ app_ui <- function() {
           href = "https://www.cirad.fr/en", target = "_blank",
           style = "text-decoration:none;",
           if (!is.null(logos$cirad))
-            shiny::tags$img(src = logos$cirad, height = "60px",
+            shiny::tags$img(src = logos$cirad, height = "90px",
               alt = "CIRAD", title = "Agricultural Research for Development",
               style = "opacity:0.9;")
           else
@@ -748,7 +758,7 @@ app_ui <- function() {
           href = "https://www.ird.fr/en", target = "_blank",
           style = "text-decoration:none;",
           if (!is.null(logos$ird))
-            shiny::tags$img(src = logos$ird, height = "88px",
+            shiny::tags$img(src = logos$ird, height = "90px",
               alt = "IRD", title = "Institut de Recherche pour le Developpement",
               style = "opacity:0.9;")
           else
@@ -759,7 +769,7 @@ app_ui <- function() {
           href = "https://www.ucad.sn", target = "_blank",
           style = "text-decoration:none;",
           if (!is.null(logos$ucad))
-            shiny::tags$img(src = logos$ucad, height = "80px",
+            shiny::tags$img(src = logos$ucad, height = "90px",
               alt = "UCAD", title = "Universite Cheikh Anta Diop de Dakar",
               style = "opacity:0.9;")
           else
