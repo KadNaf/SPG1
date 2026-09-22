@@ -618,7 +618,7 @@ app_ui <- function() {
       background: #d8dceb;
       margin: 0 6px;
     }
-    .spg-footer img { max-height: 88px; }
+    .spg-footer img { max-height: 100px; }
     .spg-footer-caption {
       color: #6b7280;
       font-size: 14px;
@@ -747,7 +747,7 @@ app_ui <- function() {
           href = "https://www.ird.fr/en", target = "_blank",
           style = "text-decoration:none;",
           if (!is.null(logos$ird))
-            shiny::tags$img(src = logos$ird, height = "130px",
+            shiny::tags$img(src = logos$ird, height = "100px",
               alt = "IRD", title = "Institut de Recherche pour le Developpement",
               style = "opacity:0.9;")
           else
