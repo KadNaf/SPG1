@@ -1,7 +1,4 @@
 # mod_global_panmixia.R
-# Tab: Global panmixia
-# Overall HWE across all populations - FIT (Weir & Cockerham): bootstrap CI + permutation test.
-# Golem module UI - server: server_general_stats("general_stats", rv)
 
 mod_global_panmixia_ui <- function(id) {
   ns <- NS(id)
@@ -67,37 +64,6 @@ mod_global_panmixia_ui <- function(id) {
             )
           )
         )
-      )
-    ),
-
-    h2("FIT \u2014 Bootstrap CI and permutation results", class = "section-title"),
-    # tags$p(HTML(paste0(
-    #   "Population-block bootstrap confidence intervals (populations are the resampling unit) and ",
-    #   "permutation p-values for the global HWE test across <em>all</em> populations combined. ",
-    #   "<br>Bootstrap CI and p-values are given per locus; the Overall row uses the ratio-of-sums FIT across all loci. ",
-    #   "<br>A CI excluding zero or a small p-value indicates a significant global departure from HWE."
-    # )), style = "font-size: 16px; line-height: 1.5; color: #2c3e50;"),
-
-    fluidRow(
-      box(
-        width = 12,
-        title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    icon("table"),
-                    "Results"),
-        solidHeader = TRUE, status = "primary",
-        tabsetPanel(
-          tabPanel("P-value and confidence intervals",
-            h4(icon("info-circle"), "FIT estimates with bootstrap CI and permutation p-values"),
-            # p("FIT estimates per locus. Bootstrap CI: population-block resampling (populations resampled with replacement).
-            #   Permutation p-values: global allele shuffle, two-sided |FIT| test, consistent with the FIS permutation test."),
-            DTOutput(ns("fit_results_table")), br()
-          ),
-          tabPanel("Visualization",
-            h4(icon("chart-line"), "FIT estimates by locus"),
-            plotOutput(ns("fit_plot"), height = "400px")
-          ),
-        ),
-        style = "padding: 10px;"
       )
     )
   )

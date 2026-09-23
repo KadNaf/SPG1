@@ -1,7 +1,4 @@
 # mod_local_panmixia.R
-# Tab: Local panmixia
-# Within-population HWE - FIS (Weir & Cockerham): bootstrap CI + permutation test.
-# Golem module UI - server: server_general_stats("general_stats", rv)
 
 mod_local_panmixia_ui <- function(id) {
   ns <- NS(id)
@@ -62,38 +59,6 @@ mod_local_panmixia_ui <- function(id) {
       )
     ),
 
-    h2("FIS · Bootstrap CI and permutation results", class = "section-title"),
-    # tags$p(HTML(paste0(
-    #   "Bootstrap confidence intervals derived from resampling individuals within populations. ",
-    #   "Permutation p-values from allele shuffling within populations (two-sided |FIS| test). ",
-    #   "<br>A CI excluding zero indicates a significant departure from HWE at that locus / population."
-    # )), style = "font-size: 16px; line-height: 1.5; color: #2c3e50;"),
-
-    fluidRow(
-      box(
-        width = 12,
-        title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    icon("table"),
-                    "Results"),
-        solidHeader = TRUE, status = "primary",
-        tabsetPanel(
-          tabPanel("P-value and confidence intervals",
-            h4(icon("info-circle"),
-               "FIS estimates with bootstrap CI and permutation p-values"),
-            # p("Bootstrap CI derived from resampling individuals within populations.
-            #   P-values from allele permutation within populations (two-sided |FIS| test).
-            #   CI excluding zero indicates significant departure from HWE."),
-            DTOutput(ns("fis_results_table")), br()
-          ),
-          tabPanel("Visualization",
-            h4(icon("chart-line"), "Bootstrap-based FIS inference"),
-            plotOutput(ns("fis_plot"), height = "400px")
-          ),
-        ),
-        style = "padding: 10px;"
-      )
-    ),
-
     h2("FIS · By Locus \u00d7 Population", class = "section-title"),
     # tags$p(HTML(paste0(
     #   "WC84 FIS and permutation p-values for every locus \u00d7 population combination. ",
@@ -120,11 +85,6 @@ mod_local_panmixia_ui <- function(id) {
                          class = "btn-action-primary btn-block", style = "font-weight: bold;")
           )
         ),
-        br(), br(),
-        h5("Observed FIS (WC84)"),
-        DTOutput(ns("fis_locus_pop_obs")), br(),
-        h5("Permutation p-values (two-sided)"),
-        DTOutput(ns("fis_locus_pop_pval")), br(),
         style = "padding: 10px;"
       )
     )

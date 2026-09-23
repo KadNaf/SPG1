@@ -15,6 +15,7 @@ spg_logo_uris <- function() {
     ird         = .read_logo("ird_logo.png",         "image/png"),
     cirad       = .read_logo("cirad_logo.png",       "image/png"),
     intertryp   = .read_logo("INTERTRYP_logo.png",   "image/png"),
-    ucad   = .read_logo("ucad_logo.png",   "image/png")
+    ucad        = .read_logo("ucad_logo.png",        "image/png"),
+    montpellier = .read_logo("montpellier_logo.png", "image/png")
   )
 }

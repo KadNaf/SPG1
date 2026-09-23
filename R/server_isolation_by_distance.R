@@ -1,24 +1,4 @@
 # server_isolation_by_distance.R
-# Isolation by Distance (Rousset 1997) + Mantel test.
-#
-# This module is a CONTINUATION of the "Null alleles" module: it reuses the
-# pairwise FST/FST-ENA/DCSE/DCSE-INA (+ bootstrap CI) already computed there,
-# shared through `rv$null_alleles_results` — nothing is recomputed here
-# except geographic distance (D_geo), which the Null Alleles module doesn't
-# compute.
-#
-# Geographic distance (D_geo) is the Vincenty ellipsoidal geodesic distance
-# (WGS84), in metres.
-#
-# References:
-#   Rousset (1997)  — Isolation by distance regression: FR = FST/(1-FST)
-#                      regressed on ln(geographic distance) (2D habitat) or
-#                      on raw distance (1D habitat); Nb = 1/slope,
-#                      Nem = Nb/(2*pi).
-#   Mantel (1967)   — permutation test by joint row/column relabelling of
-#                      one distance matrix. Two one-sided p-value formulas
-#                      are offered: (b+1)/(m+1) (bias-corrected proportion,
-#                      Davison & Hinkley 1997) and the plain proportion b/m.
 
 server_isolation_by_distance <- function(id, rv) {
   moduleServer(id, function(input, output, session) {
@@ -94,6 +74,27 @@ server_isolation_by_distance <- function(id, rv) {
       suf <- ibd_out_suffix_r()
       paste0(ibd_out_root_r(), "-", desc, if (nzchar(suf)) paste0("-", suf) else "", ".txt")
     }
+
+    # ── Same auto-fill-from-dataset-name mechanism, for the Mantel Test
+    #    output name field. ───────────────────────────────────────────────
+    last_auto_root_mt <- reactiveVal("")
+    observeEvent(rv$dataset_filename, {
+      fn <- rv$dataset_filename
+      if (is.null(fn) || !nzchar(trimws(fn))) return(invisible(NULL))
+      root_guess <- tools::file_path_sans_ext(basename(trimws(fn)))
+      cur <- trimws(input$mt_out_root %||% "")
+      if (!nzchar(cur) || identical(cur, last_auto_root_mt())) {
+        updateTextInput(session, "mt_out_root", value = root_guess, placeholder = root_guess)
+        last_auto_root_mt(root_guess)
+      } else {
+        updateTextInput(session, "mt_out_root", placeholder = root_guess)
+      }
+    }, ignoreInit = FALSE, ignoreNULL = TRUE)
+
+    mt_out_root_r <- reactive({
+      r <- trimws(input$mt_out_root %||% "")
+      if (nzchar(r)) r else if (nzchar(last_auto_root_mt())) last_auto_root_mt() else "SPG_"
+    })
 
     # ── Population GPS centroids (needed for D_geo; IBD-specific) ───────────
     coords_r <- reactive({
@@ -361,7 +362,7 @@ server_isolation_by_distance <- function(id, rv) {
     .write_ibd_results <- function(con) {
       r <- ibd_results_r()
       s <- as.data.frame(r$summary, stringsAsFactors = FALSE)
-      writeLines(c("Isolation by Distance \u2014 Regression results", ""), con = con, useBytes = TRUE)
+      writeLines(c("Isolation by Distance - Regression results", ""), con = con, useBytes = TRUE)
       writeLines("Regression summary (slope / b / Nb / Nem for average and CI bounds):", con = con)
       write.table(s, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
     }
@@ -376,16 +377,27 @@ server_isolation_by_distance <- function(id, rv) {
     # ── Parameters file: everything about how this run was configured ──────
     .write_ibd_params <- function(con) {
       r <- ibd_results_r()
+      na <- tryCatch(na_results_r(), error = function(e) NULL)
+
       hdr <- c(
-        "Isolation by Distance \u2014 Rousset (1997) regression \u2014 parameters used",
         sprintf("Geographic distance column: %s", r$col_geo),
-        sprintf("Genetic distance columns \u2014 average: %s, lower limit: %s, higher limit: %s",
+        sprintf("Genetic distance columns - average: %s, lower limit: %s, higher limit: %s",
                  r$col_avg, r$col_lo, r$col_hi),
-        sprintf("Data source: %s", if (isTRUE(identical(input$ibd_source, "external"))) "external re-loaded pairwise file" else "Null Alleles module (this session)"),
-        sprintf("Slope (b) / Nb / Nem \u2014 average: b=%.6f Nb=%.2f Nem=%.2f",
-                 r$reg_avg$slope, 1/r$reg_avg$slope, (1/r$reg_avg$slope)/(2*pi)),
-        ""
+        sprintf("Data source: %s", rv$dataset_filename %||% "default_dataset")
       )
+
+      if (!is.null(na)) {
+        loci_line <- paste(vapply(na$markers, function(loc) {
+          cd <- as.character(na$treats[loc] %||% "absent")
+          sprintf("%s:%s", loc, if (identical(cd, "absent")) "000000" else "999999")
+        }, character(1)), collapse = ", ")
+        hdr <- c(hdr,
+          sprintf("Missing data code per locus: %s", loci_line),
+          sprintf("Bootstrap replicates (over loci): %s", na$nboot),
+          sprintf("Critical level (alpha): %s", na$alpha)
+        )
+      }
+      hdr <- c(hdr, "")
       writeLines(hdr, con = con, useBytes = TRUE)
     }
     output$dl_ibd_params_txt <- downloadHandler(
@@ -421,22 +433,11 @@ server_isolation_by_distance <- function(id, rv) {
       }
     )
 
-    output$ui_ibd_key_values <- renderUI({
+    output$ui_ibd_status <- renderUI({
       r <- ibd_results_r()
       req(r)
-      tags$div(style = "font-size:13px; color:#333; margin-bottom:14px;",
-        tags$div(tags$strong("Geographic distance (X): "), r$col_geo),
-        tags$div(tags$strong("Genetic distance (Y) \u2014 average: "), r$col_avg,
-                 tags$strong("  \u2014 lower limit: "), r$col_lo,
-                 tags$strong("  \u2014 higher limit: "), r$col_hi),
-        tags$div(tags$strong("Data source: "),
-                 if (isTRUE(identical(input$ibd_source, "external"))) "External re-loaded pairwise file"
-                 else "Null Alleles module (this session)"),
-        tags$div(tags$strong("Pairs used: "), nrow(r$df)),
-        tags$div(tags$strong("Slope (b) / Nb / Nem \u2014 average: "),
-                 sprintf("b = %.6f, Nb = %.2f, Nem = %.2f",
-                         r$reg_avg$slope, 1/r$reg_avg$slope, (1/r$reg_avg$slope)/(2*pi)))
-      )
+      tags$div(class = "na-info",
+        icon("check-circle"), " ", tags$strong("Computations completed."))
     })
 
     output$dt_ibd_reg <- DT::renderDT({
@@ -864,127 +865,82 @@ server_isolation_by_distance <- function(id, rv) {
       r$stats[[pref[1]]]
     }
 
-    output$ui_mantel_key_values <- renderUI({
+    output$ui_mantel_status <- renderUI({
       r <- mantel_result_r()
       req(r)
-      fmt_lbl <- if (identical(r$p_formula, "plain")) "b/m" else "(b+1)/(m+1)"
-      ref <- .mantel_r2_stat(r)
-      rows <- lapply(r$selected, function(k) {
-        s <- r$stats[[k]]
-        tags$tr(
-          tags$td(tags$strong(s$label), style="padding:4px 18px 4px 0;"),
-          tags$td(sprintf("X: %s, Y: %s", s$x_label, s$y_label), style="padding:4px 18px 4px 0;color:#777;font-size:12px;"),
-          tags$td(.fmt_stat(s$stat_obs), style="padding:4px 18px 4px 0;font-weight:700;"),
-          tags$td(sprintf("p(+) = %s", if (is.na(s$p_pos)) "NA" else formatC(s$p_pos, format="f", digits=4)),
-                  style="padding:4px 18px 4px 0;color:#555;"),
-          tags$td(sprintf("p(\u2212) = %s", if (is.na(s$p_neg)) "NA" else formatC(s$p_neg, format="f", digits=4)),
-                  style="padding:4px 0;color:#555;")
-        )
-      })
-      tags$div(
-        tags$div(style = "font-size:13px; color:#333; margin-bottom:10px;",
-          tags$div(tags$strong("m (permutations): "), r$n_perm),
-          tags$div(tags$strong("R\u00b2: "), if (is.na(ref$r2)) "NA" else sprintf("%.4f", ref$r2)),
-          tags$div(tags$strong("p-value formula: "), fmt_lbl)
-        ),
-        tags$table(style = "border-collapse:collapse;font-size:14px;", tags$tbody(rows))
-      )
+      tags$div(class = "na-info",
+        icon("check-circle"), " ", tags$strong("Computations completed."))
     })
 
-    output$ui_mantel_summary <- renderUI({
-      r <- mantel_result_r()
-      req(r)
-      tags$div(style = "margin-top:8px; font-family:monospace; font-size:12px; color:#555;",
-        lapply(r$selected, function(k) {
-          s <- r$stats[[k]]
-          tags$div(
-            sprintf("[%s] Engine: %s \u2014 Slope = %.6f, Intercept = %.6f \u2014 Pairs used: %d \u2014 Common pops: %d",
-                    s$label, if (identical(s$engine, "cpp")) "C++ (native)" else "R (fallback)",
-                    s$slope, s$intercept, s$n_pairs, length(s$common)),
-            tags$br()
-          )
-        })
-      )
-    })
+
+    # Output-file label for each statistic (short form, matching the
+    # requested results format — distinct from the longer UI checkbox
+    # labels used elsewhere, e.g. "Pearson r" / "Rousset's 1D").
+    .mantel_out_label <- function(key) {
+      switch(key,
+        r         = "Pearson",
+        spearman  = "Spearman",
+        rousset1d = "Rousset 1D",
+        rousset2d = "Rousset 2D",
+        key)
+    }
 
     .mantel_summary_df <- function(r) {
-      do.call(rbind, lapply(r$selected, function(k) {
+      d <- do.call(rbind, lapply(r$selected, function(k) {
         s <- r$stats[[k]]
+        p_pos <- s$p_pos; p_neg <- s$p_neg
+        p_2sided <- if (is.na(p_pos) || is.na(p_neg)) NA_real_ else min(2 * min(p_pos, p_neg), 1)
         data.frame(
-          Statistic = s$label,
-          Engine = if (identical(s$engine, "cpp")) "C++ (native)" else "R (portable)",
-          X_variable = s$x_label,
-          Y_variable = s$y_label,
-          Observed_value = .fmt_stat(s$stat_obs),
-          Slope_b = .fmt_stat(s$slope),
+          Statistic = .mantel_out_label(k),
+          X         = s$x_label,
+          Y         = s$y_label,
+          Observed  = .fmt_stat(s$stat_obs),
+          Slope     = .fmt_stat(s$slope),
           Intercept = .fmt_stat(s$intercept),
-          R2 = sprintf("%.4f", s$r2),
-          p_value_formula = if (identical(r$p_formula, "plain")) "b/m" else "(b+1)/(m+1)",
-          p_positive = if (is.na(s$p_pos)) "NA" else sprintf("%.4f", s$p_pos),
-          p_negative = if (is.na(s$p_neg)) "NA" else sprintf("%.4f", s$p_neg),
-          Pairs_used = s$n_pairs,
-          Common_populations = length(s$common),
-          Permutations = length(s$perm_stats),
+          R2        = sprintf("%.4f", s$r2),
+          p_pos_col = if (is.na(p_pos)) "NA" else sprintf("%.4f", p_pos),
+          p_neg_col = if (is.na(p_neg)) "NA" else sprintf("%.4f", p_neg),
+          p_2sided  = if (is.na(p_2sided)) "NA" else sprintf("%.4f", p_2sided),
           stringsAsFactors = FALSE, check.names = FALSE
         )
       }))
+      # \uXXXX escapes aren't allowed inside backtick-quoted names in R
+      # source code, so the "R\u00b2"/"p+"/"p-" column names are set here,
+      # as plain string literals, rather than at construction time above.
+      names(d) <- c("Statistic", "X", "Y", "Observed", "Slope", "Intercept",
+                     "R\u00b2", "p+", "p-", "p_2sided")
+      d
     }
 
     output$dt_mantel_summary <- DT::renderDT({
       r <- mantel_result_r()
       req(r)
       d <- .mantel_summary_df(r)
-      names(d) <- gsub("_", " ", names(d))
       DT::datatable(d, rownames = FALSE,
         options = list(dom = "t", pageLength = nrow(d), ordering = FALSE, scrollX = TRUE),
         class = "compact stripe hover")
     })
 
-    .write_mantel_summary_txt <- function(con, r) {
-      d <- .mantel_summary_df(r)
-      write.table(d, con, sep = "\t", row.names = FALSE, quote = FALSE)
-    }
-
-    .write_mantel_txt <- function(con, r) {
-      fmt_lbl <- if (identical(r$p_formula, "plain")) "b/m \u2014 plain proportion" else "(b+1)/(m+1) \u2014 corrected proportion"
-      data_source <- if (identical(input$mt_source, "upload")) "Uploaded file" else "Internal pairwise table (from Null Alleles module)"
-
-      hdr <- c(
-        "Mantel test \u2014 parameters used",
-        sprintf("Data source: %s", data_source),
-        sprintf("Population columns: Pop1 = %s, Pop2 = %s", input$mt_col_pop1, input$mt_col_pop2),
-        sprintf("p-value formula: %s", fmt_lbl),
-        sprintf("Permutations: %d", r$n_perm),
-        ""
-      )
-      writeLines(hdr, con = con, useBytes = TRUE)
-
-      writeLines("Statistics run (X / Y columns used for each):", con = con)
-      for (k in r$selected) {
-        s <- r$stats[[k]]
-        writeLines(sprintf("  %s: X = %s, Y = %s", s$label, s$x_label, s$y_label), con = con)
-      }
-    }
-
     # ── One button, one click, one action: clicking "Run" IS the download
-    #    request itself — the Mantel permutation test(s) run inside this
-    #    same content() function before the two files are zipped and
-    #    streamed back.
+    #    request itself — a single results file, zipped, no separate
+    #    "parameters" file (not needed for Mantel).
     output$run_mantel <- downloadHandler(
-      filename = function() paste0("mantel_test_", Sys.Date(), ".zip"),
+      filename = function() paste0(mt_out_root_r(), "-Mantel-Res.zip"),
       content  = function(file) {
         r <- .run_mantel_computation()
         mantel_results_store(r)
+        d <- .mantel_summary_df(r)
+
         tmpdir <- tempfile("spg_mantel_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
 
-        p1 <- file.path(tmpdir, paste0("mantel_test_parameters_", Sys.Date(), ".txt"))
-        con1 <- file(p1, open = "w", encoding = "UTF-8"); .write_mantel_txt(con1, r); close(con1)
+        p1 <- file.path(tmpdir, paste0(mt_out_root_r(), "-Mantel-Res.txt"))
+        con <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines("Mantel test results", con = con, useBytes = TRUE)
+        write.table(d, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con)
 
-        p2 <- file.path(tmpdir, paste0("mantel_result_summary_", Sys.Date(), ".txt"))
-        con2 <- file(p2, open = "w", encoding = "UTF-8"); .write_mantel_summary_txt(con2, r); close(con2)
-
-        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
+        zip::zip(zipfile = file, files = basename(p1), root = tmpdir)
       }
     )
 

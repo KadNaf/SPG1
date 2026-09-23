@@ -14,10 +14,10 @@
 #   pkg_title = "ShinyPopGen – Population Genetics Shiny Application",
 #   pkg_description = "Interactive Shiny application for exploratory and
 #     descriptive population genetics analyses from multilocus datasets.",
-#   author_first_name = "Vincent",
-#   author_last_name  = "Manzanilla",
-#   author_email      = "vincent.manzanilla@ird.fr",
-#   repo_url          = "https://forge.ird.fr/intertryp/shiny_pop_gen"
+#   author_first_name = "Naffiou",
+#   author_last_name  = "Kadiri",
+#   author_email      = "naffiou.kadiri@ird.fr",
+#   repo_url          = "https://github.com/KadNaf/SPG1.git"
 # )
 
 # 4) Set golem options

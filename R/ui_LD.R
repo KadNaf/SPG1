@@ -1,4 +1,4 @@
-# ui_LD.R  (MODULE UI)
+# ui_LD.R
 
 linkage_desequilibrium_UI <- function(id) {
   ns <- NS(id)
@@ -97,46 +97,6 @@ linkage_desequilibrium_UI <- function(id) {
         #     " are recommended; B \u2265 10\u202f000 for publication."
         #   )
         # )
-      )
-    ),
-    
-    # ===== SECTION 2: RESULTS TABLE =====
-    h2("Linkage Disequilibrium Results", class = "section-title"),
-    
-    fluidRow(
-      box(
-        width = 12,
-        title = div(
-          style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-          icon("table"), "LD P-values Table"
-        ),
-        solidHeader = TRUE,
-        status = "primary",
-        
-        fluidRow(
-          column(
-            3,
-            h4(icon("cog"), "Table Options"),
-            selectInput(ns("table_view"), "Display Mode:",
-                        choices = c("All Pairs" = "all",
-                                    "Significant Only (p < 0.05)" = "sig_05",
-                                    "Highly Significant (p < 0.01)" = "sig_01",
-                                    "Very Highly Significant (p < 0.001)" = "sig_001")),
-            selectInput(ns("sort_by_ld"), "Sort By:",
-                        choices = c("Locus Pair" = "pair",
-                                    "P-value (Ascending)" = "pval_asc",
-                                    "P-value (Descending)" = "pval_desc")),
-            numericInput(ns("decimal_places"), "Decimal Places:",
-                         value = 5, min = 2, max = 10, step = 1),
-            checkboxInput(ns("highlight_sig"), "Highlight Significant", TRUE)
-          ),
-          column(
-            9,
-            DTOutput(ns("summary_output")),
-            br(),
-            verbatimTextOutput(ns("table_summary_stats"))
-          )
-        )
       )
     )
   )
