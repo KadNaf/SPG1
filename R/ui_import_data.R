@@ -66,7 +66,7 @@ import_data_ui <- function(id) {
           fluidRow(
             column(6,
               numericInput(ns("n_loci"), "Number of loci*", value = NA, min = 1, step = 1),
-              tags$p(style = "color:#999;font-size:11px;margin-top:-6px;", "The actual number of genetic markers.")),
+              tags$p(style = "color:#999;font-size:11px;margin-top:-6px;", "Auto-suggested once the first locus column is set below \u2014 adjust if needed.")),
             column(6, numericInput(ns("first_locus_col"), "Column number of the first locus*", value = NA, min = 1, step = 1))
           ),
           uiOutput(ns("ui_locus_range_preview")),

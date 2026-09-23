@@ -825,6 +825,24 @@ server_import_data <- function(id, rv) {
       if (identical(name2, paste0(name1, "_1")) || identical(name2, paste0(name1, ".1"))) 2L else 1L
     }
 
+    # ── Auto-suggest "Number of loci": as soon as the operator enters the
+    #    first locus column, compute how many complete loci fit from there
+    #    to the end of the file (accounting for paired-column format), and
+    #    pre-fill the field with that suggestion — the operator can still
+    #    adjust it down if some of those trailing columns aren't loci.
+    observeEvent(input$first_locus_col, {
+      first_col <- suppressWarnings(as.integer(input$first_locus_col))
+      cn <- rv$colnames_all
+      n_all <- length(cn %||% character(0))
+      if (is.na(first_col) || first_col < 1 || first_col > n_all || n_all == 0) return(invisible(NULL))
+
+      cpl <- .cols_per_locus(cn, first_col)
+      n_suggested <- (n_all - first_col + 1L) %/% cpl
+      if (n_suggested >= 1L) {
+        updateNumericInput(session, "n_loci", value = n_suggested)
+      }
+    }, ignoreInit = TRUE)
+
     output$ui_locus_range_preview <- renderUI({
       n_loci <- suppressWarnings(as.integer(input$n_loci))
       first_col <- suppressWarnings(as.integer(input$first_locus_col))
