@@ -1,5 +1,3 @@
-# mod_subdivision_ui.R
-
 mod_subdivision_ui <- function(id) {
   ns <- NS(id)
   fluidPage(
@@ -103,6 +101,45 @@ mod_subdivision_ui <- function(id) {
       )
     ),
 
+    h2("FST \u2014 Bootstrap CI and permutation results", class = "section-title"),
+    # tags$p(HTML(paste0(
+    #   "FST per locus with population-block bootstrap confidence intervals. ",
+    #   "Permutation p-values derived from shuffling population labels (one-sided test, FST &ge; observed). ",
+    #   "<br>HS and HT computed in the same run are reported in the ",
+    #   "<b>Genetic Diversities</b> tab."
+    # )), style = "font-size: 16px; line-height: 1.5; color: #2c3e50;"),
+
+    fluidRow(
+      box(
+        width = 12,
+        title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
+                    icon("table"), "FST Results"),
+        solidHeader = TRUE, status = "primary",
+        tabsetPanel(
+          tabPanel("FST results (bootstrap over subsamples)",
+            h4(icon("info-circle"), "Bootstrap confidence intervals \u2014 subsamples resampled as blocks"),
+            # p("FST per locus with population-block (subsample) bootstrap CI and
+            #   permutation p-values (population labels shuffled, one-sided test)."),
+            DTOutput(ns("fst_results_table")), br()
+          ),
+          tabPanel("FST results (bootstrap over loci)",
+            h4(icon("info-circle"), "Bootstrap confidence intervals \u2014 loci resampled with replacement"),
+            # p(HTML(paste0(
+            #   "Overall F<sub>ST</sub>, F<sub>IT</sub> and F<sub>IS</sub> with bootstrap CI obtained by ",
+            #   "resampling <b>loci</b> (with replacement, across the whole locus set) instead of subsamples. ",
+            #   "It complements, and is independent from, the subsample-block bootstrap in the previous tab."
+            # ))),
+            DTOutput(ns("fst_locus_boot_table")), br()
+          ),
+          tabPanel("Visualization",
+            h4(icon("chart-line"), "FST estimates by locus"),
+            plotOutput(ns("fst_plot"), height = "400px")
+          )
+        ),
+        style = "padding: 10px;"
+      )
+    ),
+
     # ==========================================================#
     # SECTION 2 — G-test : permutation test de subdivision
     # ==========================================================#
@@ -175,6 +212,31 @@ mod_subdivision_ui <- function(id) {
             )
           )
         )
+      )
+    ),
+
+    fluidRow(
+      box(
+        width = 12,
+        title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
+                    icon("table"), "G-test Results"),
+        solidHeader = TRUE, status = "primary",
+        tabsetPanel(
+          tabPanel("G-test results",
+            h4(icon("info-circle"), "G-statistic per locus"),
+            # p(HTML(paste0(
+            #   "Observed G per locus, number of complete genotypes used, and the two one-sided p-values ",
+            #   "p<sub>\u2265</sub> and p<sub>&gt;</sub> (format \u00ab [p<sub>\u2265</sub>  p<sub>&gt;</sub>] \u00bb). ",
+            #   "Overall row = global G (sum of per-locus G) with its global p-values."
+            # ))),
+            DTOutput(ns("g_results_table")), br()
+          ),
+          tabPanel("Visualization",
+            h4(icon("chart-bar"), "G-statistic by locus"),
+            plotOutput(ns("g_plot"), height = "400px")
+          )
+        ),
+        style = "padding: 10px;"
       )
     )
   )

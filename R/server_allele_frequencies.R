@@ -1,5 +1,3 @@
-# server_allele_frequencies.R
-
 server_allele_frequencies <- function(id, rv) {
   moduleServer(id, function(input, output, session) {
 

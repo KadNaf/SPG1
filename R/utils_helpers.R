@@ -1,5 +1,6 @@
 # helper.R
 
+# Shared CSS + JS injected by every general-stats module UI
 gs_head <- function() {
   tagList(
     tags$style(HTML("
@@ -73,7 +74,7 @@ module_banner <- function(icon_name, title, subtitle, accent = "#6B64EF") {
         '</svg>'
       )),
       shiny::tags$img(
-        src   = "spg_www/LogoPGAcmdr.png",
+        src   = "spg_www/Logo1.svg",
         height = "72px",
         alt   = "ShinyPopGen",
         style = "opacity:0.88; filter:drop-shadow(0 2px 10px rgba(0,0,0,0.5));"
@@ -595,16 +596,6 @@ parse_col_index_ranges <- function(x, n_max) {
   invisible(TRUE)
 }
 
-populate_choices_only <- function(session, colnames_all) {
-  req(session, colnames_all)
-  cn <- setNames(colnames_all, colnames_all)
-  opts <- list(placeholder = "select", maxOptions = 1000)
-  updateSelectizeInput(session, "pop_data",       choices = cn, selected = "", server = TRUE, options = opts)
-  updateSelectizeInput(session, "latitude_data",  choices = cn, selected = "", server = TRUE, options = opts)
-  updateSelectizeInput(session, "longitude_data", choices = cn, selected = "", server = TRUE, options = opts)
-  invisible(TRUE)
-}
-
 populate_manual_from_detection <- function(session, det, colnames_all) {
   req(session, det, colnames_all)
   
@@ -620,17 +611,14 @@ populate_manual_from_detection <- function(session, det, colnames_all) {
   updateSelectizeInput(session, "latitude_data", choices = cn, selected = lat_sel, server = TRUE, options = opts)
   updateSelectizeInput(session, "longitude_data",choices = cn, selected = lon_sel, server = TRUE, options = opts)
   
-  # Derive "number of loci" + "first locus column" (Create-style inputs)
-  # from the auto-detected marker range, for cosmetic consistency when the
-  # default demo dataset is loaded (these fields no longer exist for the
-  # user-upload flow, which always requires manual entry).
-  mr <- det$marker_range %||% ""
-  if (nzchar(mr)) {
-    rvv <- suppressWarnings(as.integer(unlist(strsplit(mr, "[:-]"))))
-    if (length(rvv) == 2 && !any(is.na(rvv))) {
-      updateNumericInput(session, "first_locus_col", value = min(rvv))
-      updateNumericInput(session, "n_loci", value = abs(diff(rvv)) + 1L)
-    }
+  updateTextInput(session, "col_ranges_data", value = det$marker_range %||% "")
+  
+  if (!is.null(det$metadata_cols) && length(det$metadata_cols)) {
+    meta_idx <- match(det$metadata_cols, colnames_all)
+    meta_idx <- meta_idx[!is.na(meta_idx)]
+    updateTextInput(session, "metadata_ranges", value = .compress_idx_ranges(meta_idx))
+  } else {
+    updateTextInput(session, "metadata_ranges", value = "")
   }
   
   invisible(TRUE)

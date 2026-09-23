@@ -1,5 +1,34 @@
 # server_general_stats.R
+# ==============================================================================#
+# server_general_stats.R  (DB-first refactor contract)
+#
+# Source of truth:
+#   DuckDB tables only: params, meta, hf  (optionally raw for diagnostics)
+#
+# Genotypes:
+#   Stored in DuckDB hf.gt as packed int: gt = a*base + b ; missing = 0
+#   This module MUST NOT decode gt to "a/b" strings in R for computation.
+#   (Decoding is allowed only for display/debug, never for stats pipelines.)
+#
+# Idempotency:
+#   Every computation is a pure function of (hf, meta, params, user inputs).
+#   No mutation, no hidden state. Re-running yields same result.
+#
+# Caching:
+#   Heavy computations MUST be cached by a stable cache key:
+#     key = list(db_tick, tbl_hf, tbl_meta, params_hash, user_inputs_hash)
+#   Invalidation happens ONLY when db_tick changes or inputs change.
+#
+# Outputs:
+#   All results tables are standardized:
+#     - ID column (Locus or Population label) + numeric columns
+#     - "Overall" row last
+# ==============================================================================#
 
+
+## =========================================================#
+# Helpers ####
+## =========================================================#
 hs_by_pop_locus_from_mat <- function(mat, base) {
   stopifnot(is.matrix(mat), ncol(mat) >= 2L, base > 1L)
   
@@ -582,22 +611,7 @@ server_general_stats <- function(id, rv) {
         close(con3)
 
         pop_sel <- input$selected_pop_overall
-        df_pop <- if (!is.null(pop_sel) && nzchar(pop_sel) && identical(pop_sel, "All")) {
-          all_pops <- tryCatch(
-            DBI::dbGetQuery(con, sprintf(
-              "SELECT DISTINCT Population FROM %s WHERE Population IS NOT NULL ORDER BY Population",
-              sql_ident(con, tbl_meta_r())))$Population,
-            error = function(e) character(0)
-          )
-          if (length(all_pops)) {
-            rows <- lapply(all_pops, function(p) {
-              d <- duck_pop_stats_by_pop_one(con = con, pop_name = p, tbl_hf = tbl_hf_r(),
-                                              tbl_meta = tbl_meta_r(), base = base, missing_code = 0L)
-              if (!is.null(d) && nrow(d) > 0) cbind(Population = p, d, stringsAsFactors = FALSE) else NULL
-            })
-            do.call(rbind, rows)
-          } else NULL
-        } else if (!is.null(pop_sel) && nzchar(pop_sel)) {
+        df_pop <- if (!is.null(pop_sel) && nzchar(pop_sel)) {
           duck_pop_stats_by_pop_one(con = con, pop_name = pop_sel, tbl_hf = tbl_hf_r(),
                                      tbl_meta = tbl_meta_r(), base = base, missing_code = 0L)
         } else NULL
@@ -631,11 +645,11 @@ server_general_stats <- function(id, rv) {
   ", sql_ident(con, tbl_meta_r())))
       
       shiny::validate(need(nrow(df) > 0, "No populations available in meta table yet."))
-      choices <- c("All", df$Population)
+      choices <- df$Population
       
       updateSelectInput(session, "selected_pop_overall",
                         choices = choices,
-                        selected = "All")
+                        selected = choices[1])
     })
 
     # ---- Table: per-locus stats for selected population
@@ -1162,7 +1176,7 @@ server_general_stats <- function(id, rv) {
           missing_code = 0L
         ))
 
-        showNotification("Computations completed.", type = "message")
+        showNotification("Bootstrap FIS analysis completed successfully!", type = "message")
         results
 
       }, error = function(e) {
@@ -1825,7 +1839,7 @@ server_general_stats <- function(id, rv) {
         # If you use perm_results() elsewhere for plotting, keep this:
         fit_perm_results(results$permutation_results)
         
-        showNotification("Computations completed.", type = "message")
+        showNotification("Bootstrap FIT analysis completed successfully!", type = "message")
         results
         
       }, error = function(e) {
@@ -2609,7 +2623,7 @@ server_general_stats <- function(id, rv) {
         fst_boot_results(results)
         
         showNotification(
-          "Computations completed.",
+          paste("FST analysis completed successfully! Time:", duration, "seconds"),
           type = "message"
         )
         results
@@ -2656,7 +2670,7 @@ server_general_stats <- function(id, rv) {
         fst_boot_results(results)
 
         showNotification(
-          "Computations completed.",
+          paste("FST analysis completed successfully! Time:", duration, "seconds"),
           type = "message"
         )
         results

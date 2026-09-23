@@ -120,3 +120,4 @@ g_test_subdivision_batch_cpp <- function(pop_idx0_full, loci_idx0, loci_allele0,
 g_test_subdivision_observed_cpp <- function(pop_idx0_full, loci_idx0, loci_allele0, loci_n_allele, n_pop) {
     .Call(`_shinypopgen_g_test_subdivision_observed_cpp`, pop_idx0_full, loci_idx0, loci_allele0, loci_n_allele, n_pop)
 }
+

@@ -1,6 +1,5 @@
-# server_import_data.R
-
 server_import_data <- function(id, rv) {
+  
   shiny::moduleServer(id, function(input, output, session) {
     rv$preview_raw  <- NULL
     rv$preview_meta <- NULL
@@ -421,6 +420,97 @@ server_import_data <- function(id, rv) {
     rv$db_ready <- TRUE
 
     # base map render 
+    output$map <- leaflet::renderLeaflet({
+      m <- leaflet::leaflet() %>%
+        leaflet::addTiles()
+      
+      htmlwidgets::onRender(
+        m,
+        "
+    function(el, x) {
+      var map = this;
+      var tileLayer = null;
+
+      map.eachLayer(function(layer) {
+        if (!tileLayer && layer instanceof L.TileLayer) {
+          tileLayer = layer;
+        }
+      });
+
+      if (!tileLayer) return;
+
+      var loaded = false;
+      var errorReported = false;
+
+      function report(status) {
+        if (HTMLWidgets.shinyMode) {
+          Shiny.setInputValue(
+            el.id + '_tile_status',
+            { status: status, nonce: Date.now() },
+            { priority: 'event' }
+          );
+        }
+      }
+
+      // Immediate browser offline check
+      if (!navigator.onLine) {
+        report('offline');
+        return;
+      }
+
+      // Success
+      tileLayer.on('load', function() {
+        loaded = true;
+        errorReported = false;
+        report('loaded');
+      });
+
+      // Tile failure
+      tileLayer.on('tileerror', function() {
+        if (!errorReported) {
+          errorReported = true;
+          report('tileerror');
+        }
+      });
+
+      // 1-second timeout test
+      setTimeout(function() {
+        if (!loaded) {
+          report('timeout');
+        }
+      }, 1000);
+
+      // React to network changes
+      window.addEventListener('offline', function() {
+        report('offline');
+      });
+
+      window.addEventListener('online', function() {
+        loaded = false;
+        errorReported = false;
+        tileLayer.redraw();
+
+        setTimeout(function() {
+          if (!loaded) {
+            report('timeout');
+          }
+        }, 1000);
+      });
+    }
+    "
+      )
+    })
+    shiny::observeEvent(input$map_tile_status, {
+      status <- input$map_tile_status$status %||% ""
+      
+      if (status == "loaded") {
+        clear_map_connection_message()
+      } else if (status %in% c("offline", "tileerror", "timeout")) {
+        show_map_connection_message(
+          "Map unavailable: no internet connection or tile server unreachable."
+        )
+      }
+    }, ignoreInit = TRUE)
     output$download_csv_transformed <- shiny::downloadHandler(
       filename = function() sprintf("ShinyPopGen_%s.csv", Sys.Date()),
       content = function(file) {
@@ -469,6 +559,37 @@ server_import_data <- function(id, rv) {
       }
     )
     
+    output$download_map <- shiny::downloadHandler(
+      filename = function() sprintf("ShinyPopGen_map_%s.png", Sys.Date()),
+      content = function(file) {
+        pops <- shiny::isolate(rv$populationsLL_grouped())
+        shiny::req(!is.null(pops), nrow(pops) > 0)
+        n      <- pops$Population_size
+        n_sqrt <- sqrt(n)
+        r_min  <- 4; r_max <- 18
+        pops$radius_px <- if (length(unique(n_sqrt)) > 1)
+          r_min + (n_sqrt - min(n_sqrt)) / (max(n_sqrt) - min(n_sqrt)) * (r_max - r_min)
+        else rep((r_min + r_max) / 2, length(n_sqrt))
+        m <- leaflet::leaflet(pops) %>%
+          leaflet::addTiles() %>%
+          leaflet::addCircleMarkers(
+            lng = ~Longitude, lat = ~Latitude,
+            radius = ~radius_px,
+            stroke = FALSE, fillOpacity = 0.7,
+            popup = ~paste0("Location: ", Population,
+                            "<br>Population size: ", Population_size)
+          ) %>%
+          leaflet::fitBounds(
+            min(pops$Longitude, na.rm = TRUE), min(pops$Latitude,  na.rm = TRUE),
+            max(pops$Longitude, na.rm = TRUE), max(pops$Latitude,  na.rm = TRUE)
+          )
+        tmp_html <- tempfile(fileext = ".html")
+        htmlwidgets::saveWidget(m, tmp_html, selfcontained = TRUE)
+        webshot2::webshot(tmp_html, file = file, vwidth = 900, vheight = 600, delay = 1.5)
+        unlink(tmp_html)
+      }
+    )
+
     session$onSessionEnded(function() {
       try(DBI::dbDisconnect(rv$con, shutdown = TRUE), silent = TRUE)
       try(duckdb::duckdb_shutdown(), silent = TRUE)
@@ -689,6 +810,7 @@ server_import_data <- function(id, rv) {
             error = function(e) NULL
           )
           
+          render_map_from_db()
           rv$db_tick <- rv$db_tick + 1L
         },
         error = function(e) {
@@ -703,26 +825,27 @@ server_import_data <- function(id, rv) {
     # ---------------------------------------------------------#
     # Upload user data ####
     # ---------------------------------------------------------#
-    shiny::observeEvent(input$file1, {
+    shiny::observeEvent(input$load_user_data, {
       shiny::req(input$file1)
       shiny::req(input$file1$datapath)
-
+      
       uploaded_file(input$file1$datapath[1])
+      # OR directly: rv$file_path <- input$file1$datapath[1]
 
       # Keep the ORIGINAL file name (not the temp datapath) so that other
       # modules (e.g. Subdivision, Isolation by distance) can stamp exported
       # result files with the name of the source dataset.
       rv$dataset_filename <- input$file1$name[1]
-
+      
       reset_downstream_state(rv)
-
+      
       rv$file_path <- uploaded_file()
       rv$sep <- input$sep
       rv$header <- input$header
       # ---------------------------------------------------------#
       # State 1: import RAW
       # ---------------------------------------------------------#
-
+      
       ok_db <- tryCatch(
         .duckdb_import_raw(
           con       = rv$con,
@@ -740,18 +863,15 @@ server_import_data <- function(id, rv) {
       # ---------------------------------------------------------#
       # State 2: header + raw preview
       # ---------------------------------------------------------#
-
+      
       rv$colnames_all <- tryCatch(DBI::dbListFields(rv$con, rv$tbl_raw), error = function(e) character(0))
       if (!length(rv$colnames_all)) {
         shinyalert::shinyalert("Header read failed", "No columns detected in DuckDB raw table.", type = "error")
         return()
       }
-
-      # No automatic column recognition: only populate the dropdown choices.
-      # The operator picks Population / Latitude / Longitude and the loci
-      # range themselves, then clicks "Apply" (see run_assign below).
-      populate_choices_only(session, rv$colnames_all)
-
+      
+      update_metadata_choices(session, rv$colnames_all)
+      
       rv$preview_raw <- tryCatch(
         DBI::dbGetQuery(rv$con, sprintf("SELECT * FROM %s LIMIT 100;", .sql_ident(rv$tbl_raw))),
         error = function(e) NULL
@@ -760,78 +880,210 @@ server_import_data <- function(id, rv) {
         shinyalert::shinyalert("No data rows", "Raw table has 0 rows after import.", type = "warning")
         return()
       }
-
-      rv$load_status <- sprintf(
-        "File loaded: %d rows \u00d7 %d columns. Choose Population, Latitude/Longitude (optional) and the loci range below, then click \u201cApply\u201d.",
-        nrow(rv$preview_raw), length(rv$colnames_all)
+      # ---------------------------------------------------------#
+      # State 3: auto-detect on raw preview
+      # ---------------------------------------------------------#
+      
+      miss_auto <- normalize_missing_code(input$missing_code)
+      det <- detect_columns_auto(rv$preview_raw, missing_info = miss_auto)
+      rv$det <- det
+      
+      populate_manual_from_detection(session, det, rv$colnames_all)
+      
+      # keep meta_ranges for build_meta (same as before)
+      meta_idx <- match(det$metadata_cols, rv$colnames_all)
+      meta_idx <- meta_idx[!is.na(meta_idx)]
+      meta_ranges <- .compress_idx_ranges(meta_idx)
+      
+      # State 4: if population missing -> stop (manual UI ready)
+      if (is.null(det$population) || is.na(det$population) || !nzchar(det$population)) {
+        shinyalert::shinyalert(
+          "Auto-detect incomplete",
+          "Population column not detected. Either change the separator or use the manual mode.",
+          type = "warning"
+        )
+        return()
+      }
+      
+      # ---------------------------------------------------------#
+      # State 5: AUTO format
+      # ---------------------------------------------------------#
+      if (!is.null(det$marker_range) && nzchar(det$marker_range)) {
+        
+        ok_fmt <- do_assign_and_format(
+          colnames_all    = rv$colnames_all,
+          pop_data        = det$population,
+          col_ranges_data = det$marker_range,
+          metadata_ranges = meta_ranges,
+          missing_code    = input$missing_code,
+          ploidy          = as.numeric(input$ploidy),
+          latitude_data   =  det$latitude  %|||% "",
+          longitude_data  = det$longitude %|||% "",
+          selected_levels = character(0),
+          make_map        = FALSE,
+          con             = rv$con,
+          tbl_raw         = rv$tbl_raw
+        )
+        
+        if (!isTRUE(ok_fmt)) {
+          shinyalert::shinyalert("Auto-format failed",
+                                 "Auto-detection ran but formatting did not complete. Use the manual panel and click 'Assign metadata'.",
+                                 type = "warning")
+          return()
+        }
+        
+        ok_fmt_tbl <- tryCatch(DBI::dbExistsTable(rv$con, rv$tbl_formatted_preview), error = function(e) FALSE)
+        if (!isTRUE(ok_fmt_tbl)) {
+          shinyalert::shinyalert("Auto-format failed",
+                                 "Formatting reported success, but the DuckDB formatted table is missing.",
+                                 type = "error")
+          return()
+        }
+        
+        rv$preview_raw <- tryCatch(
+          DBI::dbGetQuery(rv$con, sprintf("SELECT * FROM %s LIMIT 100;", .sql_ident(rv$tbl_formatted_preview))),
+          error = function(e) NULL
+        )
+      }
+      
+      # ---- UI preview
+      rv$preview_raw <- tryCatch(
+        DBI::dbGetQuery(
+          rv$con,
+          sprintf("SELECT * FROM %s LIMIT 100;", .sql_ident(rv$tbl_formatted_preview))
+        ),
+        error = function(e) NULL
       )
-    }, ignoreInit = TRUE)
-
-    output$ui_load_status <- renderUI({
-      shiny::req(rv$load_status)
-      tags$p(style = "color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:6px 8px;font-size:12px;margin-top:8px;",
-        icon("check-circle"), " ", rv$load_status)
-    })
-
-    # ── Loci range: Create-style input (number of loci + first locus
-    #    column), with a read-only preview of the resulting range kept for
-    #    verification. ──────────────────────────────────────────────────────
-    output$ui_locus_range_preview <- renderUI({
-      n_loci <- suppressWarnings(as.integer(input$n_loci))
-      first_col <- suppressWarnings(as.integer(input$first_locus_col))
-      n_all <- length(rv$colnames_all %||% character(0))
-
-      if (is.na(n_loci) || is.na(first_col) || n_loci < 1 || first_col < 1) {
-        return(tags$p(style = "color:#777;font-size:11px;",
-          "Enter the number of loci and the column number of the first locus."))
+      
+      if (is.null(rv$preview_raw) || !nrow(rv$preview_raw)) {
+        shinyalert::shinyalert(
+          "Formatted preview empty",
+          "Formatted table exists but returned 0 rows (unexpected).",
+          type = "warning"
+        )
       }
+      
+      # ------------------------------#
+      # State 6: build META (Population + GPS + metadata only)
+      # ------------------------------#
+      tryCatch(
+        .time_it("META build", {
+          .duckdb_build_meta(
+            con = rv$con,
+            tbl_raw = rv$tbl_raw,
+            tbl_meta = rv$tbl_meta,
+            colnames_all = rv$colnames_all,
+            pop_data = det$population,
+            latitude_data = det$latitude,
+            longitude_data = det$longitude,
+            metadata_ranges = meta_ranges
+          )
+        })
+        ,
+        error = function(e) {
+          shinyalert::shinyalert("DuckDB meta build failed", conditionMessage(e), type = "error")
+          NULL
+        }
+      )
+      
+      # ---- ensure meta.individual exists and matches raw.rowid
+      DBI::dbExecute(
+        rv$con,
+        sprintf(
+          "
+  ALTER TABLE %s ADD COLUMN IF NOT EXISTS individual BIGINT;
 
-      last_col <- first_col + n_loci - 1L
-      out_of_bounds <- n_all > 0 && (first_col > n_all || last_col > n_all)
+  UPDATE %s m
+  SET individual = r.rowid
+  FROM %s r
+  WHERE m.rowid = r.rowid;
+",
+          .sql_ident(rv$tbl_meta),
+          .sql_ident(rv$tbl_meta),
+          .sql_ident(rv$tbl_raw)
+        )
+      )
 
-      if (out_of_bounds) {
-        tags$p(style = "color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:4px;padding:6px 8px;font-size:12px;",
-          icon("exclamation-triangle"),
-          sprintf(" Out of bounds: columns %d\u2013%d requested, but the file only has %d columns. Please try again.",
-                  first_col, last_col, n_all))
-      } else {
-        tags$p(style = "color:#555;font-size:12px;",
-          icon("check-circle"), " Verification \u2014 loci columns: ",
-          tags$strong(sprintf("%d to %d", first_col, last_col)),
-          sprintf(" (%d loci, range \u201c%d-%d\u201d).", n_loci, first_col, last_col))
+      # ---- build HF (chunked) AFTER meta exists
+      .build_hf_from_params <- function(con, rv, missing_code_raw, batch_size = 10000L) {
+        shiny::req(con)
+        
+        # marker_cols_raw (raw columns, may include suffixes like _1 / .1)
+        marker_json <- tryCatch(
+          DBI::dbGetQuery(con, "SELECT value FROM params WHERE key='marker_cols_raw'")$value[1],
+          error = function(e) NA_character_
+        )
+        
+        marker_cols_raw <- if (!is.na(marker_json) && nzchar(marker_json)) {
+          tryCatch(jsonlite::fromJSON(marker_json), error = function(e) character(0))
+        } else character(0)
+        
+        if (!length(marker_cols_raw)) stop("No marker_cols_raw found in DuckDB params.")
+        
+        # base
+        base <- tryCatch(
+          DBI::dbGetQuery(con, "SELECT value FROM params WHERE key='base'")$value[1],
+          error = function(e) NA_character_
+        )
+        base <- suppressWarnings(as.integer(base))
+        if (!is.finite(base) || base <= 0L) stop("Invalid base in DuckDB params.")
+        
+        # genotype format
+        fmt <- .duckdb_get_param(con, "genotype_format", default = "auto")
+        if (identical(fmt, "auto")) {
+          fmt <- if (any(grepl("(_1|\\.[0-9]+)$", marker_cols_raw))) "paired" else "string"
+        }
+        
+        .time_it("HF build (chunked)", {
+          .duckdb_build_hf_from_raw_chunked(
+            con              = con,
+            tbl_raw          = rv$tbl_raw,
+            tbl_meta         = rv$tbl_meta,
+            tbl_hf           = rv$tbl_hf,
+            marker_cols      = marker_cols_raw,   # <-- FIX
+            genotype_format  = fmt,
+            base             = base,
+            missing_code_raw = missing_code_raw,
+            missing_gt       = 0L,
+            batch_size       = as.integer(batch_size),
+            attach_pop_code  = TRUE
+          )
+        })
+        
+        invisible(TRUE)
       }
+      
+      tryCatch(
+        {
+          .build_hf_from_params(rv$con, rv, missing_code_raw = input$missing_code, batch_size = 10000L)
+          
+          rv$preview_meta <- tryCatch(
+            DBI::dbGetQuery(rv$con, sprintf("SELECT * FROM %s LIMIT 100;", .sql_ident(rv$tbl_meta))),
+            error = function(e) NULL
+          )
+          
+          render_map_from_db()
+          rv$db_tick <- rv$db_tick + 1L
+        },
+        error = function(e) {
+          shinyalert::shinyalert("HF build failed", conditionMessage(e), type = "error")
+        }
+      )
+    
+      
     })
-
+      
+    # ---------------------------------------------------------#
+    # MANUAL: run_assign  ####
     # ---------------------------------------------------------#
     shiny::observeEvent(input$run_assign, {
       shiny::req(rv$file_path, rv$colnames_all)
-
-      # Loci range: computed from "number of loci" + "first locus column"
-      # (Create-style), re-validated here exactly like the live preview.
-      n_loci    <- suppressWarnings(as.integer(input$n_loci))
-      first_col <- suppressWarnings(as.integer(input$first_locus_col))
-      n_all     <- length(rv$colnames_all)
-
-      if (is.na(n_loci) || is.na(first_col) || n_loci < 1 || first_col < 1) {
-        shinyalert::shinyalert("Error", "Enter the number of loci and the column number of the first locus.", type = "error")
-        return()
-      }
-      last_col <- first_col + n_loci - 1L
-      if (first_col > n_all || last_col > n_all) {
-        shinyalert::shinyalert("Error", "Try again, your range is out of bounds.", type = "error")
-        return()
-      }
-      col_ranges_data <- sprintf("%d-%d", first_col, last_col)
-
-      # No "metadata columns" concept anymore: only Population / Latitude /
-      # Longitude / loci are kept.
-      meta_ranges <- ""
-
+      
       ok <- do_assign_and_format(
         colnames_all    = rv$colnames_all,
         pop_data        = input$pop_data,
-        col_ranges_data = col_ranges_data,
-        metadata_ranges = meta_ranges,
+        col_ranges_data = input$col_ranges_data,
+        metadata_ranges = input$metadata_ranges,
         missing_code    = input$missing_code,
         ploidy          = as.numeric(input$ploidy),
         latitude_data   = input$latitude_data,
@@ -850,6 +1102,7 @@ server_import_data <- function(id, rv) {
       # ------------------------------#
       # State: build META 
       # ------------------------------#
+      meta_ranges <- input$metadata_ranges %||% ""
       
       tryCatch(
         .time_it("META build", {
@@ -947,8 +1200,8 @@ server_import_data <- function(id, rv) {
             error = function(e) NULL
           )
           
+          render_map_from_db()
           rv$db_tick <- rv$db_tick + 1L
-          rv$load_status <- "Computations completed."
         },
         error = function(e) {
           shinyalert::shinyalert("HF build failed", conditionMessage(e), type = "error")
@@ -957,6 +1210,198 @@ server_import_data <- function(id, rv) {
       
     })
     
+    # ---------------------------------------------------------#
+    # Ouput formatted data table ####
+    # ---------------------------------------------------------#
+    output$formatted_table <- DT::renderDT({
+      df <- rv$preview_raw %||% rv$preview_meta
+      if (is.null(df)) df <- rv$preview_meta
+      shiny::req(df)
+      
+      df <- df[, !names(df) %in% "individual", drop = FALSE]
+      col_nums <- seq_along(names(df))
+      sketch <- htmltools::withTags(
+        table(
+          class = "display nowrap",
+          thead(
+            tr(lapply(names(df), function(nm)
+              th(nm, style = "text-align:center; white-space:nowrap; min-width:90px;")
+            )),
+            tr(lapply(col_nums, function(i)
+              th(i, style = "font-weight:normal; color:#888; font-size:11px; text-align:center; min-width:90px;")
+            ))
+          )
+        )
+      )
 
+      DT::datatable(
+        df,
+        container = sketch,
+        rownames = FALSE,
+        escape = FALSE,
+        class = "nowrap",
+        options = list(
+          pageLength = 10,
+          dom = 't<"bottom"lip>',
+          scrollX = TRUE,
+          autoWidth = FALSE,
+          columnDefs = list(list(className = "dt-center", targets = "_all")),
+          orderCellsTop = TRUE
+        )
+      ) %>%
+        DT::formatStyle(columns = names(df), fontSize = "14px")
+    })
+    
+    # ---------------------------------------------------------#
+    # Output formatted object summary ####
+    # ---------------------------------------------------------#
+    output$formatted_summary <- shiny::renderPrint({
+      
+      tick <- rv$db_tick  # force reactivity
+      
+      cat("Database import summary\n")
+      cat("=======================\n\n")
+      
+      # ---- guards
+      if (is.null(rv$con)) {
+        cat("No database connection.\n")
+        return()
+      }
+      
+      tbls <- tryCatch(DBI::dbListTables(rv$con), error = function(e) character(0))
+      cat("Tables in DuckDB:", if (length(tbls)) paste(tbls, collapse = ", ") else "(none)", "\n\n")
+      
+      # ---- HF status (Design 1)
+      cat("HF table:", ifelse(rv$tbl_hf %in% tbls, "YES", "NO"), "\n")
+      if (rv$tbl_hf %in% tbls) {
+        n_hf <- DBI::dbGetQuery(rv$con, sprintf("SELECT COUNT(*) AS n FROM %s;", .sql_ident(rv$tbl_hf)))$n
+        cat("HF rows:", n_hf, "\n")
+      }
+      cat("\n")
+      
+      if (is.null(rv$tbl_raw) || !nzchar(rv$tbl_raw) || !(rv$tbl_raw %in% tbls)) {
+        cat("Raw table not available yet.\n")
+        return()
+      }
+      
+      # quote identifiers safely
+      raw_sql  <- as.character(DBI::dbQuoteIdentifier(rv$con, rv$tbl_raw))
+      meta_sql <- if (!is.null(rv$tbl_meta) && nzchar(rv$tbl_meta) && rv$tbl_meta %in% tbls)
+        as.character(DBI::dbQuoteIdentifier(rv$con, rv$tbl_meta)) else NA_character_
+      
+      # ---- core counts
+      n_raw <- DBI::dbGetQuery(rv$con, paste0("SELECT COUNT(*) AS n FROM ", raw_sql))$n
+      cols_raw <- DBI::dbListFields(rv$con, rv$tbl_raw)
+      
+      cat("Raw table:", rv$tbl_raw, "\n")
+      cat("Individuals:", n_raw, "\n")
+      cat("Variables:", length(cols_raw), "\n\n")
+      
+      # DB-first: prefer locus_cols (collapsed loci), fallback to marker_cols_raw (raw cols) then collapse
+      marker_names  <- character(0)
+      marker_source <- "none"
+      
+      locus_json <- tryCatch(
+        DBI::dbGetQuery(rv$con, "SELECT value FROM params WHERE key='locus_cols'")$value[1],
+        error = function(e) NA_character_
+      )
+      
+      if (!is.na(locus_json) && nzchar(locus_json)) {
+        marker_names  <- tryCatch(jsonlite::fromJSON(locus_json), error = function(e) character(0))
+        marker_source <- "duckdb params (locus_cols)"
+      } else {
+        raw_json <- tryCatch(
+          DBI::dbGetQuery(rv$con, "SELECT value FROM params WHERE key='marker_cols_raw'")$value[1],
+          error = function(e) NA_character_
+        )
+        
+        raw_cols <- if (!is.na(raw_json) && nzchar(raw_json)) {
+          tryCatch(jsonlite::fromJSON(raw_json), error = function(e) character(0))
+        } else character(0)
+        
+        if (length(raw_cols)) {
+          marker_names  <- unique(sub("(_1|\\.[0-9]+)$", "", as.character(raw_cols)))
+          marker_source <- "duckdb params (marker_cols_raw \u2192 collapsed)"
+        } else if (!is.null(rv$det$locus_cols) && length(rv$det$locus_cols)) {
+          # optional fallback if you ever add it to detect_columns_auto()
+          marker_names  <- rv$det$locus_cols
+          marker_source <- "auto-detect (rv$det$locus_cols)"
+        } else if (!is.null(rv$det$marker_cols) && length(rv$det$marker_cols)) {
+          # last resort: collapse what auto-detect found
+          marker_names  <- unique(sub("(_1|\\.[0-9]+)$", "", as.character(rv$det$marker_cols)))
+          marker_source <- "auto-detect (rv$det$marker_cols \u2192 collapsed)"
+        }
+      }
+      
+      
+      has_markers <- length(marker_names) > 0
+      cat("Has markers:", ifelse(has_markers, "TRUE", "FALSE"), "\n")
+      cat("Marker set source:", marker_source, "\n")
+      cat("Markers (n):", length(marker_names), "\n")
+      
+      if (length(marker_names)) {
+        show_n <- min(10, length(marker_names))
+        cat("Marker names (first", show_n, "):\n")
+        cat(" - ", paste(marker_names[seq_len(show_n)], collapse = ", "), "\n", sep = "")
+        if (length(marker_names) > 10) cat(" - ...\n")
+      }
+      
+      # warn if formatted still contains suffixes like _1 / .1
+      if (length(marker_names) && any(grepl("(\\.|_)\\d+$", marker_names))) {
+        cat("WARNING: marker_cols contain allele suffixes (e.g. _1 / .1). Collapsing may not have occurred.\n")
+      }
+      
+      cat("\n")
+      
+      # ---- metadata columns (in addition to Population)
+      cat("Meta table created:", ifelse(!is.na(meta_sql), "YES", "NO"), "\n")
+      if (!is.na(meta_sql)) {
+        cols_meta <- DBI::dbListFields(rv$con, rv$tbl_meta)
+        meta_extra <- setdiff(cols_meta, c("Population", "Latitude", "Longitude"))
+        
+        show_n <- min(10, length(meta_extra))
+        cat("Metadata columns (excluding Population) (first", show_n, "):\n")
+        if (show_n == 0) {
+          cat(" - (none)\n")
+        } else {
+          cat(" - ", paste(meta_extra[seq_len(show_n)], collapse = ", "), "\n", sep = "")
+          if (length(meta_extra) > 10) cat(" - ...\n")
+        }
+        cat("\n")
+      }
+      
+      # ---- independent locations (from meta, based on unique lat/lon pairs)
+      if (!is.na(meta_sql) && all(c("Latitude","Longitude") %in% DBI::dbListFields(rv$con, rv$tbl_meta))) {
+        
+        loc_df <- DBI::dbGetQuery(
+          rv$con,
+          paste0(
+            "SELECT Latitude, Longitude, COUNT(*) AS n_indiv ",
+            "FROM ", meta_sql, " ",
+            "WHERE Latitude IS NOT NULL AND Longitude IS NOT NULL ",
+            "GROUP BY Latitude, Longitude ",
+            "ORDER BY n_indiv DESC"
+          )
+        )
+        
+        n_loc <- nrow(loc_df)
+        cat("Independent locations (unique Lat/Lon):", n_loc, "\n")
+        
+        if (n_loc > 0) {
+          show_n <- min(10, n_loc)
+          cat("Locations (first", show_n, "):\n")
+          for (i in seq_len(show_n)) {
+            cat(sprintf(" - (%.6f, %.6f) [n=%d]\n",
+                        loc_df$Latitude[i], loc_df$Longitude[i], loc_df$n_indiv[i]))
+          }
+          if (n_loc > 10) cat(" - ...\n")
+        }
+        
+      } else {
+        cat("Independent locations: NA (Latitude/Longitude not available in meta)\n")
+      }
+    })
+    
+    
   })
 }
