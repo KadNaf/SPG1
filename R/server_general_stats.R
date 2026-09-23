@@ -536,74 +536,82 @@ server_general_stats <- function(id, rv) {
     ")
       )
     })
-    # ── One button, one click, one action: clicking "Run" IS the download
-    #    request itself — computes the selected basic statistics, the
-    #    always-available gene-diversity / by-population tables (for ALL
-    #    populations automatically), AND the per-allele F-statistics, all
-    #    bundled into one zip.
-    output$ui_gs_out_status <- renderUI({
-      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
-        "The results will be saved in ", tags$code(paste0("general_stats_", Sys.Date(), ".zip")), ".")
-    })
+    .write_general_stats_params <- function(con, keep) {
+      hdr <- c(
+        "General Statistics \u2014 parameters used",
+        sprintf("Selected indices: %s", paste(keep, collapse = ", ")),
+        sprintf("Population shown in detail: %s", input$selected_pop_overall %||% "(none selected)")
+      )
+      writeLines(hdr, con = con, useBytes = TRUE)
+    }
 
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself — computes the selected basic statistics, and also
+    #    bundles the always-available gene-diversity / by-population tables,
+    #    into one zip with 4 result files + 1 parameters file.
     output$run_basic_stats <- downloadHandler(
       filename = function() paste0("general_stats_", Sys.Date(), ".zip"),
       content  = function(file) {
         result_stats_select <- .run_basic_stats_computation()
         req(result_stats_select)
+        keep <- setdiff(names(result_stats_select), "ID")
 
         tmpdir <- tempfile("spg_gs_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
 
         p1 <- file.path(tmpdir, paste0("basic_statistics_", Sys.Date(), ".txt"))
-        write.table(result_stats_select, file = p1, sep = "\t", row.names = FALSE, quote = FALSE)
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("Basic statistics \u2014 selected indices", ""), con = con1, useBytes = TRUE)
+        write.table(result_stats_select, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
 
         p2 <- file.path(tmpdir, paste0("gene_diversity_hs_by_pop_", Sys.Date(), ".txt"))
-        write.table(hs_by_pop_wide_r(), file = p2, sep = "\t", row.names = FALSE, quote = FALSE)
+        con2 <- file(p2, open = "w", encoding = "UTF-8")
+        writeLines(c("Expected heterozygosity (Hs) per locus and population", ""), con = con2, useBytes = TRUE)
+        write.table(hs_by_pop_wide_r(), file = con2, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con2)
 
         db_ready(); con <- con_r(); base <- base_r()
         df_overall <- duck_pop_stats_overall(con = con, tbl_hf = tbl_hf_r(), tbl_meta = tbl_meta_r(),
                                               base = base, missing_code = 0L)
         if (is.null(df_overall) || nrow(df_overall) == 0) df_overall <- data.frame(Message = "No population data")
-
-        all_pops <- tryCatch(
-          DBI::dbGetQuery(con, sprintf(
-            "SELECT DISTINCT Population FROM %s WHERE Population IS NOT NULL ORDER BY Population",
-            sql_ident(con, tbl_meta_r())))$Population,
-          error = function(e) character(0)
-        )
-        df_pop <- if (length(all_pops)) {
-          rows <- lapply(all_pops, function(p) {
-            d <- duck_pop_stats_by_pop_one(con = con, pop_name = p, tbl_hf = tbl_hf_r(),
-                                            tbl_meta = tbl_meta_r(), base = base, missing_code = 0L)
-            if (!is.null(d) && nrow(d) > 0) cbind(Population = p, d, stringsAsFactors = FALSE) else NULL
-          })
-          do.call(rbind, rows)
-        } else NULL
-        if (is.null(df_pop) || nrow(df_pop) == 0) df_pop <- data.frame(Message = "No data available")
-
-        # Combined file: population summary + per-locus detail, all populations.
         p3 <- file.path(tmpdir, paste0("overall_by_population_", Sys.Date(), ".txt"))
         con3 <- file(p3, open = "w", encoding = "UTF-8")
-        writeLines("All populations, averaged over loci (Na = mean number of alleles per locus, Ho = observed heterozygosity, Hs = expected heterozygosity, Fis = Weir & Cockerham inbreeding coefficient):", con = con3, useBytes = TRUE)
+        writeLines(c("All populations \u2014 Ho, Hs, Fis (WC) averaged over loci", ""), con = con3, useBytes = TRUE)
         write.table(df_overall, file = con3, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con3)
-        writeLines("Per-locus detail, all populations:", con = con3)
-        write.table(df_pop, file = con3, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
         close(con3)
 
-        all_files <- c(p1, p2, p3)
+        pop_sel <- input$selected_pop_overall
+        df_pop <- if (!is.null(pop_sel) && nzchar(pop_sel) && identical(pop_sel, "All")) {
+          all_pops <- tryCatch(
+            DBI::dbGetQuery(con, sprintf(
+              "SELECT DISTINCT Population FROM %s WHERE Population IS NOT NULL ORDER BY Population",
+              sql_ident(con, tbl_meta_r())))$Population,
+            error = function(e) character(0)
+          )
+          if (length(all_pops)) {
+            rows <- lapply(all_pops, function(p) {
+              d <- duck_pop_stats_by_pop_one(con = con, pop_name = p, tbl_hf = tbl_hf_r(),
+                                              tbl_meta = tbl_meta_r(), base = base, missing_code = 0L)
+              if (!is.null(d) && nrow(d) > 0) cbind(Population = p, d, stringsAsFactors = FALSE) else NULL
+            })
+            do.call(rbind, rows)
+          } else NULL
+        } else if (!is.null(pop_sel) && nzchar(pop_sel)) {
+          duck_pop_stats_by_pop_one(con = con, pop_name = pop_sel, tbl_hf = tbl_hf_r(),
+                                     tbl_meta = tbl_meta_r(), base = base, missing_code = 0L)
+        } else NULL
+        if (is.null(df_pop) || nrow(df_pop) == 0) df_pop <- data.frame(Message = "No data available")
+        p4 <- file.path(tmpdir, paste0("pop_stats_", pop_sel %||% "selected", "_", Sys.Date(), ".txt"))
+        con4 <- file(p4, open = "w", encoding = "UTF-8")
+        writeLines(c(sprintf("Per-locus statistics \u2014 population: %s", pop_sel %||% "(none)"), ""), con = con4, useBytes = TRUE)
+        write.table(df_pop, file = con4, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con4)
 
-        # Per-allele F-statistics (formerly its own separate Run button) —
-        # computed automatically here too, so a single click covers both.
-        fres <- .run_allele_fstats_computation()
-        if (!is.null(fres)) {
-          p4 <- file.path(tmpdir, paste0("Fstats_per_allele_", Sys.Date(), ".txt"))
-          write.table(fres, file = p4, sep = "\t", row.names = FALSE, quote = FALSE)
-          all_files <- c(all_files, p4)
-        }
+        p5 <- file.path(tmpdir, paste0("general_stats_parameters_", Sys.Date(), ".txt"))
+        con5 <- file(p5, open = "w", encoding = "UTF-8"); .write_general_stats_params(con5, keep); close(con5)
 
-        zip::zip(zipfile = file, files = basename(all_files), root = tmpdir)
+        zip::zip(zipfile = file, files = basename(c(p1, p2, p3, p4, p5)), root = tmpdir)
       }
     )
     # =========================================================#
@@ -831,19 +839,6 @@ server_general_stats <- function(id, rv) {
       boot_mean <- colMeans(boot_mat, na.rm = TRUE)
       ci_l <- apply(boot_mat, 2, stats::quantile, probs = alpha,     na.rm = TRUE, type = 7)
       ci_u <- apply(boot_mat, 2, stats::quantile, probs = 1 - alpha, na.rm = TRUE, type = 7)
-
-      # Fewer than 5 individuals in a given sub-sample (population): its
-      # individual bootstrap is not meaningful — report NA for that
-      # population specifically, not the whole analysis.
-      pop_sizes <- table(as.character(mat[, 1]))
-      names(pop_sizes) <- unname(pop_lookup[names(pop_sizes)])
-      small_pops <- names(pop_sizes)[pop_sizes < 5L]
-      small_pops <- intersect(small_pops, names(boot_mean))
-      if (length(small_pops)) {
-        boot_mean[small_pops] <- NA_real_
-        ci_l[small_pops] <- NA_real_
-        ci_u[small_pops] <- NA_real_
-      }
       
       # 4) Permutation test (C++) + p-values (two-sided abs)
       perm_res <- NULL
@@ -987,36 +982,26 @@ server_general_stats <- function(id, rv) {
         B       = as.integer(n_boot),
         base    = as.integer(base)
       )
-      # 4) Bootstrap summaries (individual bootstrap — always computed)
+      # 3b) Bootstrap POPULATIONS (pop-block) - captures uncertainty from the
+      # sampling of populations, not just individuals within populations.
+      # This is the same resampling scheme used for FST.
+      boot_pop_mat <- boot_popblock_wc_fis(
+        mat     = mat,
+        pop_col = 0L,
+        NAcode  = as.integer(missing_code),
+        B       = as.integer(n_boot),
+        base    = as.integer(base)
+      )
+      # 4) Bootstrap summaries
       summary_list <- summarize_fis_results(
         boot = boot_mat,
         conf = conf_level
       )
-      # 3b/4b) Bootstrap POPULATIONS (pop-block) - captures uncertainty from
-      # the sampling of populations, not just individuals within populations.
-      # This is the same resampling scheme used for FST.
-      n_subs_avail_fis <- length(unique(mat[, 1]))
-      if (n_subs_avail_fis < 5L) {
-        # Fewer than 5 sub-samples (populations): bootstrap over sub-samples
-        # is not meaningful — report NA instead of computing.
-        na_loc <- rep(NA_real_, length(locus_names))
-        summary_pop_list <- list(
-          mean = na_loc, ci_lower = na_loc, ci_upper = na_loc,
-          overall_mean = NA_real_, overall_ci_lower = NA_real_, overall_ci_upper = NA_real_
-        )
-      } else {
-        boot_pop_mat <- boot_popblock_wc_fis(
-          mat     = mat,
-          pop_col = 0L,
-          NAcode  = as.integer(missing_code),
-          B       = as.integer(n_boot),
-          base    = as.integer(base)
-        )
-        summary_pop_list <- summarize_fis_results(
-          boot = boot_pop_mat,
-          conf = conf_level
-        )
-      }
+      # 4b) Pop-block bootstrap summaries
+      summary_pop_list <- summarize_fis_results(
+        boot = boot_pop_mat,
+        conf = conf_level
+      )
       # 5) Build final dataframe (Observed + CI from individual bootstrap, matching Genetix)
       final_df <- create_results_dataframe(
         obs         = observed_fis,
@@ -1597,6 +1582,29 @@ server_general_stats <- function(id, rv) {
       writeLines(hdr, con = con, useBytes = TRUE)
     }
 
+    # ── One button, one click, one action: clicking "Run" IS the download
+    #    request itself.
+    output$compute_allele_fstats <- downloadHandler(
+      filename = function() paste0("fis_per_allele_", Sys.Date(), ".zip"),
+      content  = function(file) {
+        res <- .run_allele_fstats_computation()
+        req(res)
+        tmpdir <- tempfile("spg_allele_fstats_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+
+        p1 <- file.path(tmpdir, paste0("fis_per_allele_", Sys.Date(), ".txt"))
+        con1 <- file(p1, open = "w", encoding = "UTF-8")
+        writeLines(c("F-statistics per allele (Weir & Cockerham)", ""), con = con1, useBytes = TRUE)
+        write.table(res, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        close(con1)
+
+        p2 <- file.path(tmpdir, paste0("fis_per_allele_parameters_", Sys.Date(), ".txt"))
+        con2 <- file(p2, open = "w", encoding = "UTF-8"); .write_allele_fstats_params(con2); close(con2)
+
+        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
+      }
+    )
+
     ## Compute per-allele F-statistics (independent of bootstrap analyses) ----
     .run_allele_fstats_computation <- function() {
       shiny::req(hf_mat_r(), base_r())
@@ -1610,14 +1618,6 @@ server_general_stats <- function(id, rv) {
           base         = allele_base,
           missing_code = 0L
         )
-        # Sort by Locus then Allele (numeric) — the C++ routine doesn't
-        # guarantee output order.
-        loc_col <- intersect(c("Locus", "locus", "Marker"), names(out))[1]
-        all_col <- intersect(c("Allele", "allele"), names(out))[1]
-        if (!is.na(loc_col) && !is.na(all_col)) {
-          ord <- order(as.character(out[[loc_col]]), suppressWarnings(as.numeric(out[[all_col]])))
-          out <- out[ord, , drop = FALSE]
-        }
         fis_allele_results(out)
         showNotification("Per-allele F-statistics computed successfully!", type = "message")
         out
@@ -1676,16 +1676,6 @@ server_general_stats <- function(id, rv) {
       observed_fit <- obs_stats$FIT
       names(observed_fit) <- locus_names
       
-      n_subs_avail_fit <- length(unique(mat[, 1]))
-      if (n_subs_avail_fit < 5L) {
-        # Fewer than 5 sub-samples (populations): bootstrap over sub-samples
-        # is not meaningful — report NA instead of computing.
-        nL <- length(locus_names)
-        na_mat <- matrix(NA_real_, nrow = as.integer(n_boot), ncol = nL,
-                          dimnames = list(NULL, locus_names))
-        ci_na <- matrix(NA_real_, nrow = 2, ncol = nL, dimnames = list(c("lo", "hi"), locus_names))
-        boot_res <- list(CI_FIT = ci_na, FIT_boot = na_mat)
-      } else {
       boot_res <- boot_wc84_stats_popblock_cpp(
         mat_int        = mat,
         pop_col_1based = 1L,
@@ -1696,7 +1686,6 @@ server_general_stats <- function(id, rv) {
         seed           = 1L,
         n_threads      = 0L
       )
-      }
       
       CI_FIT <- boot_res$CI_FIT
       ci_lower <- as.numeric(CI_FIT["lo", ])
@@ -2212,23 +2201,6 @@ server_general_stats <- function(id, rv) {
       # ---------------------------#
       .bump_progress(70, sprintf("Bootstrap over subsamples (%s replicates)...",
                                   format(as.integer(n_boot), big.mark = ",")))
-      n_subs_avail <- length(unique(mat[, 1]))
-      if (n_subs_avail < 5L) {
-        # Fewer than 5 sub-samples (populations): bootstrap over sub-samples
-        # is not meaningful — report NA instead of computing.
-        nL <- length(loci_names)
-        na_mat <- matrix(NA_real_, nrow = as.integer(n_boot), ncol = nL,
-                          dimnames = list(NULL, loci_names))
-        boot_pop_res <- list(
-          locus_names       = loci_names,
-          FST_boot          = na_mat, HS_boot = na_mat, HT_boot = na_mat,
-          FST_overall_boot  = rep(NA_real_, as.integer(n_boot)),
-          HS_overall_boot   = rep(NA_real_, as.integer(n_boot)),
-          HT_overall_boot   = rep(NA_real_, as.integer(n_boot)),
-          HS_obs            = rep(NA_real_, nL), HT_obs = rep(NA_real_, nL),
-          HS_overall_obs    = NA_real_, HT_overall_obs = NA_real_
-        )
-      } else {
       boot_pop_res <- .step("boot_popblock_wc84_fst_auto()",boot_popblock_wc84_fst_auto(
         mat            = mat,
         pop_col_1based = 1L,
@@ -2239,7 +2211,6 @@ server_general_stats <- function(id, rv) {
         seed           = .seed(),
         debug          = FALSE
       ))
-      }
 
       fst_parallel_meta(attr(boot_pop_res, "parallel") %||% fst_parallel_meta())
 

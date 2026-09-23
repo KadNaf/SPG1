@@ -68,20 +68,15 @@ app_ui <- function() {
     /* ===== BODY & LAYOUT ===== */
     body {
       font-family: 'Helvetica Neue', 'Segoe UI', Arial, sans-serif;
-      font-size: 16px;
+      font-size: 15px;
       color: #333a43;
       background-color: #f5f7fa;
     }
     p, label, .form-label, .shiny-input-container label,
     .selectize-input, .form-control, .form-select,
     .dataTables_wrapper, .dt-container {
-      font-size: 15px;
+      font-size: 14px;
       color: #333a43;
-    }
-    /* Many hint/status paragraphs throughout the app were set with small
-       inline font sizes (11-13px) — raise the floor so they stay readable. */
-    .box p, .shiny-html-output p {
-      font-size: 14px !important;
     }
 
     .bslib-page-navbar > .tab-content {
@@ -313,8 +308,17 @@ app_ui <- function() {
     }
     .spg-hero h1 {
       color: #FFFFFF !important;
+      font-size: 2.8rem !important;
+      font-weight: 800 !important;
+      letter-spacing: -0.5px;
       margin: 0 0 8px 0 !important;
       border: none !important;
+    }
+    .spg-hero .spg-tagline {
+      color: #A9F0D8;
+      font-size: 1.1rem;
+      margin: 0 0 28px 0;
+      letter-spacing: 0.04em;
     }
     .spg-cta {
       display: inline-block;
@@ -604,31 +608,13 @@ app_ui <- function() {
     .spg-footer {
       background: #FFFFFF;
       margin: 0px -20px 0px -20px;
-      padding: 17px 40px 10px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-    }
-    .spg-footer-logos {
+      padding: 35px 40px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 44px;
-      flex-wrap: wrap;
+      gap: 50px;
     }
-    .spg-footer-sep {
-      width: 1px;
-      align-self: stretch;
-      background: #d8dceb;
-      margin: 0 6px;
-    }
-    .spg-footer img { max-height: 100px; }
-    .spg-footer-caption {
-      color: #6b7280;
-      font-size: 14px;
-      letter-spacing: 0.3px;
-    }
+    .spg-footer img { max-height: 60px; }
 
   ")
 
@@ -660,34 +646,38 @@ app_ui <- function() {
       # Left: text + CTA
       shiny::div(
         class = "spg-hero-text",
-        shiny::tags$h1(
-          style = "font-size: 5.2rem; font-weight: 300; color: #F4F6FF; margin: 0 0 6px 0; letter-spacing: -1.5px; line-height: 1.05;",
-          "PGA-commander V1"
-        ),
-        shiny::tags$div(
-          style = "font-size: 5.2rem; font-weight: 600; letter-spacing: -2px; line-height: 1.05; margin: 0 0 18px 0; background: linear-gradient(90deg, #8F86FF, #5AA7FF); -webkit-background-clip: text; background-clip: text; color: transparent;",
-          "PGA-cmdr V1"
-        ),
-        #
-        shiny::div(
-          class = "spg-credits",
-          style = "margin: 10px 0 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08);",
-          shiny::tags$p(
-            style = "color: #A9F0D8; font-size: 25px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
-            "A Versatile, user-friendly and multi-OS application", shiny::tags$br(),
-          "to analyse population genetic data"
-          )
-        ),
-        #
+        shiny::HTML('<svg viewBox="0 0 510 410" height="340" xmlns="http://www.w3.org/2000/svg" aria-label="ShinyPopGen" style="display:block; margin-bottom:20px;">
+          <defs>
+            <linearGradient id="hero-tg" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#8F86FF"/>
+              <stop offset="100%" stop-color="#5AA7FF"/>
+            </linearGradient>
+          </defs>
+          <text x="0" y="85" fill="#F4F6FF" font-size="65" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="300" letter-spacing="-1.5">ShinyPopGen V1</text>
+          <text x="0" y="175" fill="url(#hero-tg)" font-size="65" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="500" letter-spacing="-2">SPG-V1</text>
+          <line x1="0" y1="210" x2="300" y2="210" stroke="#7074D8" stroke-width="2"/>
+          <text x="2" y="240" fill="#F4F6FF" font-size="18" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="400">
+            <tspan x="2" dy="0">A Versatile, user-friendly and multi-OS application</tspan>
+            <tspan x="2" dy="22">to analyse population genetic data</tspan>
+          </text>
+          <rect x="2"   y="280" width="72" height="12" rx="6" fill="#6F67F5"/>
+          <rect x="86"  y="280" width="72" height="12" rx="6" fill="#7F76FF"/>
+          <rect x="172" y="280" width="72" height="12" rx="6" fill="#17B08B"/>
+          <rect x="258" y="280" width="42" height="12" rx="6" fill="#C45D34"/>
+          <rect x="314" y="280" width="72" height="12" rx="6" fill="#9A650E"/>
+          <rect x="400" y="280" width="96" height="12" rx="6" fill="#5F56CA"/>
+          <text x="2" y="330" fill="#787BD3" font-size="22" font-family="Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="400" letter-spacing="2.8">IRD \u00b7 UCAD \u00b7 CIRAD \u00b7 INTERTRYP</text>
+        </svg>'),
+        # Credits section
         shiny::div(
           class = "spg-credits",
           style = "margin: 10px 0 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08);",
           shiny::tags$p(
-            style = "color: #a0a8c0; font-size: 25px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
-            shiny::tags$strong("Programming:", style = "color: #c8d0e8;"),
-            " Naffiou Kadiri and Vincent Manzanilla",
+            style = "color: #a0a8c0; font-size: 20px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.7;",
+            shiny::tags$strong("Programming:", style = "color: #c8d0e8;"), 
+            " Vincent Manzanilla and Naffiou Kadiri",
             shiny::tags$br(),
-            shiny::tags$strong("Conception and supervision:", style = "color: #c8d0e8;"),
+            shiny::tags$strong("Conception:", style = "color: #c8d0e8;"), 
             " Thierry de Meeûs"
           )
         ),
@@ -697,13 +687,13 @@ app_ui <- function() {
           shiny::icon("upload"), " Launch "
         )
       ),
-      # Right: big logo — reduced ~2.7x from its previous size
+      # Right: big logo
       shiny::div(
         class = "spg-hero-logo",
         shiny::tags$img(
           src   = "spg_www/LogoPGAcmdr.png",
-          height = "200px",
-          alt   = "PGA-cmdr logo",
+          height = "400px",
+          alt   = "ShinyPopGen logo",
           style = "filter: drop-shadow(0 8px 32px rgba(0,0,0,0.55));"
         )
       )
@@ -712,67 +702,49 @@ app_ui <- function() {
     # ── Partner logos footer ──────────────────────────────────────────────────
     shiny::div(
       class = "spg-footer",
-      shiny::div(
-        class = "spg-footer-logos",
-        # INTERTRYP
-        shiny::tags$a(
-          href = "https://umr-intertryp.cirad.fr/en", target = "_blank",
-          style = "text-decoration:none;",
-          if (!is.null(logos$intertryp))
-            shiny::tags$img(src = logos$intertryp, height = "90px",
-              alt = "INTERTRYP", title = "Hosts, Vectors and Infectious Agents",
-              style = "opacity:0.9;")
-          else
-            shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "INTERTRYP")
-        ),
-        # Université de Montpellier
-        shiny::tags$a(
-          href = "https://www.umontpellier.fr/en/", target = "_blank",
-          style = "text-decoration:none;",
-          if (!is.null(logos$montpellier))
-            shiny::tags$img(src = logos$montpellier, height = "90px",
-              alt = "Universite de Montpellier", title = "Universite de Montpellier",
-              style = "opacity:0.9;")
-          else
-            shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "UM")
-        ),
-        # CIRAD
-        shiny::tags$a(
-          href = "https://www.cirad.fr/en", target = "_blank",
-          style = "text-decoration:none;",
-          if (!is.null(logos$cirad))
-            shiny::tags$img(src = logos$cirad, height = "90px",
-              alt = "CIRAD", title = "Agricultural Research for Development",
-              style = "opacity:0.9;")
-          else
-            shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "CIRAD")
-        ),
-        # IRD
-        shiny::tags$a(
-          href = "https://www.ird.fr/en", target = "_blank",
-          style = "text-decoration:none;",
-          if (!is.null(logos$ird))
-            shiny::tags$img(src = logos$ird, height = "100px",
-              alt = "IRD", title = "Institut de Recherche pour le Developpement",
-              style = "opacity:0.9;")
-          else
-            shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "IRD")
-        ),
-        # UCAD
-        shiny::tags$a(
-          href = "https://www.ucad.sn", target = "_blank",
-          style = "text-decoration:none;",
-          if (!is.null(logos$ucad))
-            shiny::tags$img(src = logos$ucad, height = "90px",
-              alt = "UCAD", title = "Universite Cheikh Anta Diop de Dakar",
-              style = "opacity:0.9;")
-          else
-            shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "UCAD")
-        )
+      # IRD
+      shiny::tags$a(
+        href = "https://www.ird.fr/en", target = "_blank",
+        style = "text-decoration:none;",
+        if (!is.null(logos$ird))
+          shiny::tags$img(src = logos$ird, height = "55px",
+            alt = "IRD", title = "Institut de Recherche pour le Developpement",
+            style = "opacity:0.9;")
+        else
+          shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "IRD")
       ),
-      shiny::tags$div(
-        class = "spg-footer-caption",
-        "Intertryp, Univ Montpellier, Cirad, IRD, Montpellier, France"
+      # UCAD
+      shiny::tags$a(
+        href = "https://www.ucad.sn", target = "_blank",
+        style = "text-decoration:none;",
+        if (!is.null(logos$ucad))
+          shiny::tags$img(src = logos$ucad, height = "55px",
+            alt = "UCAD", title = "Université Cheikh Anta Diop de Dakar",
+            style = "opacity:0.9;")
+        else
+          shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "UCAD")
+      ),
+      # CIRAD
+      shiny::tags$a(
+        href = "https://www.cirad.fr/en", target = "_blank",
+        style = "text-decoration:none;",
+        if (!is.null(logos$cirad))
+          shiny::tags$img(src = logos$cirad, height = "55px",
+            alt = "CIRAD", title = "Agricultural Research for Development",
+            style = "opacity:0.9;")
+        else
+          shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "CIRAD")
+      ),
+      # INTERTRYP
+      shiny::tags$a(
+        href = "https://umr-intertryp.cirad.fr/en", target = "_blank",
+        style = "text-decoration:none;",
+        if (!is.null(logos$intertryp))
+          shiny::tags$img(src = logos$intertryp, height = "55px",
+            alt = "INTERTRYP", title = "Hosts, Vectors and Infectious Agents",
+            style = "opacity:0.9;")
+        else
+          shiny::tags$span(style = "font-weight:700;font-size:1.3rem;color:#26306B;letter-spacing:1px;", "INTERTRYP")
       )
     )
   )
@@ -1065,15 +1037,15 @@ app_ui <- function() {
   ###
   bslib::page_navbar(
     id    = "main_nav",
-    title = "PGA-cmdr",
+    title = "ShinyPopGen",
     theme          = spg_theme,
-    window_title   = "PGA-cmdr",
+    window_title   = "ShinyPopGen",
     navbar_options = bslib::navbar_options(collapsible = TRUE),
     fillable       = FALSE,
 
     # Inject AdminLTE CSS for shinydashboard boxes + our custom overrides
     header = shiny::tags$head(
-      shiny::tags$title("PGA-cmdr"),
+      shiny::tags$title("ShinyPopGen"),
       shiny::tags$link(
         rel  = "stylesheet",
         href = "sdb/AdminLTE/AdminLTE.min.css"
