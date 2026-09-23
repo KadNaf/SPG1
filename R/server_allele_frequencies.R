@@ -32,8 +32,8 @@ server_allele_frequencies <- function(id, rv) {
       r <- trimws(input$fstat_out_root %||% "")
       if (nzchar(r)) r else if (nzchar(last_auto_root_af())) last_auto_root_af() else "SPG_"
     })
-    fstat_out_filename <- function() paste0(fstat_out_root_r(), "-allele_freq_by_locus.txt")
-    fstat_out_zip_filename <- function() paste0(fstat_out_root_r(), "-allele_freq_by_locus.zip")
+    fstat_out_filename <- function() paste0(fstat_out_root_r(), "allele_freq_by_locus.txt")
+    fstat_out_zip_filename <- function() paste0(fstat_out_root_r(), "allele_freq_by_locus.zip")
 
     output$ui_fstat_out_status <- renderUI({
       tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
