@@ -1863,24 +1863,16 @@ duck_pop_stats_overall <- function(con, tbl_hf = "hf", tbl_meta = "meta",
   pop_names <- DBI::dbGetQuery(con, sprintf(
     "SELECT DISTINCT Population FROM %s WHERE Population IS NOT NULL ORDER BY Population",
     DBI::dbQuoteIdentifier(con, tbl_meta)))$Population
-  if (!length(pop_names)) return(data.frame(Population = character(0), Na = numeric(0), Ho = numeric(0), Hs = numeric(0), `Fis (WC)` = numeric(0), check.names = FALSE))
+  if (!length(pop_names)) return(data.frame(Population = character(0), Ho = numeric(0), Hs = numeric(0), `Fis (WC)` = numeric(0), check.names = FALSE))
 
   mat <- .hf_matrix_from_db(con, tbl_hf, tbl_meta, missing_code)
-  if (is.null(mat) || nrow(mat) == 0L) return(data.frame(Population = character(0), Na = numeric(0), Ho = numeric(0), Hs = numeric(0), `Fis (WC)` = numeric(0), check.names = FALSE))
+  if (is.null(mat) || nrow(mat) == 0L) return(data.frame(Population = character(0), Ho = numeric(0), Hs = numeric(0), `Fis (WC)` = numeric(0), check.names = FALSE))
 
   pop_codes <- sort(unique(mat[, 1]))
   rows <- lapply(pop_codes, function(pc) {
     sub <- mat[mat[, 1] == pc, , drop = FALSE]
     nei <- nei_het_stats_cpp(dat = sub, pop_col_1based = 1L, missing_code = 0L, base = base)
-    # Na: mean number of distinct alleles per locus, in this population.
-    na_per_locus <- vapply(2:ncol(sub), function(j) {
-      g <- sub[, j]; g <- g[is.finite(g) & g != as.integer(missing_code) & g > 0L]
-      if (!length(g)) return(NA_integer_)
-      a1 <- g %/% base; a2 <- g %% base
-      length(unique(c(a1[a1 > 0L], a2[a2 > 0L])))
-    }, integer(1))
     data.frame(pop_code = pc,
-               Na = mean(na_per_locus, na.rm = TRUE),
                Ho = mean(as.numeric(nei$Ho), na.rm = TRUE),
                Hs = mean(as.numeric(nei$Hs), na.rm = TRUE),
                stringsAsFactors = FALSE)
@@ -1894,7 +1886,7 @@ duck_pop_stats_overall <- function(con, tbl_hf = "hf", tbl_meta = "meta",
   out$`Fis (WC)` <- if (!is.null(fis_pop)) as.numeric(fis_pop[as.character(out$pop_code)]) else NA_real_
 
   out$Population <- pop_names[match(out$pop_code, seq_along(pop_names))]
-  out <- out[order(out$Population), c("Population", "Na", "Ho", "Hs", "Fis (WC)")]
+  out <- out[order(out$Population), c("Population", "Ho", "Hs", "Fis (WC)")]
   rownames(out) <- NULL
   out
 }

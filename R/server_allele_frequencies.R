@@ -33,10 +33,11 @@ server_allele_frequencies <- function(id, rv) {
       if (nzchar(r)) r else if (nzchar(last_auto_root_af())) last_auto_root_af() else "SPG_"
     })
     fstat_out_filename <- function() paste0(fstat_out_root_r(), "-allele_freq_by_locus.txt")
+    fstat_out_zip_filename <- function() paste0(fstat_out_root_r(), "-allele_freq_by_locus.zip")
 
     output$ui_fstat_out_status <- renderUI({
-      tags$p(style = "color:#555;font-size:12px;margin-top:6px;",
-        "Allele frequencies will be saved in the file ", tags$code(fstat_out_filename()), ".")
+      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
+        "The results will be saved in ", tags$code(fstat_out_zip_filename()), ".")
     })
 
     # ── Defensive DB wrapper ─────────────────────────────────────────────────
@@ -446,7 +447,7 @@ function(row,data,index){
     #    file is streamed back. Also flips fstat_shown_r() so the on-screen
     #    table appears too.
     output$update_fstat <- downloadHandler(
-      filename = function() fstat_out_filename(),
+      filename = function() fstat_out_zip_filename(),
       content  = function(file) {
         fstat_shown_r(TRUE)
         wide <- fstat_wide_r()
@@ -455,8 +456,14 @@ function(row,data,index){
         # Diversity-index rows (Na/Ne/He/Ho/Fis) are reported in the
         # General Statistics module instead — not needed in this table.
         wide <- wide[wide$Row_type != "div_stat", , drop = FALSE]
-        write.table(wide[, c("Locus", "Row_label", pops, "Global")], file = file,
+
+        tmpdir <- tempfile("spg_af_export_"); dir.create(tmpdir)
+        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+        p1 <- file.path(tmpdir, fstat_out_filename())
+        write.table(wide[, c("Locus", "Row_label", pops, "Global")], file = p1,
                     sep = "\t", row.names = FALSE, quote = FALSE)
+
+        zip::zip(zipfile = file, files = basename(p1), root = tmpdir)
       }
     )
   })

@@ -585,7 +585,7 @@ server_general_stats <- function(id, rv) {
         # Combined file: population summary + per-locus detail, all populations.
         p3 <- file.path(tmpdir, paste0("overall_by_population_", Sys.Date(), ".txt"))
         con3 <- file(p3, open = "w", encoding = "UTF-8")
-        writeLines("All populations, averaged over loci (Na = mean number of alleles per locus, Ho = observed heterozygosity, Hs = expected heterozygosity, Fis = Weir & Cockerham inbreeding coefficient):", con = con3, useBytes = TRUE)
+        writeLines("All populations, averaged over loci (Ho = observed heterozygosity, Hs = expected heterozygosity, Fis = Weir & Cockerham inbreeding coefficient):", con = con3, useBytes = TRUE)
         write.table(df_overall, file = con3, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
         writeLines("", con = con3)
         writeLines("Per-locus detail, all populations:", con = con3)
