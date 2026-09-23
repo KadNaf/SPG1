@@ -68,15 +68,20 @@ app_ui <- function() {
     /* ===== BODY & LAYOUT ===== */
     body {
       font-family: 'Helvetica Neue', 'Segoe UI', Arial, sans-serif;
-      font-size: 15px;
+      font-size: 16px;
       color: #333a43;
       background-color: #f5f7fa;
     }
     p, label, .form-label, .shiny-input-container label,
     .selectize-input, .form-control, .form-select,
     .dataTables_wrapper, .dt-container {
-      font-size: 14px;
+      font-size: 15px;
       color: #333a43;
+    }
+    /* Many hint/status paragraphs throughout the app were set with small
+       inline font sizes (11-13px) — raise the floor so they stay readable. */
+    .box p, .shiny-html-output p {
+      font-size: 14px !important;
     }
 
     .bslib-page-navbar > .tab-content {
@@ -698,7 +703,7 @@ app_ui <- function() {
         shiny::tags$img(
           src   = "spg_www/LogoPGAcmdr.png",
           height = "200px",
-          alt   = "ShinyPopGen logo",
+          alt   = "PGA-cmdr logo",
           style = "filter: drop-shadow(0 8px 32px rgba(0,0,0,0.55));"
         )
       )
@@ -1060,15 +1065,15 @@ app_ui <- function() {
   ###
   bslib::page_navbar(
     id    = "main_nav",
-    title = "ShinyPopGen",
+    title = "PGA-cmdr",
     theme          = spg_theme,
-    window_title   = "ShinyPopGen",
+    window_title   = "PGA-cmdr",
     navbar_options = bslib::navbar_options(collapsible = TRUE),
     fillable       = FALSE,
 
     # Inject AdminLTE CSS for shinydashboard boxes + our custom overrides
     header = shiny::tags$head(
-      shiny::tags$title("ShinyPopGen"),
+      shiny::tags$title("PGA-cmdr"),
       shiny::tags$link(
         rel  = "stylesheet",
         href = "sdb/AdminLTE/AdminLTE.min.css"

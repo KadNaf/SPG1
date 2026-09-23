@@ -29,6 +29,7 @@ mod_general_stats_ui <- function(id) {
         checkboxInput(ns("GST_checkbox"),      "GST (Nei's genetic differentiation)", FALSE),
         checkboxInput(ns("GST_sec_checkbox"),  "GST'' (Hedrick's correction)", FALSE),
         tags$hr(),
+        uiOutput(ns("ui_gs_out_status")),
         downloadButton(ns("run_basic_stats"),
                      label = "Run",
                      icon = icon("rocket"),

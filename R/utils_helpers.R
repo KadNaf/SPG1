@@ -59,15 +59,15 @@ module_banner <- function(icon_name, title, subtitle, accent = "#6B64EF") {
     shiny::div(
       style = "flex-shrink:0; display:flex; flex-direction:row; align-items:center; gap:12px;",
       shiny::HTML(paste0(
-        '<svg viewBox="0 0 220 115" height="88" xmlns="http://www.w3.org/2000/svg" aria-label="ShinyPopGen">',
+        '<svg viewBox="0 0 220 115" height="88" xmlns="http://www.w3.org/2000/svg" aria-label="PGA-cmdr">',
         '<defs>',
         '<linearGradient id="', gid, '" x1="0" y1="0" x2="1" y2="0">',
         '<stop offset="0%" stop-color="#8F86FF"/>',
         '<stop offset="100%" stop-color="#5AA7FF"/>',
         '</linearGradient>',
         '</defs>',
-        '<text x="2" y="40" fill="#F4F6FF" font-size="36" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="300" letter-spacing="-0.5">Shiny</text>',
-        '<text x="2" y="78" fill="url(#', gid, ')" font-size="38" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="500" letter-spacing="-0.8">PopGen</text>',
+        '<text x="2" y="40" fill="#F4F6FF" font-size="36" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="300" letter-spacing="-0.5">PGA-</text>',
+        '<text x="2" y="78" fill="url(#', gid, ')" font-size="38" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="500" letter-spacing="-0.8">cmdr</text>',
         '<line x1="2" y1="88" x2="198" y2="88" stroke="#7074D8" stroke-width="1"/>',
         '<text x="2" y="106" fill="#A8ACF8" font-size="9" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="400" letter-spacing="2.5">POPULATION GENETICS</text>',
         '</svg>'
@@ -75,7 +75,7 @@ module_banner <- function(icon_name, title, subtitle, accent = "#6B64EF") {
       shiny::tags$img(
         src   = "spg_www/LogoPGAcmdr.png",
         height = "72px",
-        alt   = "ShinyPopGen",
+        alt   = "PGA-cmdr",
         style = "opacity:0.88; filter:drop-shadow(0 2px 10px rgba(0,0,0,0.5));"
       )
     )

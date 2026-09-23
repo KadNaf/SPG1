@@ -57,7 +57,7 @@ import_data_ui <- function(id) {
           width = 12,
           title = div(style = box_title_style, icon("sliders-h"), " Column assignment and formatting"),
           solidHeader = TRUE,
-          footer = "* mandatory fields",
+          footer = tagList("* mandatory fields", tags$br(), "Check column numbers below."),
 
           selectizeInput(ns("pop_data"),       "Population name*",    choices = NULL, options = list(placeholder = "select")),
           selectizeInput(ns("latitude_data"),  "Latitude",            choices = NULL, options = list(placeholder = "select")),

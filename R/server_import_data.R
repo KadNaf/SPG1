@@ -812,6 +812,19 @@ server_import_data <- function(id, rv) {
     # ── Loci range: Create-style input (number of loci + first locus
     #    column), with a read-only preview of the resulting range kept for
     #    verification. ──────────────────────────────────────────────────────
+    # ── Detect whether loci are stored as ONE combined genotype column
+    #    each, or as a PAIR of columns (allele1 in the base name, allele2
+    #    in a "<name>_1" / "<name>.1" column right after it) — very common
+    #    in raw genotype files. If the data is paired, "N loci" must span
+    #    2*N raw columns, not N.
+    .cols_per_locus <- function(colnames_all, first_col) {
+      n_all <- length(colnames_all)
+      if (is.na(first_col) || first_col < 1 || first_col >= n_all) return(1L)
+      name1 <- colnames_all[first_col]
+      name2 <- colnames_all[first_col + 1L]
+      if (identical(name2, paste0(name1, "_1")) || identical(name2, paste0(name1, ".1"))) 2L else 1L
+    }
+
     output$ui_locus_range_preview <- renderUI({
       n_loci <- suppressWarnings(as.integer(input$n_loci))
       first_col <- suppressWarnings(as.integer(input$first_locus_col))
@@ -822,7 +835,8 @@ server_import_data <- function(id, rv) {
           "Enter the number of loci and the column number of the first locus."))
       }
 
-      last_col <- first_col + n_loci - 1L
+      cpl <- .cols_per_locus(rv$colnames_all, first_col)
+      last_col <- first_col + (n_loci * cpl) - 1L
       out_of_bounds <- n_all > 0 && (first_col > n_all || last_col > n_all)
 
       if (out_of_bounds) {
@@ -834,7 +848,9 @@ server_import_data <- function(id, rv) {
         tags$p(style = "color:#555;font-size:12px;",
           icon("check-circle"), " Verification \u2014 loci columns: ",
           tags$strong(sprintf("%d to %d", first_col, last_col)),
-          sprintf(" (%d loci, range \u201c%d-%d\u201d).", n_loci, first_col, last_col))
+          sprintf(" (%d loci, %s, range \u201c%d-%d\u201d).", n_loci,
+                  if (cpl == 2L) "2 columns/locus (paired allele format) detected" else "1 column/locus",
+                  first_col, last_col))
       }
     })
 
@@ -852,7 +868,7 @@ server_import_data <- function(id, rv) {
         shinyalert::shinyalert("Error", "Enter the number of loci and the column number of the first locus.", type = "error")
         return()
       }
-      last_col <- first_col + n_loci - 1L
+      last_col <- first_col + (n_loci * .cols_per_locus(rv$colnames_all, first_col)) - 1L
       if (first_col > n_all || last_col > n_all) {
         shinyalert::shinyalert("Error", "Try again, your range is out of bounds.", type = "error")
         return()
