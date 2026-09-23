@@ -831,7 +831,7 @@ server_import_data <- function(id, rv) {
       n_all <- length(rv$colnames_all %||% character(0))
 
       if (is.na(n_loci) || is.na(first_col) || n_loci < 1 || first_col < 1) {
-        return(tags$p(style = "color:#777;font-size:11px;",
+        return(tags$p(style = "color:#777;font-size:13px;",
           "Enter the number of loci and the column number of the first locus."))
       }
 
@@ -840,17 +840,30 @@ server_import_data <- function(id, rv) {
       out_of_bounds <- n_all > 0 && (first_col > n_all || last_col > n_all)
 
       if (out_of_bounds) {
-        tags$p(style = "color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:4px;padding:6px 8px;font-size:12px;",
-          icon("exclamation-triangle"),
-          sprintf(" Out of bounds: columns %d\u2013%d requested, but the file only has %d columns. Please try again.",
-                  first_col, last_col, n_all))
+        tags$div(style = "color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:4px;padding:8px 10px;font-size:13px;",
+          tags$p(style = "margin:0;",
+            icon("exclamation-triangle"),
+            sprintf(" Out of bounds: columns %d\u2013%d requested, but the file only has %d columns.",
+                    first_col, last_col, n_all)),
+          if (cpl == 2L) tags$p(style = "margin:4px 0 0 0;",
+            "This file uses paired-column format (2 columns per locus, auto-detected) \u2014 ",
+            tags$strong("enter the real number of loci here, do not double it yourself."),
+            sprintf(" With %d loci starting at column %d, this needs up to column %d.",
+                    n_loci, first_col, last_col))
+          else NULL,
+          tags$p(style = "margin:4px 0 0 0;", "Please try again."))
       } else {
-        tags$p(style = "color:#555;font-size:12px;",
-          icon("check-circle"), " Verification \u2014 loci columns: ",
-          tags$strong(sprintf("%d to %d", first_col, last_col)),
-          sprintf(" (%d loci, %s, range \u201c%d-%d\u201d).", n_loci,
-                  if (cpl == 2L) "2 columns/locus (paired allele format) detected" else "1 column/locus",
-                  first_col, last_col))
+        tags$div(style = "color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:8px 10px;font-size:13px;",
+          tags$p(style = "margin:0;",
+            icon("check-circle"), " Verification \u2014 loci columns: ",
+            tags$strong(sprintf("%d to %d", first_col, last_col)),
+            sprintf(" (%d loci).", n_loci)),
+          if (cpl == 2L) tags$p(style = "margin:4px 0 0 0;",
+            icon("info-circle"), " Paired-column format detected (2 raw columns per locus) \u2014 ",
+            "the ", tags$strong("Number of loci"), " field above is the real locus count; ",
+            "no need to double it yourself.")
+          else NULL
+        )
       }
     })
 
@@ -868,9 +881,12 @@ server_import_data <- function(id, rv) {
         shinyalert::shinyalert("Error", "Enter the number of loci and the column number of the first locus.", type = "error")
         return()
       }
-      last_col <- first_col + (n_loci * .cols_per_locus(rv$colnames_all, first_col)) - 1L
+      cpl_check <- .cols_per_locus(rv$colnames_all, first_col)
+      last_col <- first_col + (n_loci * cpl_check) - 1L
       if (first_col > n_all || last_col > n_all) {
-        shinyalert::shinyalert("Error", "Try again, your range is out of bounds.", type = "error")
+        msg <- sprintf("Columns %d\u2013%d requested, but the file only has %d columns.", first_col, last_col, n_all)
+        if (cpl_check == 2L) msg <- paste(msg, "This file uses paired-column format (2 columns/locus) \u2014 enter the real number of loci, do not double it yourself.")
+        shinyalert::shinyalert("Error", msg, type = "error")
         return()
       }
       col_ranges_data <- sprintf("%d-%d", first_col, last_col)
