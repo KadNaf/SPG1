@@ -604,7 +604,7 @@ app_ui <- function() {
     .spg-footer {
       background: #FFFFFF;
       margin: 0px -20px 0px -20px;
-      padding: 13px 40px 10px;
+      padding: 12px 40px 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
