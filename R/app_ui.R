@@ -626,7 +626,7 @@ app_ui <- function() {
     .spg-footer img { max-height: 100px; }
     .spg-footer-caption {
       color: #6b7280;
-      font-size: 14px;
+      font-size: 16px;
       letter-spacing: 0.3px;
     }
 
