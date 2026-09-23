@@ -604,7 +604,7 @@ app_ui <- function() {
     .spg-footer {
       background: #FFFFFF;
       margin: 0px -20px 0px -20px;
-      padding: 17px 40px 10px;
+      padding: 15px 40px 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -626,7 +626,7 @@ app_ui <- function() {
     .spg-footer img { max-height: 100px; }
     .spg-footer-caption {
       color: #6b7280;
-      font-size: 16px;
+      font-size: 17px;
       letter-spacing: 0.3px;
     }
 
