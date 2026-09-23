@@ -33,6 +33,7 @@ mod_genetic_diversities_ui <- function(id) {
             h4(icon("sliders"), "Parameters"),
             numericInput(ns("n_perm_fst_div"),    "Number of Permutations:",        value = 5000, min = 100, max = 20000, step = 100),
             numericInput(ns("n_boot_fst_div"),    "Number of Bootstrap Replicates:", value = 5000, min = 100, max = 20000, step = 100),
+            uiOutput(ns("ui_div_out_status")),
             downloadButton(ns("run_FST_Analysis_div"), " Run",
                          icon = icon("rocket"),
                          class = "btn-action-primary btn-block", style = "font-weight: bold;"),

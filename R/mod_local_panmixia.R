@@ -34,6 +34,7 @@ mod_local_panmixia_ui <- function(id) {
             numericInput(ns("conf_level"),"Confidence Level:",               value = 0.95, min = 0.80, max = 0.99, step = 0.01),
             selectInput(ns("analysis_level"), "Analysis Level:",
                         choices = c("By Locus", "By Population"), selected = "By Locus"),
+            uiOutput(ns("ui_fis_out_status")),
             downloadButton(ns("Run_FIS_Analysis"), " Run",
                          icon = icon("rocket"),
                          class = "btn-action-primary btn-block", style = "font-weight: bold;")
@@ -80,6 +81,7 @@ mod_local_panmixia_ui <- function(id) {
           ),
           column(9,
             br(),
+            uiOutput(ns("ui_fislp_out_status")),
             downloadButton(ns("run_fis_locus_pop"), " Run",
                          icon = icon("rocket"),
                          class = "btn-action-primary btn-block", style = "font-weight: bold;")

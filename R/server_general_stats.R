@@ -1341,6 +1341,11 @@ server_general_stats <- function(id, rv) {
     #    request itself — the FIS bootstrap/permutation runs inside this same
     #    content() function before the 2 result files + 1 parameters file
     #    are zipped and streamed back.
+    output$ui_fis_out_status <- renderUI({
+      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
+        "The results will be saved in ", tags$code(paste0("local_panmixia_FIS_", Sys.Date(), ".zip")), ".")
+    })
+
     output$Run_FIS_Analysis <- downloadHandler(
       filename = function() paste0("local_panmixia_FIS_", Sys.Date(), ".zip"),
       content  = function(file) {
@@ -1525,6 +1530,11 @@ server_general_stats <- function(id, rv) {
 
     # ── One button, one click, one action: clicking "Run" IS the download
     #    request itself.
+    output$ui_fislp_out_status <- renderUI({
+      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
+        "The results will be saved in ", tags$code(paste0("fis_locus_by_pop_", Sys.Date(), ".zip")), ".")
+    })
+
     output$run_fis_locus_pop <- downloadHandler(
       filename = function() paste0("fis_locus_by_pop_", Sys.Date(), ".zip"),
       content  = function(file) {
@@ -2051,6 +2061,11 @@ server_general_stats <- function(id, rv) {
     #    request itself — the FIT bootstrap/permutation runs inside this same
     #    content() function before the 2 result files + 1 parameters file
     #    are zipped and streamed back.
+    output$ui_fit_out_status <- renderUI({
+      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
+        "The results will be saved in ", tags$code(paste0("global_panmixia_FIT_", Sys.Date(), ".zip")), ".")
+    })
+
     output$Run_FIT_Analysis <- downloadHandler(
       filename = function() paste0("global_panmixia_FIT_", Sys.Date(), ".zip"),
       content  = function(file) {
@@ -2815,6 +2830,11 @@ server_general_stats <- function(id, rv) {
     #    are zipped and streamed back. Also populates the shared
     #    fst_boot_results()/fst_boot_timing() used by the Genetic Diversities
     #    tab, exactly as before.
+    output$ui_fst_out_status <- renderUI({
+      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
+        "The results will be saved in ", tags$code(paste0("subdivision_FST_", Sys.Date(), ".zip")), ".")
+    })
+
     output$run_FST_Analysis <- downloadHandler(
       filename = function() paste0("subdivision_FST_", Sys.Date(), ".zip"),
       content  = function(file) {
@@ -3316,6 +3336,11 @@ server_general_stats <- function(id, rv) {
     #    request itself — the FST/HS/HT bootstrap analysis runs inside this
     #    same content() function before the 7 result files + 1 parameters
     #    file are zipped and streamed back.
+    output$ui_div_out_status <- renderUI({
+      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
+        "The results will be saved in ", tags$code(paste0("genetic_diversities_", Sys.Date(), ".zip")), ".")
+    })
+
     output$run_FST_Analysis_div <- downloadHandler(
       filename = function() paste0("genetic_diversities_", Sys.Date(), ".zip"),
       content  = function(file) {
@@ -3980,6 +4005,11 @@ server_general_stats <- function(id, rv) {
     #    request itself — the G-test permutation runs inside this same
     #    content() function before the 2 result files + 1 parameters file
     #    are zipped and streamed back.
+    output$ui_gtest_out_status <- renderUI({
+      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
+        "The results will be saved in ", tags$code(paste0("subdivision_Gtest_", Sys.Date(), ".zip")), ".")
+    })
+
     output$run_G_test <- downloadHandler(
       filename = function() paste0("subdivision_Gtest_", Sys.Date(), ".zip"),
       content  = function(file) {

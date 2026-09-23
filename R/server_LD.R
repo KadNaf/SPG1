@@ -421,6 +421,11 @@ server_LD <- function(id, rv) {
       write.table(pv, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
     }
 
+    output$ui_ld_out_status <- renderUI({
+      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
+        "The results will be saved in ", tags$code(paste0("LD_", Sys.Date(), ".zip")), ".")
+    })
+
     output$run_LD <- downloadHandler(
       filename = function() paste0("LD_", Sys.Date(), ".zip"),
       content  = function(file) {

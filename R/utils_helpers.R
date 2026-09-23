@@ -55,21 +55,22 @@ module_banner <- function(icon_name, title, subtitle, accent = "#6B64EF") {
       shiny::tags$h2(title, class = "spg-banner-title"),
       shiny::tags$p(subtitle, class = "spg-banner-subtitle")
     ),
-    # Right: ShinyPopGen brand SVG text + circular logo
+    # Right: PGA-cmdr brand SVG text + circular logo
     shiny::div(
       style = "flex-shrink:0; display:flex; flex-direction:row; align-items:center; gap:12px;",
       shiny::HTML(paste0(
-        '<svg viewBox="0 0 220 115" height="88" xmlns="http://www.w3.org/2000/svg" aria-label="PGA-cmdr">',
+        '<svg viewBox="0 0 320 72" height="56" xmlns="http://www.w3.org/2000/svg" aria-label="PGA-cmdr">',
         '<defs>',
         '<linearGradient id="', gid, '" x1="0" y1="0" x2="1" y2="0">',
         '<stop offset="0%" stop-color="#8F86FF"/>',
         '<stop offset="100%" stop-color="#5AA7FF"/>',
         '</linearGradient>',
         '</defs>',
-        '<text x="2" y="40" fill="#F4F6FF" font-size="36" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="300" letter-spacing="-0.5">PGA-</text>',
-        '<text x="2" y="78" fill="url(#', gid, ')" font-size="38" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="500" letter-spacing="-0.8">cmdr</text>',
-        '<line x1="2" y1="88" x2="198" y2="88" stroke="#7074D8" stroke-width="1"/>',
-        '<text x="2" y="106" fill="#A8ACF8" font-size="9" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="400" letter-spacing="2.5">POPULATION GENETICS</text>',
+        '<text x="2" y="38" font-size="34" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="300" letter-spacing="-0.5">',
+        '<tspan fill="#F4F6FF">PGA-</tspan><tspan fill="url(#', gid, ')" font-weight="500" letter-spacing="-0.8">cmdr</tspan>',
+        '</text>',
+        '<line x1="2" y1="48" x2="298" y2="48" stroke="#7074D8" stroke-width="1"/>',
+        '<text x="2" y="65" fill="#A8ACF8" font-size="9" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="400" letter-spacing="2.5">POPULATION GENETICS</text>',
         '</svg>'
       )),
       shiny::tags$img(

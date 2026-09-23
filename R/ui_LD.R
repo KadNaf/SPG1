@@ -33,6 +33,7 @@ linkage_desequilibrium_UI <- function(id) {
                      value = 10000, min = 1000, max = 100000, step = 1000),
         
         tags$hr(),
+        uiOutput(ns("ui_ld_out_status")),
         downloadButton(ns("run_LD"), " Run",
                      icon = icon("rocket"),
                      class = "btn-action-primary btn-block")
