@@ -621,7 +621,8 @@ Rcpp::List nei_het_stats_cpp(const Rcpp::IntegerMatrix& dat,
       
       if (n_i[pi] <= 1) continue;
       
-      const double denom = 2.0 * (double)n_i[pi];
+      const double n_pi = (double)n_i[pi];
+      const double denom = 2.0 * n_pi;
       
       double sum_p2 = 0.0;
       
@@ -631,10 +632,14 @@ Rcpp::List nei_het_stats_cpp(const Rcpp::IntegerMatrix& dat,
         sum_p2 += pk * pk;
       }
       
-      double Hpop = 1.0 - sum_p2;
+      const double Ho_pi = (double)het_i[pi] / n_pi;
       
-      // unbiased correction
-      Hpop *= (denom / (denom - 1.0));
+      // Nei & Chesser (1983) unbiased Hs, eq. 7.39 in Nei (1987):
+      //   Hs = n/(n-1) * (1 - sum(p^2) - Ho/(2n))
+      // (the previous simpler (2n/(2n-1))*(1-sum(p^2)) form omitted the
+      // Ho correction term, matching GENETIX's convention rather than
+      // FSTAT's/GENEPOP's.)
+      double Hpop = (n_pi / (n_pi - 1.0)) * (1.0 - sum_p2 - Ho_pi / denom);
       
       Hs_num += Hpop;
       Hs_den += 1.0;

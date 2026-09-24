@@ -1788,7 +1788,8 @@ duck_hs_by_pop_locus_long <- function(con,
       SELECT
         Population,
         Locus,
-        COUNT(*)::DOUBLE AS n
+        COUNT(*)::DOUBLE AS n,
+        SUM(CASE WHEN a1 <> a2 THEN 1 ELSE 0 END)::DOUBLE AS n_het
       FROM g
       GROUP BY Population, Locus
     ),
@@ -1809,12 +1810,14 @@ duck_hs_by_pop_locus_long <- function(con,
     SELECT
       s.Locus,
       s.Population,
-      (2.0*p.n / (2.0*p.n - 1.0)) * (1.0 - SUM(POWER(s.c / (2.0*p.n), 2))) AS Hs   -- unbiased
+      -- Nei & Chesser (1983) unbiased Hs: n/(n-1) * (1 - sum(p^2) - Ho/(2n))
+      (p.n / (p.n - 1.0)) *
+        (1.0 - SUM(POWER(s.c / (2.0*p.n), 2)) - (p.n_het / p.n) / (2.0*p.n)) AS Hs
     FROM allele_summed s
     JOIN per_pop_locus p
       USING (Population, Locus)
     WHERE p.n > 1
-    GROUP BY s.Locus, s.Population, p.n
+    GROUP BY s.Locus, s.Population, p.n, p.n_het
     ORDER BY s.Locus, s.Population
   ",
                as.integer(base), as.integer(base),
@@ -1896,10 +1899,19 @@ duck_pop_stats_overall <- function(con, tbl_hf = "hf", tbl_meta = "meta",
 # functions that need the validated C++ per-locus routines rather than
 # ad-hoc SQL formulas.
 .hf_matrix_from_db <- function(con, tbl_hf, tbl_meta, missing_code = 0L) {
+  # Canonical, ORIGINAL-data-order locus list (first row each locus appears
+  # in, matching the import file's column order) — NOT alphabetical.
+  locus_order <- tryCatch(
+    as.character(DBI::dbGetQuery(con, sprintf("
+      SELECT locus_id FROM (
+        SELECT locus_id, MIN(rowid) AS _rank FROM %s GROUP BY locus_id
+      ) ORDER BY _rank ASC", DBI::dbQuoteIdentifier(con, tbl_hf)))$locus_id),
+    error = function(e) NULL)
+
   df <- tryCatch(DBI::dbGetQuery(con, sprintf("
     SELECT m.individual AS indiv_id, m.Population AS Population, h.locus_id AS Locus, h.gt AS gt
     FROM %s h JOIN %s m ON m.individual = h.indiv_id
-    ORDER BY m.individual, h.locus_id
+    ORDER BY m.individual
   ", DBI::dbQuoteIdentifier(con, tbl_hf), DBI::dbQuoteIdentifier(con, tbl_meta))),
   error = function(e) NULL)
   if (is.null(df) || !nrow(df)) return(NULL)
@@ -1910,6 +1922,11 @@ duck_pop_stats_overall <- function(con, tbl_hf = "hf", tbl_meta = "meta",
   pop_names <- sort(unique(wide$Population))
   pop_code  <- match(wide$Population, pop_names)
   loci_cols <- setdiff(names(wide), c("indiv_id", "Population"))
+  # Re-order the reshaped columns to match the original data order.
+  if (!is.null(locus_order)) {
+    ord_match <- match(locus_order, loci_cols)
+    loci_cols <- loci_cols[ord_match[!is.na(ord_match)]]
+  }
   m <- as.matrix(wide[, loci_cols, drop = FALSE])
   storage.mode(m) <- "integer"
   m[is.na(m)] <- as.integer(missing_code)
@@ -1922,30 +1939,23 @@ duck_pop_stats_by_pop_one <- function(con, pop_name,
   stopifnot(is.character(pop_name), length(pop_name) == 1L)
 
   mat <- .hf_matrix_from_db(con, tbl_hf, tbl_meta, missing_code)
-  if (is.null(mat) || nrow(mat) == 0L) return(data.frame(Locus = character(0), Ho = numeric(0), Hs = numeric(0), `Fis (Nei)` = numeric(0), check.names = FALSE))
+  if (is.null(mat) || nrow(mat) == 0L) return(data.frame(Locus = character(0), Ho = numeric(0), Hs = numeric(0)))
 
   pop_names <- DBI::dbGetQuery(con, sprintf(
     "SELECT DISTINCT Population FROM %s WHERE Population IS NOT NULL ORDER BY Population",
     DBI::dbQuoteIdentifier(con, tbl_meta)))$Population
   pc <- match(pop_name, pop_names)
-  if (is.na(pc)) return(data.frame(Locus = character(0), Ho = numeric(0), Hs = numeric(0), `Fis (Nei)` = numeric(0), check.names = FALSE))
+  if (is.na(pc)) return(data.frame(Locus = character(0), Ho = numeric(0), Hs = numeric(0)))
 
   sub <- mat[mat[, 1] == pc, , drop = FALSE]
-  if (nrow(sub) == 0L) return(data.frame(Locus = character(0), Ho = numeric(0), Hs = numeric(0), `Fis (Nei)` = numeric(0), check.names = FALSE))
+  if (nrow(sub) == 0L) return(data.frame(Locus = character(0), Ho = numeric(0), Hs = numeric(0)))
 
   # Ho/Hs: the same validated per-locus routine used everywhere else
-  # (nei_het_stats_cpp) — matches the confirmed-correct
-  # gene_diversity_hs_by_pop values. A true per-locus Weir & Cockerham FIS
-  # requires >=2 populations to decompose variance, which isn't meaningful
-  # for a single population's detail table — Nei's 1-Ho/Hs is reported
-  # instead, honestly labelled.
+  # (nei_het_stats_cpp) — matches gene_diversity_hs_by_pop.
   nei <- nei_het_stats_cpp(dat = sub, pop_col_1based = 1L, missing_code = 0L, base = base)
   Ho <- as.numeric(nei$Ho); Hs <- as.numeric(nei$Hs)
-  Fis <- rep(NA_real_, length(Ho))
-  ok <- is.finite(Ho) & is.finite(Hs) & Hs > 0
-  Fis[ok] <- 1 - Ho[ok] / Hs[ok]
 
-  data.frame(Locus = colnames(mat)[-1L], Ho = Ho, Hs = Hs, `Fis (Nei)` = Fis,
+  data.frame(Locus = colnames(mat)[-1L], Ho = Ho, Hs = Hs,
              check.names = FALSE, stringsAsFactors = FALSE)
 }
 

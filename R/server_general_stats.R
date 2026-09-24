@@ -1620,12 +1620,15 @@ server_general_stats <- function(id, rv) {
           base         = allele_base,
           missing_code = 0L
         )
-        # Sort by Locus then Allele (numeric) — the C++ routine doesn't
+        # Sort by Locus (in the ORIGINAL data column order — not
+        # alphabetically) then Allele (numeric) — the C++ routine doesn't
         # guarantee output order.
         loc_col <- intersect(c("Locus", "locus", "Marker"), names(out))[1]
         all_col <- intersect(c("Allele", "allele"), names(out))[1]
         if (!is.na(loc_col) && !is.na(all_col)) {
-          ord <- order(as.character(out[[loc_col]]), suppressWarnings(as.numeric(out[[all_col]])))
+          data_locus_order <- colnames(allele_mat)[-1]
+          loc_rank <- match(as.character(out[[loc_col]]), data_locus_order)
+          ord <- order(loc_rank, suppressWarnings(as.numeric(out[[all_col]])))
           out <- out[ord, , drop = FALSE]
         }
         fis_allele_results(out)
