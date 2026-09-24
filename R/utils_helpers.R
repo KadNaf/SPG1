@@ -69,8 +69,8 @@ module_banner <- function(icon_name, title, subtitle, accent = "#6B64EF") {
         '<text x="2" y="38" font-size="34" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="300" letter-spacing="-0.5">',
         '<tspan fill="#F4F6FF">PGA-</tspan><tspan fill="url(#', gid, ')" font-weight="500" letter-spacing="-0.8">cmdr</tspan>',
         '</text>',
-        '<line x1="2" y1="48" x2="298" y2="48" stroke="#7074D8" stroke-width="1"/>',
-        '<text x="2" y="65" fill="#A8ACF8" font-size="9" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="400" letter-spacing="2.5">POPULATION GENETICS</text>',
+        '<line x1="2" y1="48" x2="200" y2="48" stroke="#7074D8" stroke-width="1"/>',
+        '<text x="2" y="65" fill="#A8ACF8" font-size="15" font-family="Inter,Segoe UI,Roboto,sans-serif" font-weight="400" letter-spacing="2.5">POPULATION GENETICS</text>',
         '</svg>'
       )),
       shiny::tags$img(
