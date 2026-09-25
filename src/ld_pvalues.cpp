@@ -2,7 +2,6 @@
 // [[Rcpp::plugins(openmp)]]
 // [[Rcpp::plugins(cpp17)]]
 #include <Rcpp.h>
-#include <Rmath.h>
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -23,24 +22,27 @@ using namespace Rcpp;
 // (g_stat_from_counts), then permutes the second locus's genotypes among
 // individuals WITHIN that population and recomputes G, nbperms-1 times.
 // The per-population p-value is (# permuted G >= observed G + 1)/nbperms.
+// The combined "All" p-value sums the observed G across all populations and
+// compares it to the SUM of the permuted G's from the same permutation round
+// (so populations are permuted independently but summed jointly per round).
 //
-// The combined "All" p-value is obtained by FISHER'S METHOD applied to the
-// per-population p-values: X2 = -2*sum(ln(p_pop)) ~ chi-squared(2k), where
-// k = number of populations with an informative table for that locus pair.
-// This matches the documented Genepop/FSTAT convention ("Fisher's method is
-// used to combine P-values across samples" — the individual tests are
-// randomisation tests using G as the statistic, not asymptotic G-tests).
-//
-// FIX HISTORY (2026-09, see the project's own verification report): an
-// earlier version combined populations by summing the raw G-statistics and
-// re-permuting their sum, which diverged systematically from FSTAT's
-// reference output (mean absolute difference ~0.09 across 15 test pairs,
-// up to ~0.28 in the worst case — far beyond sampling noise). The root
-// cause: summing raw G-statistics does not account for each population's
-// own degrees of freedom (its own number of observed genotype classes),
-// unlike Fisher's method, which normalises each test via its own p-value
-// before combining. The per-population p-values themselves were NOT the
-// problem and are unchanged by this fix.
+// KNOWN OPEN ISSUE (2026-09, not yet resolved — see the project's own
+// verification report): p-values from this function have been compared
+// against FSTAT's reference output for the same dataset and diverge by up
+// to ~0.28 in the worst case (mean absolute difference ~0.09 across 15 pairs),
+// far more than the ~0.005 sampling noise expected at nbperms=10000. FSTAT /
+// GENEPOP estimate this same G-test p-value via a MARKOV CHAIN algorithm
+// (Guo & Thompson 1992's "switch" moves between tables with fixed margins),
+// not by independently re-shuffling genotypes each round as done here. Both
+// approaches are valid estimators of the same target quantity in theory, but
+// converge differently — this may explain the gap, or there may be a second,
+// separate issue in how the "All" combined test is computed (sum of G
+// statistics vs Genepop's own global-test method, which has not been
+// confirmed). Before touching this function, get FSTAT's PER-POPULATION
+// LD p-values (not just "All") for the same pairs to isolate whether the
+// per-population G-test itself matches (it likely does, being a standard
+// contingency-table statistic) or whether the "All" combination step is the
+// actual source of the discrepancy.
 // ============================================================================
 
 // Fast thread-safe PRNG (xorshift64 Marsaglia)
@@ -213,10 +215,15 @@ DataFrame ld_pvalues_cpp(const StringVector  &Population,
     for (int p=0; p<P; p++) if (valid[p]) { any_valid = true; break; }
     if (!any_valid) continue;
 
+    double Gall_obs = 0.0;
+    for (int p=0; p<P; p++) if (valid[p] && !R_IsNA(Gob[p])) Gall_obs += Gob[p];
+
     std::vector<int> ge_pop(P, 0);
+    int ge_all = 0;
 
     if (nbperms > 0) {
       for (int bperm=0; bperm<nbperms-1; bperm++) {
+        double s_all = 0.0;
         for (int p=0; p<P; p++) {
           if (!valid[p]) continue;
           const int R = nr_v[p], C = nc_v[p];
@@ -230,38 +237,14 @@ DataFrame ld_pvalues_cpp(const StringVector  &Population,
           for (size_t k=0; k<row_ids[p].size(); k++)
             T[ row_ids[p][k]*C + sh[k] ]++;
           double Gp = g_stat_from_counts(T, R, C);
+          s_all += Gp;
           if (Gp >= Gob[p]) ge_pop[p]++;
         }
+        if (s_all >= Gall_obs) ge_all++;
       }
       for (int p=0; p<P; p++)
         RES[r][p] = valid[p] ? ((double)ge_pop[p] + 1.0) / (double)nbperms : NA_REAL;
-
-      // Combine across populations via FISHER'S METHOD — matches the
-      // documented Genepop/FSTAT convention ("Fisher's method is used to
-      // combine P-values across samples"; the tests themselves are
-      // permutation tests using G as the statistic, not asymptotic G-tests
-      // — see the combination-method note at the top of this file).
-      // Previously this combined by summing the raw G-statistics across
-      // populations and re-permuting their sum, which does not account for
-      // each population's own degrees of freedom (its own number of
-      // observed genotype classes) and was found to diverge systematically
-      // from FSTAT's reported combined P-values (see verification report).
-      //   X2 = -2 * sum(ln(p_pop))  ~  chi-squared(2k) under H0,
-      // where k = number of populations with a valid (informative) table
-      // for this locus pair.
-      double X2 = 0.0;
-      int k_valid = 0;
-      for (int p=0; p<P; p++) {
-        if (!valid[p]) continue;
-        double pp = RES[r][p];
-        if (!R_IsNA(pp) && pp > 0.0) {
-          X2 += -2.0 * std::log(pp);
-          k_valid++;
-        }
-      }
-      RES[r][P] = (k_valid > 0)
-        ? R::pchisq(X2, 2.0 * (double)k_valid, /*lower_tail=*/0, /*log_p=*/0)
-        : NA_REAL;
+      RES[r][P] = ((double)ge_all + 1.0) / (double)nbperms;
     }
   }
 
