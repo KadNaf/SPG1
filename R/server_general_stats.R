@@ -3541,7 +3541,14 @@ server_general_stats <- function(id, rv) {
         mat  <- hf_mat_r()   # colonnes déjà réordonnées via loci_order_r() dans hf_mat_r
         base <- base_r()
 
-        mat <- as.matrix(mat)
+        # NOTE: hf_mat_r() already returns a genuine matrix with a
+        # "pop_levels" attribute (the real population names). A previous
+        # `mat <- as.matrix(mat)` here was redundant AND silently stripped
+        # that attribute (as.matrix() does not guarantee preservation of
+        # custom attributes even on an already-matrix input), which made
+        # the G-test's parameters file fall back to generic "Pop1".."PopN"
+        # labels instead of the real population names. storage.mode<- below
+        # is attribute-preserving and is enough to guarantee integer type.
         storage.mode(mat) <- "integer"
         shiny::validate(
           shiny::need(is.integer(mat),                      "hf_mat_r() must return an integer matrix"),
