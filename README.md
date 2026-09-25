@@ -4,14 +4,14 @@
 
 <p align="center">
   Interactive R/Shiny application for population genetics analyses<br/>
-  <sub>Intertryp · Universite de Montpellier · Cirad · IRD · UCAD</sub>
+  <sub>Intertryp · IRD · Cirad · Universite de Montpellier · UCAD</sub>
 </p>
 
 PGA-cmdr covers the full workflow for multilocus, individual-based
 genotype datasets (microsatellites and other codominant markers): data
 import and formatting, allele frequencies, general statistics, panmixia
-and subdivision testing, genetic diversities,
-linkage disequilibrium, null allele screening, and isolation by
+and subdivision testing (Weir & Cockerham 1984), genetic diversities,
+linkage disequilibrium, null allele screening (FreeNA), and isolation by
 distance — all computed locally, with no data leaving your machine.
 
 ## Installation
@@ -93,7 +93,7 @@ vignette("shinypopgen", package = "shinypopgen")
 F-statistics follow the unbiased moment estimators of **Weir & Cockerham
 (1984)**. Gene diversity (Hs, Ht) follows the unbiased estimator of **Nei
 & Chesser (1983)**. Confidence intervals are obtained by non-parametric
-bootstrap and p-values by Monte Carlo permutation (10,000 replicates by
+bootstrap and p-values by Monte Carlo permutation (5,000 replicates by
 default; 10,000 for linkage disequilibrium and Mantel tests), parallelised
 in C++ via Rcpp and OpenMP. See the in-app **Help** tab for full
 references.
@@ -101,8 +101,8 @@ references.
 ## Citation
 
 > PGA-cmdr: an interactive Shiny application for population genetics
-> data import, exploration, and descriptive analyses. Intertryp / Universite de Montpellier /
-> Cirad / IRD / UCAD.
+> data import, exploration, and descriptive analyses. Intertryp / IRD /
+> Cirad / Universite de Montpellier / UCAD.
 
 ## Credits
 

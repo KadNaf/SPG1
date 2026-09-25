@@ -1423,6 +1423,12 @@ server_general_stats <- function(id, rv) {
       np      <- length(pop_names)
       fis_m   <- matrix(NA_real_, nrow = L, ncol = np, dimnames = list(locus_names, pop_names))
       pval_m  <- matrix(NA_real_, nrow = L, ncol = np, dimnames = list(locus_names, pop_names))
+      # Fstat (manual sec. 7.3.1) reports the deficit/excess one-sided tests
+      # SEPARATELY rather than combining them into a single bilateral value —
+      # kept alongside our own two-sided p-value (a different, but standard,
+      # |permuted| >= |observed| convention) for direct comparability.
+      pval_deficit_m <- matrix(NA_real_, nrow = L, ncol = np, dimnames = list(locus_names, pop_names))
+      pval_excess_m  <- matrix(NA_real_, nrow = L, ncol = np, dimnames = list(locus_names, pop_names))
 
       withProgress(message = "Computing FIS by locus \u00d7 population\u2026", value = 0, {
         for (pi in seq_along(pop_codes)) {
@@ -1455,14 +1461,25 @@ server_general_stats <- function(id, rv) {
               permj <- perm_loci[, li]
               permj <- permj[is.finite(permj)]
               if (length(permj) == 0L) next
+              n_valid <- length(permj)
+              # Two-sided (our own convention): |permuted FIS| >= |observed FIS|
               ge <- sum(abs(permj) >= abs(obs_l))
-              pval_m[li, pname] <- (ge + 1L) / (length(permj) + 1L)
+              pval_m[li, pname] <- (ge + 1L) / (n_valid + 1L)
+              # Heterozygote DEFICIT (FIS too high/positive): proportion of
+              # permuted FIS >= observed FIS.
+              ge_hi <- sum(permj >= obs_l)
+              pval_deficit_m[li, pname] <- (ge_hi + 1L) / (n_valid + 1L)
+              # Heterozygote EXCESS (FIS too low/negative): proportion of
+              # permuted FIS <= observed FIS.
+              le_lo <- sum(permj <= obs_l)
+              pval_excess_m[li, pname] <- (le_lo + 1L) / (n_valid + 1L)
             }
           }
         }
       })
 
       res <- list(fis = fis_m, pval = pval_m,
+                  pval_deficit = pval_deficit_m, pval_excess = pval_excess_m,
                   pop_names = pop_names, locus_names = locus_names)
       fis_locus_pop_r(res)
       res
@@ -1520,8 +1537,12 @@ server_general_stats <- function(id, rv) {
 
         fis  <- as.data.frame(round(r$fis,  4))
         pval <- as.data.frame(round(r$pval, 4))
+        pval_deficit <- as.data.frame(round(r$pval_deficit, 4))
+        pval_excess  <- as.data.frame(round(r$pval_excess,  4))
         fis  <- tibble::rownames_to_column(fis,  "Locus")
         pval <- tibble::rownames_to_column(pval, "Locus")
+        pval_deficit <- tibble::rownames_to_column(pval_deficit, "Locus")
+        pval_excess  <- tibble::rownames_to_column(pval_excess,  "Locus")
 
         p1 <- file.path(tmpdir, paste0("fis_locus_by_pop_", Sys.Date(), ".txt"))
         con1 <- file(p1, open = "w", encoding = "UTF-8")
@@ -1529,8 +1550,14 @@ server_general_stats <- function(id, rv) {
         writeLines("Section 1: Observed FIS", con = con1)
         write.table(fis, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
         writeLines("", con = con1)
-        writeLines("Section 2: Permutation p-values (two-sided)", con = con1)
+        writeLines("Section 2: Permutation p-values (two-sided, |permuted FIS| >= |observed FIS|)", con = con1)
         write.table(pval, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        writeLines("", con = con1)
+        writeLines("Section 3: Heterozygote deficit, one-sided (permuted FIS >= observed FIS) - matches FSTAT's first table", con = con1)
+        write.table(pval_deficit, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        writeLines("", con = con1)
+        writeLines("Section 4: Heterozygote excess, one-sided (permuted FIS <= observed FIS) - matches FSTAT's second table", con = con1)
+        write.table(pval_excess, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
         close(con1)
 
         p2 <- file.path(tmpdir, paste0("fis_locus_by_pop_parameters_", Sys.Date(), ".txt"))
