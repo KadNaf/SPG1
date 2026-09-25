@@ -366,13 +366,6 @@ server_isolation_by_distance <- function(id, rv) {
       writeLines("Regression summary (slope / b / Nb / Nem for average and CI bounds):", con = con)
       write.table(s, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
     }
-    output$dl_ibd_txt <- downloadHandler(
-      filename = function() ibd_out_filename("IBD"),
-      content  = function(file) {
-        con <- file(file, open = "w", encoding = "UTF-8"); on.exit(close(con))
-        .write_ibd_results(con)
-      }
-    )
 
     # ── Parameters file: everything about how this run was configured ──────
     .write_ibd_params <- function(con) {
@@ -400,16 +393,6 @@ server_isolation_by_distance <- function(id, rv) {
       hdr <- c(hdr, "")
       writeLines(hdr, con = con, useBytes = TRUE)
     }
-    output$dl_ibd_params_txt <- downloadHandler(
-      filename = function() ibd_out_filename("IBD-parameters"),
-      content  = function(file) {
-        con <- file(file, open = "w", encoding = "UTF-8"); on.exit(close(con))
-        .write_ibd_params(con)
-      }
-    )
-
-    output$ui_ibd_filename_res    <- renderUI(tags$code(ibd_out_filename("IBD")))
-    output$ui_ibd_filename_params <- renderUI(tags$code(ibd_out_filename("IBD-parameters")))
 
     # ── One button, one click, one action: clicking "Run" IS the download
     #    request itself — the regression computation happens inside this

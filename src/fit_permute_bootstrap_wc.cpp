@@ -3,6 +3,23 @@
 // Optimized version with better memory management and performance
 // ============================================================================
 //
+// FUNCTIONS IN THIS FILE (in order of appearance) — multilocus FIT
+// (Weir & Cockerham 1984), used by the Global Panmixia module.
+//
+//   boot_wc84_fit_popblock_raw_cpp()   Low-level population-block bootstrap
+//                                       kernel for FIT (raw variance
+//                                       components per replicate).
+//   boot_wc84_stats_popblock_cpp()     Bootstrap over SUB-SAMPLES
+//                                       (populations) for the FIT CI — needs
+//                                       >=5 populations to be meaningful
+//                                       (see the N<5 guard at the R call
+//                                       site in server_general_stats.R).
+//   batch_permute_wc84_stats()         Permutation test for FIT.
+//   simulate_fit_permutation_base()    Builds one permuted genotype matrix
+//                                       (helper for the permutation test).
+//   batch_permute_fit_global()         Batched permutation driver, all loci
+//                                       combined into the multilocus FIT.
+//
 // RNG / REPRODUCIBILITY NOTE (added following a code audit; see the matching
 // note in fis_permute_bootstrap_wc.cpp for the full explanation): this file
 // draws permutation randomness via R::unif_rand() (reproducible via

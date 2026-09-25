@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="\inst\app\www\LogoPGAcmdr.png" alt="ShinyPopGen" width="150"/>
+  <img src="\inst\app\www\LogoPGAcmdr.png" alt="PGA-cmdr" width="150"/>
 </p>
 
 <p align="center">
   Interactive R/Shiny application for population genetics analyses<br/>
-  <sub>IRD · UCAD · CIRAD · INTERTRYP</sub>
+  <sub>Intertryp · IRD · Cirad · Universite de Montpellier · UCAD</sub>
 </p>
 
-ShinyPopGen covers the full workflow for multilocus, individual-based
+PGA-cmdr covers the full workflow for multilocus, individual-based
 genotype datasets (microsatellites and other codominant markers): data
 import and formatting, allele frequencies, general statistics, panmixia
 and subdivision testing (Weir & Cockerham 1984), genetic diversities,
@@ -28,7 +28,7 @@ shinypopgen::run_app()
 
 ### macOS prerequisites (compile from source)
 
-ShinyPopGen contains C++ code compiled with OpenMP. Apple clang does **not**
+PGA-cmdr contains C++ code compiled with OpenMP. Apple clang does **not**
 include OpenMP or gfortran by default. Install these **before** running
 `remotes::install_github()`:
 
@@ -58,22 +58,26 @@ docker compose up
 # open http://localhost:3838
 ```
 
-## Features
+## Modules
+
+Every module follows the same pattern: set parameters, click **Run**, and
+a `.zip` (or, for single-table modules, a single `.txt`) downloads
+automatically with every result file needed — nothing is shown on screen
+first. Column numbering, loci detection (single- or paired-column allele
+format), and output file names are handled automatically wherever possible.
 
 | Module | What it does |
 |---|---|
-| **Import Data** | CSV/TXT import (auto-detected comma/semicolon/tab separators), single- or two-column allele encoding, auto- or manual column assignment, sampling-locality map. 500 MB upload limit. |
-| **Allele Freq** | Per-locus allele frequency tables/plots and missing-data overview. |
-| **General Stats** | N, Na, Ne, Ho, He per locus and per population. |
-| **Local Panmixia** | Within-population FIS (Weir & Cockerham 1984), bootstrap CI and permutation p-value. |
-| **Global Panmixia** | Multilocus FIT across all populations, bootstrap CI and permutation p-value. |
-| **Subdivision** | FST (Weir & Cockerham 1984) per locus and overall, bootstrap CI (loci or population blocks), permutation and G-test p-values. |
-| **Diversities** | HS and HT (Nei 1987) per locus and multilocus, with resampling over individuals, populations, or loci. |
-| **LD** | Pairwise linkage disequilibrium between all locus pairs, G-test with permutation p-values. |
-| **Null Alleles** | Null allele frequency estimation per locus × population (FreeNA EM algorithm, Chapuis & Estoup 2007), with raw and ENA-corrected FST. |
-| **Isolation by Distance** | Pairwise FST/(1−FST) vs. geographic distance (Rousset 1997) and a Mantel permutation test. |
-
-Every results table can be exported (.csv / .txt).
+| **Import Data** | CSV/TXT import (auto-detected comma/semicolon/tab separator, loaded as soon as a file is chosen). Population, Latitude/Longitude column assignment; loci range entered as "number of loci" + "first locus column" (auto-suggested, and automatically adjusted for single- or paired-column allele encoding); a numbered column-reference table is shown so column numbers are never ambiguous. |
+| **Allele Freq** | Per-locus, per-population allele frequencies (plus a global column), computed automatically for every population and marker — no selection needed. |
+| **General Stats** | Per-locus Ho, Hs, Ht, FIT/FIS/FST (Weir & Cockerham 1984), and optional Fst-max (Meirmans), Fst' (Meirmans), GST (Nei), GST'' (Hedrick/Meirmans); per-population Ho/Hs/FIS summary and per-locus detail for every population; per-allele F-statistics (Weir & Cockerham components). |
+| **Local Panmixia** | Within-population FIS (Weir & Cockerham 1984) by locus or by population, with bootstrap CI (over individuals and over sub-samples) and a permutation p-value. Sub-sample or individual counts below 5 are reported as NA rather than an unreliable estimate. |
+| **Global Panmixia** | Multilocus FIT across all populations, bootstrap CI (over loci and over sub-samples) and permutation p-value. |
+| **Subdivision** | FST (Weir & Cockerham 1984) per locus and overall, bootstrap CI (over loci and over sub-samples), a permutation p-value, and a separate G-test for genotypic differentiation. |
+| **Diversities** | HS and HT (Nei 1987, unbiased Nei & Chesser 1983 estimator) per locus and multilocus, with bootstrap CI over individuals, sub-samples, or loci. |
+| **LD** | Pairwise linkage disequilibrium between every locus pair, per population and combined ("All"), via a permutation-based G-test. |
+| **Null Alleles** | Null allele frequency estimation per locus × sub-sample (FreeNA EM algorithm, Chapuis & Estoup 2007), raw and ENA-corrected FST and DCSE with bootstrap CI (over loci and over sub-samples), and a full pairwise table (FST, FST-ENA, DCSE, DCSE-INA, linearised FST, geographic distance). |
+| **IBD** | Isolation by distance: Rousset's (1997) regression of linearised genetic distance against geographic distance, and an independent Mantel permutation test (Pearson, Spearman, and Rousset 1D/2D statistics). |
 
 ## Getting started
 
@@ -87,16 +91,18 @@ vignette("shinypopgen", package = "shinypopgen")
 ## Statistical methods
 
 F-statistics follow the unbiased moment estimators of **Weir & Cockerham
-(1984)**. Confidence intervals are obtained by non-parametric bootstrap and
-p-values by Monte Carlo permutation (5,000 replicates by default; 10,000
-for linkage disequilibrium), parallelised in C++ via Rcpp and OpenMP. See
-the in-app **Help** tab for full references.
+(1984)**. Gene diversity (Hs, Ht) follows the unbiased estimator of **Nei
+& Chesser (1983)**. Confidence intervals are obtained by non-parametric
+bootstrap and p-values by Monte Carlo permutation (5,000 replicates by
+default; 10,000 for linkage disequilibrium and Mantel tests), parallelised
+in C++ via Rcpp and OpenMP. See the in-app **Help** tab for full
+references.
 
 ## Citation
 
-> ShinyPopGen: an interactive Shiny application for population genetics
-> data import, exploration, and descriptive analyses. IRD / CIRAD /
-> INTERTRYP.
+> PGA-cmdr: an interactive Shiny application for population genetics
+> data import, exploration, and descriptive analyses. Intertryp / IRD /
+> Cirad / Universite de Montpellier / UCAD.
 
 ## Credits
 

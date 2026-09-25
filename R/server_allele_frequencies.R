@@ -420,27 +420,6 @@ function(row,data,index){
            n_ind=n_individuals_r(), n_pop=n_populations_r(), n_mark=n_markers_r())
     }, ignoreInit=TRUE)
 
-    output$vb_individuals <- renderUI({
-      s <- summary_trigger_r()
-      tags$div(class="af-vbox-val", if(!is.null(s)) s$n_ind else "\u2014")
-    })
-    output$vb_populations <- renderUI({
-      s <- summary_trigger_r()
-      tags$div(class="af-vbox-val", if(!is.null(s)) s$n_pop else "\u2014")
-    })
-    output$vb_markers <- renderUI({
-      s <- summary_trigger_r()
-      tags$div(class="af-vbox-val", if(!is.null(s)) s$n_mark else "\u2014")
-    })
-    output$vb_missing <- renderUI({
-      s <- summary_trigger_r()
-      if(is.null(s)||nrow(s$md)==0)
-        return(tags$div(class="af-vbox-val","\u2014"))
-      prop  <- round(sum(s$md$Missing_Data)/sum(s$md$Sample_Size),3)
-      color <- if(prop>.20)"#A32D2D" else if(prop>.10)"#854F0B" else "#3B6D11"
-      tags$div(class="af-vbox-val",style=paste0("color:",color,";"),prop)
-    })
-
     # ── One button, one click, one action: clicking "Run" IS the download
     #    request itself — the allele-frequency query runs inside this same
     #    content() function (via fstat_wide_r()) before the single results

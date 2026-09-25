@@ -1194,22 +1194,6 @@ server_null_alleles <- function(id, rv) {
       )
     })
 
-    output$dl_file1_txt <- downloadHandler(
-      filename = function() out_filename("null_allele_frequencies"),
-      content  = function(file) {
-        d <- file1_data()
-        hdr <- c(d$header,
-                 "Section 1: p_nulls per locus x population",
-                 "N_exp_blanks: expected number of null homozygotes = N * p_nulls^2",
-                 "")
-        write_with_header(hdr, d$t1, file, sep = "\t")
-        write("", file = file, append = TRUE)
-        write("Section 2: N-weighted mean per locus", file = file, append = TRUE)
-        write.table(d$t2, file = file, sep = "\t", row.names = FALSE,
-                    quote = FALSE, append = TRUE, col.names = TRUE)
-      }
-    )
-
     # ══════════════════════════════════════════════════════════════════════════
     #  FILE 2 — Global FST & FST-ENA with bootstrap CIs
     # ══════════════════════════════════════════════════════════════════════════
@@ -1264,12 +1248,6 @@ server_null_alleles <- function(id, rv) {
            data   = out)
     })
 
-    output$dl_file2_txt <- downloadHandler(
-      filename = function() out_filename("global_FST_ENA_CI"),
-      content  = function(file) { d <- file2_data()
-        write_with_header(d$header, d$data, file, sep="\t") }
-    )
-
     # ══════════════════════════════════════════════════════════════════════════
     #  FILE 3 — Pairwise long format (FST, FST-ENA, DCSE, DCSE-INA + CI)
     # ══════════════════════════════════════════════════════════════════════════
@@ -1307,25 +1285,6 @@ server_null_alleles <- function(id, rv) {
       lines
     }
 
-    output$dl_file4_txt <- downloadHandler(
-      filename = function() out_filename("per_locus_half_matrices"),
-      content  = function(file) {
-        d <- file4_data()
-        con <- file(file, open = "w", encoding = "UTF-8"); on.exit(close(con))
-        writeLines(d$header, con = con, useBytes = TRUE)
-        for (loc in d$markers) {
-          for (sc in c("FST_raw","FST_ENA")) {
-            ln <- half_matrix_txt(d$fst_df, sc, d$pops, loc)
-            writeLines(ln, con=con, useBytes=TRUE); writeLines("", con=con)
-          }
-          for (sc in c("DCSE_raw","DCSE_INA")) {
-            ln <- half_matrix_txt(d$dc_df, sc, d$pops, loc)
-            writeLines(ln, con=con, useBytes=TRUE); writeLines("", con=con)
-          }
-        }
-      }
-    )
-
     # ══════════════════════════════════════════════════════════════════════════
     #  FILE 5 — Bootstrap distributions (the actual replicate values, not just
     #  their summary quantiles) — over loci AND over sub-samples, global raw
@@ -1346,12 +1305,6 @@ server_null_alleles <- function(id, rv) {
       list(header = meta_header(r, "Bootstrap distributions (global FST, all replicates)"),
            data   = data)
     })
-
-    output$dl_file5_txt <- downloadHandler(
-      filename = function() out_filename("bootstrap_distributions"),
-      content  = function(file) { d <- file5_data()
-        write_with_header(d$header, d$data, file, sep="\t") }
-    )
 
     output$boot_dist_plot <- plotly::renderPlotly({
       r <- tryCatch(results_r(), error=function(e) NULL)
@@ -1583,23 +1536,6 @@ server_null_alleles <- function(id, rv) {
            methods = methods_lines, loci = loci_df, params = params_df)
     })
 
-    output$dl_file6_txt <- downloadHandler(
-      filename = function() out_filename("run_parameters"),
-      content  = function(file) {
-        d <- file6_data()
-        con <- file(file, open = "w", encoding = "UTF-8"); on.exit(close(con))
-        writeLines(d$header, con = con, useBytes = TRUE)
-        writeLines("Methods:", con = con)
-        writeLines(d$methods, con = con, useBytes = TRUE)
-        writeLines("", con = con)
-        writeLines("General parameters:", con = con)
-        write.table(d$params, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con)
-        writeLines("Missing genotype coding per locus:", con = con)
-        write.table(d$loci, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-      }
-    )
-
     # ══════════════════════════════════════════════════════════════════════════
     #  FILE 7 — Full pairwise table (only when included)
     # ══════════════════════════════════════════════════════════════════════════
@@ -1636,12 +1572,6 @@ server_null_alleles <- function(id, rv) {
     })
 
     # ── Results tab: Full pairwise table ───────────────────────────────────
-    output$ui_full_pairwise_note <- renderUI({
-      if (!isTRUE(gps_available_r())) {
-        tags$div(class = "na-info", icon("exclamation-triangle"),
-          " No GPS Latitude/Longitude found at import \u2014 D_geo and ln(D_geo) below are NA.")
-      }
-    })
     output$dt_full_pairwise <- DT::renderDT({
       df <- full_pairwise_r()
       DT::datatable(df, rownames = FALSE,
@@ -1912,100 +1842,6 @@ server_null_alleles <- function(id, rv) {
       HTML(sprintf('<div class="na-matrix-wrap"><table class="na-matrix"><thead>%s</thead><tbody>%s</tbody></table></div>',
                    thead,tbody))
     }
-
-    # ── Global bootstrap CI display ────────────────────────────────────────────
-    output$ui_boot_global_fst <- renderUI({
-      r <- tryCatch(results_r(), error=function(e) NULL)
-      if (is.null(r)) return(tags$p("Run computation first.", style="color:#94a3b8;"))
-      ci_pct <- paste0(round((1-r$alpha)*100,3),"%")
-      bl <- r$boot_gl_loci; bs <- r$boot_gl_subs
-      obs_ena <- r$fst_global$global_ena; obs_raw <- r$fst_global$global_raw
-      ena_outside <- !is.na(obs_ena) && (obs_ena < bs$ena[1] || obs_ena > bs$ena[3])
-      raw_outside <- !is.na(obs_raw) && (obs_raw < bs$raw[1] || obs_raw > bs$raw[3])
-      tags$div(
-        tags$div(class="na-boot-result",
-          tags$strong(sprintf("Global FST-ENA \u2014 observed: %.6f", obs_ena)),
-          tags$br(),
-          sprintf("%s CI (bootstrap over loci):      [ %.6f  \u2013  %.6f ]", ci_pct, bl$ena[1], bl$ena[3]),
-          tags$br(),
-          sprintf("%s CI (bootstrap over sub-samples): [ %.6f  \u2013  %.6f ]", ci_pct, bs$ena[1], bs$ena[3]),
-          tags$br(), tags$br(),
-          tags$strong(sprintf("Global Raw FST \u2014 observed: %.6f", obs_raw)),
-          tags$br(),
-          sprintf("%s CI (bootstrap over loci):      [ %.6f  \u2013  %.6f ]", ci_pct, bl$raw[1], bl$raw[3]),
-          tags$br(),
-          sprintf("%s CI (bootstrap over sub-samples): [ %.6f  \u2013  %.6f ]", ci_pct, bs$raw[1], bs$raw[3])
-        ),
-        if (ena_outside || raw_outside)
-          tags$div(class="na-info", style="margin-top:.5rem;",
-            icon("info-circle"), " ",
-            "The observed value falls just outside its own sub-samples bootstrap CI above. ",
-            "This is a known property of resampling whole populations with replacement (a population drawn ",
-            "twice in a replicate contributes twice, one drawn zero times contributes nothing, which slightly ",
-            "shifts the apparent structure of that replicate) \u2014 not a computation error. ",
-            "The bootstrap-over-loci CI is not affected by this."
-          )
-      )
-    })
-
-    # ── Pairwise FST matrix ────────────────────────────────────────────────────
-    output$ui_fst_pair_matrix <- renderUI({
-      r <- tryCatch(results_r(), error=function(e) NULL)
-      if (is.null(r)||is.null(r$fst_pair$matrix_raw))
-        return(tags$p("Run computation first.", style="color:#94a3b8;"))
-      typ <- input$fst_pair_display %||% "both"
-      if (identical(typ,"both")) tags$div(
-        tags$p(tags$strong("Raw FST")),   render_mat_html(r$fst_pair$matrix_raw), tags$br(),
-        tags$p(tags$strong("FST-ENA")),   render_mat_html(r$fst_pair$matrix_ena))
-      else if (identical(typ,"raw")) render_mat_html(r$fst_pair$matrix_raw)
-      else render_mat_html(r$fst_pair$matrix_ena)
-    })
-
-    output$ui_boot_pair_fst <- renderUI({
-      r <- tryCatch(results_r(), error=function(e) NULL)
-      if (is.null(r)||is.null(r$boot_pair_fst))
-        return(tags$p("Run computation first.", style="color:#94a3b8;"))
-      ci_pct <- paste0(round((1-r$alpha)*100,3),"%")
-      tags$div(class="na-boot-result",
-        tags$p(tags$strong(sprintf("Pairwise FST-ENA \u2014 %s CI (bootstrap over loci)", ci_pct))),
-        tags$div(class="na-matrix-wrap",
-          boot_tbl(r$boot_pair_fst,
-            c("Pop1","Pop2","FST_ENA_obs","FST_ENA_CI_lo_loci","FST_ENA_median_loci","FST_ENA_CI_hi_loci",
-              "FST_raw_obs","FST_raw_CI_lo_loci","FST_raw_CI_hi_loci"),
-            c("Pop 1","Pop 2","FST-ENA obs.","CI lo (ENA)","Median (ENA)","CI hi (ENA)",
-              "Raw FST obs.","CI lo (raw)","CI hi (raw)")))
-      )
-    })
-
-    # ── Pairwise DCSE matrix + bootstrap ──────────────────────────────────────
-    output$ui_dc_matrix <- renderUI({
-      r <- tryCatch(results_r(), error=function(e) NULL)
-      if (is.null(r)||is.null(r$dc_pair$matrix_raw))
-        return(tags$p("Run computation first.", style="color:#94a3b8;"))
-      typ <- input$dc_display %||% "both"
-      thr <- c(0.1,0.25,0.4); clrs <- c("#eff6ff","#dbeafe","#fef9c3","#fef2f2")
-      if (identical(typ,"both")) tags$div(
-        tags$p(tags$strong("Raw DCSE")),  render_mat_html(r$dc_pair$matrix_raw,thr=thr,clrs=clrs), tags$br(),
-        tags$p(tags$strong("DCSE-INA")), render_mat_html(r$dc_pair$matrix_ina,thr=thr,clrs=clrs))
-      else if (identical(typ,"raw")) render_mat_html(r$dc_pair$matrix_raw,thr=thr,clrs=clrs)
-      else render_mat_html(r$dc_pair$matrix_ina,thr=thr,clrs=clrs)
-    })
-
-    output$ui_boot_pair_dc <- renderUI({
-      r <- tryCatch(results_r(), error=function(e) NULL)
-      if (is.null(r)||is.null(r$boot_pair_dc))
-        return(tags$p("Run computation first.", style="color:#94a3b8;"))
-      ci_pct <- paste0(round((1-r$alpha)*100,3),"%")
-      tags$div(class="na-boot-result",
-        tags$p(tags$strong(sprintf("Pairwise DCSE-INA \u2014 %s CI (bootstrap over loci)", ci_pct))),
-        tags$div(class="na-matrix-wrap",
-          boot_tbl(r$boot_pair_dc,
-            c("Pop1","Pop2","DCSE_INA_obs","DCSE_INA_CI_lo_loci","DCSE_INA_median_loci","DCSE_INA_CI_hi_loci",
-              "DCSE_raw_obs","DCSE_raw_CI_lo_loci","DCSE_raw_CI_hi_loci"),
-            c("Pop 1","Pop 2","DCSE-INA obs.","CI lo (INA)","Median (INA)","CI hi (INA)",
-              "Raw DCSE obs.","CI lo (raw)","CI hi (raw)")))
-      )
-    })
 
     # ── Tab 4: per-locus x pair DTs ───────────────────────────────────────────
     output$dt_fst_locus <- DT::renderDT({

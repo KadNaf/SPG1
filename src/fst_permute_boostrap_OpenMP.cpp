@@ -3,6 +3,34 @@
 // R-free OpenMP kernels + thin Rcpp wrappers.
 // ============================================================================
 //
+// ============================================================================
+// FUNCTIONS IN THIS FILE (in order of appearance) — Weir & Cockerham (1984)
+// FST/FIT/FIS core, plus Nei's gene-diversity statistics. All of Subdivision,
+// Genetic Diversities, and much of General Stats route through these.
+//
+//   nei_het_stats_cpp()             Per-locus Ho, Hs, Ht (Nei & Chesser 1983
+//                                    unbiased estimator for Hs — see the
+//                                    fixed formula and comment inline below).
+//   observed_wc84_stats_cpp()       Per-locus WC84 FIT/FIS/FST from the
+//                                    variance-component decomposition
+//                                    (a = among pops, b = among indiv within
+//                                    pops, c = within individuals).
+//   wc84_locus_components_cpp()     Same variance components (a, b, c),
+//                                    returned per-locus for downstream
+//                                    multilocus ratio-of-sums aggregation.
+//   locus_bootstrap_wc84_cpp()      Bootstrap over LOCI: resample loci with
+//                                    replacement, recompute multilocus
+//                                    FST/FIT/FIS each time, for a CI.
+//   batch_permute_wc84_fst_parallel()  Permutation test for FST: shuffle
+//                                    individuals across populations.
+//   boot_popblock_wc84_parallel()   Bootstrap over SUB-SAMPLES (populations):
+//                                    resample populations with replacement,
+//                                    for a CI that reflects uncertainty in
+//                                    which populations were sampled.
+//   boot_indiv_hs_cpp()             Bootstrap Hs over individuals within
+//                                    each population.
+// ============================================================================
+//
 // RNG / REPRODUCIBILITY NOTE (added following a code audit, see thesis/
 // publication material - keep in sync with fis_permute_bootstrap_wc.cpp and
 // fit_permute_bootstrap_wc.cpp, which use a DIFFERENT scheme):
@@ -490,6 +518,33 @@ static inline double g_stat_all_loci_ptr_ld(
 
 static inline void locus_names_from_colnames(const IntegerMatrix& dat, int pop_col, CharacterVector& out);
 
+// nei_het_stats_cpp() — per-locus Ho, Hs, Ht.
+//
+// Inputs:
+//   dat            packed-genotype matrix: column `pop_col_1based` (1-based)
+//                  holds the population code, every other column is one
+//                  locus with genotype = allele1*base + allele2 (both
+//                  1-based; `missing_code` marks a missing genotype).
+//   pop_col_1based 1-based index of the population column (default 1, i.e.
+//                  the first column).
+//   missing_code   genotype value treated as missing (default 0).
+//   base           the packing base used to encode allele1/allele2 into one
+//                  integer (must match how the R side built `dat`).
+//
+// Returns a List with one numeric vector per statistic, one entry per locus
+// (locus order = column order of `dat`, excluding the population column):
+//   Ho   observed heterozygosity, unweighted mean of each population's
+//        (heterozygote count / genotyped count).
+//   Hs   expected heterozygosity within populations — Nei & Chesser (1983)
+//        UNBIASED estimator: for each population p with n_p diploid
+//        individuals, Hs_p = n_p/(n_p-1) * (1 - sum(allele freq^2) -
+//        Ho_p/(2*n_p)), then Hs = unweighted mean of Hs_p over populations.
+//        The "- Ho_p/(2*n_p)" term matters: a simpler (2n/(2n-1))*(1-sum(p^2))
+//        form (no Ho term) is what GENETIX uses and is NOT what FSTAT/
+//        GENEPOP report — verified against FSTAT reference output; do not
+//        remove this term without re-checking against both programs.
+//   Ht   total expected heterozygosity, from the unweighted mean allele
+//        frequency across populations (also unbiased-corrected).
 // [[Rcpp::export]]
 Rcpp::List nei_het_stats_cpp(const Rcpp::IntegerMatrix& dat,
                              int pop_col_1based = 1,

@@ -1,5 +1,40 @@
 // www/fis_permute_bootstrap_wc.cpp
 //
+// FUNCTIONS IN THIS FILE (in order of appearance) — within-population FIS
+// (Weir & Cockerham 1984), used by the Local Panmixia module.
+//
+//   wc_fis_by_pop()                 Per-population FIS from a simple
+//                                    Hs/Ho-style ratio (legacy/simple path).
+//   boot_indiv_wc_fis_by_pop()      Bootstrap over INDIVIDUALS within one
+//                                    population, for that population's FIS CI
+//                                    (matrix output: rows = replicates).
+//   batch_permute_wc_fis_by_pop()   Permutation test, per population.
+//   fis_wc_cpp()                    Multilocus FIS (WC84 variance
+//                                    components), all populations combined.
+//   wc_fis_by_pop_wc84()            Per-population FIS using the TRUE WC84
+//                                    variance-component decomposition (this
+//                                    is the validated function reused by
+//                                    General Stats' overall_by_population
+//                                    output and cross-checked against FSTAT).
+//   batch_permute_wc_fis()          Permutation test for multilocus FIS.
+//   calculate_observed_fis()        Observed per-locus FIS (WC84), no
+//                                    resampling.
+//   boot_indiv_wc_fis()             Bootstrap over individuals, per locus,
+//                                    across all populations.
+//   boot_popblock_wc_fis()          Bootstrap over SUB-SAMPLES (populations),
+//                                    per locus — needs >=5 populations to be
+//                                    meaningful (see the N<5 guard at the R
+//                                    call site in server_general_stats.R).
+//   summarize_fis_results()         Turns a bootstrap matrix (from either
+//                                    boot_indiv_wc_fis or boot_popblock_wc_fis)
+//                                    into mean/CI summary fields.
+//   create_results_dataframe()      Assembles the final per-locus results
+//                                    data.frame from observed + summary lists.
+//   wc84_per_allele_fstats_cpp()    Per-ALLELE (not just per-locus) FIT/FIS/
+//                                    FST from the allele-specific variance
+//                                    components — used by General Stats'
+//                                    "Fstats_per_allele" output.
+//
 // RNG / REPRODUCIBILITY NOTE (added following a code audit; keep in sync
 // with fit_permute_bootstrap_wc.cpp, which follows the same scheme, and with
 // fst_permute_boostrap_OpenMP.cpp, which uses a DIFFERENT scheme):

@@ -13,6 +13,38 @@
 #endif
 using namespace Rcpp;
 
+// ============================================================================
+// ld_pvalues.cpp — pairwise linkage disequilibrium, used by the LD module.
+//
+// ld_pvalues_cpp() tests genotypic disequilibrium between every pair of loci:
+// for each population, builds the genotype x genotype contingency table for
+// the two loci, computes the log-likelihood-ratio G statistic
+// (g_stat_from_counts), then permutes the second locus's genotypes among
+// individuals WITHIN that population and recomputes G, nbperms-1 times.
+// The per-population p-value is (# permuted G >= observed G + 1)/nbperms.
+// The combined "All" p-value sums the observed G across all populations and
+// compares it to the SUM of the permuted G's from the same permutation round
+// (so populations are permuted independently but summed jointly per round).
+//
+// KNOWN OPEN ISSUE (2026-09, not yet resolved — see the project's own
+// verification report): p-values from this function have been compared
+// against FSTAT's reference output for the same dataset and diverge by up
+// to ~0.28 in the worst case (mean absolute difference ~0.09 across 15 pairs),
+// far more than the ~0.005 sampling noise expected at nbperms=10000. FSTAT /
+// GENEPOP estimate this same G-test p-value via a MARKOV CHAIN algorithm
+// (Guo & Thompson 1992's "switch" moves between tables with fixed margins),
+// not by independently re-shuffling genotypes each round as done here. Both
+// approaches are valid estimators of the same target quantity in theory, but
+// converge differently — this may explain the gap, or there may be a second,
+// separate issue in how the "All" combined test is computed (sum of G
+// statistics vs Genepop's own global-test method, which has not been
+// confirmed). Before touching this function, get FSTAT's PER-POPULATION
+// LD p-values (not just "All") for the same pairs to isolate whether the
+// per-population G-test itself matches (it likely does, being a standard
+// contingency-table statistic) or whether the "All" combination step is the
+// actual source of the discrepancy.
+// ============================================================================
+
 // Fast thread-safe PRNG (xorshift64 Marsaglia)
 struct FastRng {
   uint64_t x;

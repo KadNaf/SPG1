@@ -691,32 +691,6 @@ server_general_stats <- function(id, rv) {
       )
     })
     
-    # ---- Table: overall-by-pop (Ho/Hs), DB-native
-    output$overall_by_pop <- renderTable({
-      db_ready()
-      con  <- con_r()
-      base <- base_r()
-      
-      df <- duck_pop_stats_overall(
-        con       = con,
-        tbl_hf    = tbl_hf_r(),
-        tbl_meta  = tbl_meta_r(),
-        base      = base,
-        missing_code = 0L
-      )
-      
-      if (is.null(df) || nrow(df) == 0) {
-        return(data.frame(Message = "No population data"))
-      }
-      
-      # format for display only
-      df$Ho <- round(df$Ho, 4)
-      df$Hs <- round(df$Hs, 4)
-      df$`Fis (WC)` <- round(df$`Fis (WC)`, 4)
-      
-      df
-    }, rownames = FALSE, digits = 4)
-    
     # =========================================================#
     ## Download handlers (population section) ####
     # =========================================================#
@@ -1416,9 +1390,6 @@ server_general_stats <- function(id, rv) {
       p
     }
     
-    output$fis_plot <- renderPlot({ make_fis_plot() 
-    })
-    
     
     
     ## ---- Locus × Population cross-table ----
@@ -2048,8 +2019,7 @@ server_general_stats <- function(id, rv) {
         )
     }
 
-    output$fit_plot <- renderPlot({ .make_fit_plot() })
-    
+        
     .write_fit_params <- function(con) {
       hdr <- c(
         "Global Panmixia \u2014 FIT \u2014 parameters used",
@@ -3290,27 +3260,11 @@ server_general_stats <- function(id, rv) {
     }
     
     ### HT ####
-    output$ht_plot <- renderPlot({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$ht_table))
-      df <- res$ht_table
-      ci_l <- if ("Subsamp_CI_L" %in% names(df)) "Subsamp_CI_L" else "CI_L"
-      ci_u <- if ("Subsamp_CI_U" %in% names(df)) "Subsamp_CI_U" else "CI_U"
-      .diversity_plot(df, "Observed_HT", ci_l, ci_u, "HT",
-                      "HT per locus \u2014 populations bootstrap CI")
-    })
 
     ### HS ####
-    output$hs_plot <- renderPlot({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$hs_pop_tbl))
-      .diversity_plot(res$hs_pop_tbl, "Observed_HS", "CI_L", "CI_U", "HS",
-                      "HS per locus \u2014 populations block bootstrap CI")
-    })
     ### FST ####
 
-    output$fst_plot <- renderPlot({ .make_fst_plot() })
-    
+        
     ## ===== FST, HT, HS  download handlers =====
     ### HS/HT/locus-bootstrap — merged into the single Run+Download button ###
     .write_div_params <- function(con, res) {
@@ -3969,8 +3923,7 @@ server_general_stats <- function(id, rv) {
         )
     }
 
-    output$g_plot <- renderPlot({ .make_g_plot() })
-
+    
     ## G-test download handlers ----
     .g_export_header <- function(title, extra = NULL) {
       res <- g_test_results()
