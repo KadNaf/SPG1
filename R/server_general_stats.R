@@ -350,6 +350,7 @@ server_general_stats <- function(id, rv) {
     
     # Bootstrap FIS Analysis
     fis_boot_results <- reactiveVal(NULL)
+    fis_boot_results_pop <- reactiveVal(NULL)
     fis_boot_timing <- reactiveVal(NULL)
     perm_results <- reactiveVal(NULL)
     fis_allele_results <- reactiveVal(NULL)
@@ -1116,29 +1117,28 @@ server_general_stats <- function(id, rv) {
         start_time <- Sys.time()
         shinyWidgets::updateProgressBar(session, "fis_progress", value = 5)
         
-        level <- if (is.null(input$analysis_level)) "By Locus" else input$analysis_level
-        
-        results <- if (identical(level, "By Population")) {
-          run_fis_by_pop(
-            n_perm       = input$n_perm,
-            n_boot       = input$n_boot,
-            conf_level   = input$conf_level,
-            missing_code = 0L
-          )
-        } else {
-          run_fis_by_locus(
-            n_perm       = input$n_perm,
-            n_boot       = input$n_boot,
-            conf_level   = input$conf_level,
-            missing_code = 0L
-          )
-        }
+        # Both analysis levels are always computed — no selector needed.
+        results_locus <- run_fis_by_locus(
+          n_perm       = input$n_perm,
+          n_boot       = input$n_boot,
+          conf_level   = input$conf_level,
+          missing_code = 0L
+        )
+        shinyWidgets::updateProgressBar(session, "fis_progress", value = 50)
+        results_pop <- run_fis_by_pop(
+          n_perm       = input$n_perm,
+          n_boot       = input$n_boot,
+          conf_level   = input$conf_level,
+          missing_code = 0L
+        )
         
         shinyWidgets::updateProgressBar(session, "fis_progress", value = 100)
-        
+
         fis_boot_timing(round(difftime(Sys.time(), start_time, units = "secs"), 1))
-        fis_boot_results(results)
-        perm_results(results$permutation_results)
+        # The on-screen value boxes stay driven by the by-locus view.
+        fis_boot_results(results_locus)
+        fis_boot_results_pop(results_pop)
+        perm_results(results_locus$permutation_results)
 
         # Per-allele F-stats (FIS, FST, FIT via WC84 components)
         allele_mat  <- as.matrix(hf_mat_r())
@@ -1152,10 +1152,11 @@ server_general_stats <- function(id, rv) {
         ))
 
         showNotification("Computations completed.", type = "message")
-        results
+        list(by_locus = results_locus, by_pop = results_pop)
 
       }, error = function(e) {
         fis_boot_results(NULL)
+        fis_boot_results_pop(NULL)
         perm_results(NULL)
         fis_allele_results(NULL)
         showNotification(paste("Error in bootstrap analysis:", e$message), type = "error")
@@ -1303,7 +1304,6 @@ server_general_stats <- function(id, rv) {
     .write_fis_params <- function(con, res) {
       hdr <- c(
         "Local Panmixia \u2014 FIS \u2014 parameters used",
-        sprintf("Analysis level: %s", if (is.null(input$analysis_level)) "By Locus" else input$analysis_level),
         sprintf("Number of permutations: %s", input$n_perm),
         sprintf("Number of bootstrap replicates: %s", input$n_boot),
         sprintf("Confidence level: %s", input$conf_level)
@@ -1331,7 +1331,11 @@ server_general_stats <- function(id, rv) {
         p1 <- file.path(tmpdir, paste0("fis_results_", Sys.Date(), ".txt"))
         con1 <- file(p1, open = "w", encoding = "UTF-8")
         writeLines(c("FIS estimates with bootstrap CI and permutation p-values", ""), con = con1, useBytes = TRUE)
-        write.table(res$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        writeLines("By Locus:", con = con1)
+        write.table(res$by_locus$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+        writeLines("", con = con1)
+        writeLines("By Population:", con = con1)
+        write.table(res$by_pop$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
         close(con1)
 
         p2 <- file.path(tmpdir, paste0("fis_plot_", Sys.Date(), ".png"))

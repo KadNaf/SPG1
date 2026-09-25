@@ -32,8 +32,6 @@ mod_local_panmixia_ui <- function(id) {
             numericInput(ns("n_perm"),    "Number of Permutations:",        value = 10000, min = 100, max = 20000),
             numericInput(ns("n_boot"),    "Number of Bootstrap Replicates:", value = 10000, min = 100, max = 20000),
             numericInput(ns("conf_level"),"Confidence Level:",               value = 0.95, min = 0.80, max = 0.99, step = 0.01),
-            selectInput(ns("analysis_level"), "Analysis Level:",
-                        choices = c("By Locus", "By Population"), selected = "By Locus"),
             uiOutput(ns("ui_fis_out_status")),
             downloadButton(ns("Run_FIS_Analysis"), " Run",
                          icon = icon("rocket"),
