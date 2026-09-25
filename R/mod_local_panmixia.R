@@ -29,8 +29,8 @@ mod_local_panmixia_ui <- function(id) {
         fluidRow(
           column(3,
             h4(icon("sliders"), "Parameters"),
-            numericInput(ns("n_perm"),    "Number of Permutations:",        value = 5000, min = 100, max = 20000),
-            numericInput(ns("n_boot"),    "Number of Bootstrap Replicates:", value = 5000, min = 100, max = 20000),
+            numericInput(ns("n_perm"),    "Number of Permutations:",        value = 10000, min = 100, max = 20000),
+            numericInput(ns("n_boot"),    "Number of Bootstrap Replicates:", value = 10000, min = 100, max = 20000),
             numericInput(ns("conf_level"),"Confidence Level:",               value = 0.95, min = 0.80, max = 0.99, step = 0.01),
             selectInput(ns("analysis_level"), "Analysis Level:",
                         choices = c("By Locus", "By Population"), selected = "By Locus"),
@@ -77,7 +77,7 @@ mod_local_panmixia_ui <- function(id) {
           column(3,
             h4(icon("sliders"), "Parameters"),
             numericInput(ns("fis_lp_n_perm"), "Number of Permutations:",
-                         value = 5000, min = 100, max = 20000)
+                         value = 10000, min = 100, max = 20000)
           ),
           column(9,
             br(),
