@@ -302,6 +302,15 @@ server_general_stats <- function(id, rv) {
       # col 1 = pop (inchangée), puis loci dans l'ordre physique
       mat <- mat[, c(1L, reorder_idx + 1L), drop = FALSE]
 
+      # IMPORTANT: matrix column-subsetting with `[` does NOT preserve
+      # custom attributes (only dim/dimnames survive) — "pop_levels" was
+      # being silently dropped right here, which is the actual root cause
+      # of the G-test's parameters file falling back to generic "Pop1"..
+      # "PopN" labels (a previous fix removed a redundant as.matrix() call
+      # downstream, which was a real but secondary issue — THIS line was
+      # still wiping the attribute before it even left hf_mat_r()).
+      attr(mat, "pop_levels") <- pop_levels
+
       mat
     })
 
