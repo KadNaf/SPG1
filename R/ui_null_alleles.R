@@ -59,63 +59,13 @@ null_alleles_UI <- function(id) {
 
     module_banner("circle-notch", "Null Allele Estimation · FST-ENA · DCSE-INA",""),
 
-    # tags$div(class = "spg-method-note", style = "border-left-color:#8D8680;",
-    #   HTML(paste0(
-    #     "<b>EM algorithm</b> (Dempster, Laird &amp; Rubin 1977) estimates the null allele frequency ",
-    #     "at each locus \u00d7 population, following the <b>FreeNA</b> approach (Chapuis &amp; Estoup 2007). ",
-    #     "<br><br>",
-    #     "<b>F<sub>ST</sub>-ENA</b>: multilocus and pairwise F<sub>ST</sub> (Weir &amp; Cockerham 1984), ",
-    #     "Excluding Null Alleles \u2014 corrected using the EM-estimated frequencies. ",
-    #     "<b>D<sub>CSE</sub>-INA</b>: Cavalli-Sforza &amp; Edwards (1967) chord distance, Including the ",
-    #     "null allele as an extra allelic state.",
-    #     "<br><br>",
-    #     "<b>Bootstrap confidence intervals</b> are computed by two resampling schemes:",
-    #     "<ul style='margin:4px 0 0 16px;'>",
-    #     "<li><b>Loci</b>, resampled with replacement across the whole locus set (multilocus estimates only).</li>",
-    #     "<li><b>Sub-samples</b> (populations), resampled as whole blocks with replacement (multilocus and per-locus).</li>",
-    #     "</ul>"
-    #   ))
-    # ),
-
-    # ════════════════════════════════════════════════════════════════════
-    # SUMMARY — value boxes
-    # ════════════════════════════════════════════════════════════════════
-    # fluidRow(
-    #   box(
-    #     width = 12, solidHeader = TRUE, status = "primary",
-    #     title = div(style = "background:#FFFFFF; padding:10px; color:#333a43; font-weight:600;",
-    #                 icon("chart-bar"), " Summary "),
-    #     fluidRow(
-    #       column(2, valueBoxOutput(ns("vb_loci"),  width = NULL)),
-    #       column(2, valueBoxOutput(ns("vb_pops"),  width = NULL)),
-    #       column(2, valueBoxOutput(ns("vb_n"),     width = NULL)),
-    #       column(2, valueBoxOutput(ns("vb_avg_null"), width = NULL)),
-    #       column(2, valueBoxOutput(ns("vb_max_null"), width = NULL)),
-    #       column(2, valueBoxOutput(ns("vb_fst_ena"),  width = NULL))
-    #     )
-    #   )
-    # ),
-
     # ════════════════════════════════════════════════════════════════════
     # SETUP
     # ════════════════════════════════════════════════════════════════════
     fluidRow(
       box(
         width = 12,
-        # title = div(style = box_title_style, icon("sliders"), "Setup"),
         solidHeader = TRUE, status = "primary",
-
-        # h4(icon("code-branch"), "(1) Missing genotype coding per locus"),
-        # tags$div(class = "na-warn",
-        #   tags$p(style = "margin:.25rem 0;",
-        #     "Please choose how to code missing data for each locus:", tags$br(),
-        #     tags$strong("0"), " = true missing data (ignored by the algorithm);", tags$br(),
-        #     tags$strong("999999"), " = homozygote for allele 999 (code for all null alleles)"),
-        #   tags$p(style = "margin:.5rem 0 0;font-weight:600;",
-        #     "Please make sure you do not already have any allele coded as 999.")
-        # ),
-
-        # h4(icon("code-branch"), "Missing genotype coding per locus"),
         tags$div(class = "na-warn",
           tags$p(style = "margin:.25rem 0;",
             "Choose the missing data code for each locus: ",
@@ -178,7 +128,6 @@ null_alleles_UI <- function(id) {
 
         tags$hr(),
 
-        # h4(icon("rocket"), "Run all computations + generate output files"),
         fluidRow(
           column(4,
             downloadButton(ns("run_all"),
@@ -202,35 +151,30 @@ null_alleles_UI <- function(id) {
         title = uiOutput(ns("ui_output_files_title"), inline = TRUE),
         solidHeader = TRUE, status = "primary",
         tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
-          # tags$div(class = "card-icon", icon("table")),
           h5("p_nulls / locus"),
           p("Null allele frequencies per locus and subsamples, and averaged over subsamples."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_1"), inline = TRUE)),
           uiOutput(ns("ui_dl_file1"))
         ),
         tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
-          # tags$div(class = "card-icon", icon("chart-bar")),
           h5("FST / FST-ENA"),
           p("Global FST per locus and over all, corrected or not for null alleles, with CI of bootstrap over subsamples and loci."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_2"), inline = TRUE)),
           uiOutput(ns("ui_dl_file2"))
         ),
         tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
-          # tags$div(class = "card-icon", icon("th")),
           h5("Per-locus half-matrices"),
           p("Paired genetic distances in half left matrices, for use by other software."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_4"), inline = TRUE)),
           uiOutput(ns("ui_dl_file4"))
         ),
         tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
-          # tags$div(class = "card-icon", icon("dice")),
           h5("Bootstrap distributions"),
           p("Detailed bootstrap distribution for global FST's."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_5"), inline = TRUE)),
           uiOutput(ns("ui_dl_file5"))
         ),
         tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
-          # tags$div(class = "card-icon", icon("sliders-h")),
           h5("Run parameters"),
           p("List of parameters you chose to use."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_6"), inline = TRUE)),

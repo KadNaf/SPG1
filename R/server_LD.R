@@ -332,7 +332,6 @@ server_LD <- function(id, rv) {
       valueBox(time_display, HTML("<small>Analysis time<br>LD computation</small>"), color = "aqua", icon = icon("clock"))
     })
     
-    
     # -----------------------------#
     # helpers (put inside moduleServer)
     # -----------------------------#

@@ -3298,13 +3298,7 @@ server_general_stats <- function(id, rv) {
       }
       p
     }
-    
-    ### HT ####
 
-    ### HS ####
-    ### FST ####
-
-        
     ## ===== FST, HT, HS  download handlers =====
     ### HS/HT/locus-bootstrap — merged into the single Run+Download button ###
     .write_div_params <- function(con, res) {
@@ -3471,42 +3465,6 @@ server_general_stats <- function(id, rv) {
     rownames = FALSE,
     caption = "FST permutation test \u2014 H0: no subdivision"
     )
-
-    ###
-
-    # ==================================== G-TEST SECTION ===============================================
-    # Subdivision significance test using the G statistic (log-likelihood ratio).
-    #
-    # Méthode = FSTAT "Population Differentiation NOT assuming Hardy-Weinberg within samples"
-    # (Goudet, Raymond, de Meeus & Rousset 1996, Genetics 144:1933-1940 ; FSTAT manual chap. 7):
-    #   - Tableau de contingence : allèles × populations (par locus).
-    #   - Formule : G = 2 * sum(O * log(O/E)), E = tableau attendu sous indépendance
-    #     (identique à g_stat_from_counts() dans ld_pvalues_cpp et à Sokal & Rohlf 1981).
-    #   - Permutation : GENOTYPES complets (individus entiers) réassignés aléatoirement
-    #     entre populations — c'est le schéma valide quand on ne suppose PAS le
-    #     Hardy-Weinberg au sein des échantillons (cf. FSTAT §7.1). Chaque individu
-    #     garde son génotype multi-locus intact ; seule son étiquette de population change,
-    #     et de façon identique pour tous les loci dans une même permutation
-    #     ("only complete multilocus genotypes are randomised").
-    #   - G_global = sum(G_locus) — propriété additive du G (Gall_obs dans ld_pvalues_cpp).
-    #
-    # Deux p-values par locus et au global, comme FSTAT :
-    #   p_ge = (#{G_perm >= G_obs} + 1) / (m + 1)   ["larger than or equal"]
-    #   p_gt = (#{G_perm >  G_obs} + 1) / (m + 1)   ["strictly larger"]
-    # (les fichiers FSTAT_G rapportent les deux, entre crochets [p_ge  p_gt]).
-    #
-    # PAS de correction FDR — p-values brutes par locus uniquement (comme FSTAT).
-    #
-    # Ordre des loci : MIN(rowid) DuckDB via loci_order_r() — même logique que
-    # locus_order_cte() dans server_allele_frequencies (markers_r()).
-    #
-    # Implémentation vectorisée (tabulate() en C plutôt qu'une boucle R par population) :
-    # nécessaire pour rester praticable à 10 000+ permutations sur des jeux de données
-    # réels (l'ancienne version reconstruisait le tableau de contingence avec une
-    # boucle R + un sort/unique répété à CHAQUE permutation x CHAQUE locus, ce qui
-    # pouvait durer plusieurs minutes/heures et provoquer des timeouts de session
-    # sans que le calcul lui-même soit statistiquement faux).
-    # ==========================================#
 
     ## Reactive containers ----
     g_test_results <- reactiveVal(NULL)

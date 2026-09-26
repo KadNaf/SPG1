@@ -6,22 +6,11 @@ mod_global_panmixia_ui <- function(id) {
     tags$head(gs_head()),
 
     module_banner("globe", "Global Panmixia · FIT",""),
-    
-    # tags$div(class = "spg-method-note", style = "border-left-color:#E1AF00;",
-    #   HTML(paste0(
-    #     "Global panmixia: the <em>entire</em> dataset is at HWE \u2014 all populations mate as a single unit. ",
-    #     "<br><br>",
-    #     "<b>H<sub>0</sub>:</b> FIT = 0 globally (no departure from HWE across all samples). &nbsp;",
-    #     "<b>Bootstrap:</b> populations are the resampling unit (block bootstrap); percentile CI per locus. &nbsp;",
-    #     "<b>Permutation:</b> alleles shuffled across all individuals (ignoring populations); two-sided |FIT| test."
-    #   ))
-    # ),
 
     fluidRow(
       box(
         width = 12,
         title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    # icon("globe-americas"),
                     "FIT: CI & p-value parameters"),
         solidHeader = TRUE, status = "primary",
         fluidRow(

@@ -4,7 +4,7 @@
 
 <p align="center">
   Interactive R/Shiny application for population genetics analyses<br/>
-  <sub>Intertryp · IRD · Cirad · Universite de Montpellier · UCAD</sub>
+  <sub>Intertryp · Universite de Montpellier · Cirad · IRD · UCAD</sub>
 </p>
 
 PGA-cmdr covers the full workflow for multilocus, individual-based
@@ -101,8 +101,8 @@ references.
 ## Citation
 
 > PGA-cmdr: an interactive Shiny application for population genetics
-> data import, exploration, and descriptive analyses. Intertryp / IRD /
-> Cirad / Universite de Montpellier / UCAD.
+> data import, exploration, and descriptive analyses. Intertryp / Universite de Montpellier /
+> Cirad / IRD/ UCAD.
 
 ## Credits
 

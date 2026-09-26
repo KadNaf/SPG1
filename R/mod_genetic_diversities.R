@@ -6,26 +6,11 @@ mod_genetic_diversities_ui <- function(id) {
     tags$head(gs_head()),
 
     module_banner("chart-line", "Genetic Diversities · HS · HT",""),
-    
-    # tags$div(class = "spg-method-note", style = "border-left-color:#78B7C5;",
-    #   HTML(paste0(
-    #     "<b>HS</b> (within-population gene diversity) and <b>HT</b> (total gene diversity) ",
-    #     "from Weir &amp; Cockerham (1984), reported per locus and as multilocus estimates. ",
-    #     "<br><br>",
-    #     "<b>Confidence intervals are computed by three resampling schemes:</b>",
-    #     "<ul style='margin:4px 0 0 16px;'>",
-    #     "<li><b>Individuals</b> (HS per locus and per population): individuals resampled with replacement within each population.</li>",
-    #     "<li><b>Populations</b> (HS and HT per locus): populations resampled with replacement.</li>",
-    #     "<li><b>Loci</b> (overall HS and HT only): loci resampled with replacement.</li>",
-    #     "</ul>"
-    #   ))
-    # ),
 
     fluidRow(
       box(
         width = 12,
         title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    # icon("chart-line"),
                     "Genetic Diversity Analysis parameters"),
         solidHeader = TRUE, status = "primary",
         fluidRow(

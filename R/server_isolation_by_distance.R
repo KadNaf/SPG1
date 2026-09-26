@@ -855,7 +855,6 @@ server_isolation_by_distance <- function(id, rv) {
         icon("check-circle"), " ", tags$strong("Computations completed."))
     })
 
-
     # Output-file label for each statistic (short form, matching the
     # requested results format — distinct from the longer UI checkbox
     # labels used elsewhere, e.g. "Pearson r" / "Rousset's 1D").
@@ -958,6 +957,5 @@ server_isolation_by_distance <- function(id, rv) {
         options = list(scrollX = TRUE, pageLength = 10, dom = "lrtip"),
         class = "compact stripe hover")
     })
-
   })
 }

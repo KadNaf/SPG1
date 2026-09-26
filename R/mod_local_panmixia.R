@@ -6,24 +6,11 @@ mod_local_panmixia_ui <- function(id) {
     tags$head(gs_head()),
 
     module_banner("flask", "Local Panmixia · FIS",""),
-    
-    # tags$div(class = "spg-method-note", style = "border-left-color:#9986A5;",
-    #   HTML(paste0(
-    #     "Local panmixia means that each sub-population is at ",
-    #     "Hardy-Weinberg equilibrium (HWE) \u2014 individuals mate randomly ",
-    #     "<em>within</em> their population. ",
-    #     "<br><br>",
-    #     "<b>H<sub>0</sub>:</b> FIS = 0 within each population (no departure from HWE). &nbsp;",
-    #     "<b>Bootstrap:</b> individuals resampled with replacement within populations; percentile CI. &nbsp;",
-    #     "<b>Permutation:</b> alleles reshuffled within each population; two-sided |FIS| test."
-    #   ))
-    # ),
 
     fluidRow(
       box(
         width = 12,
         title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    # icon("rocket"),
                     "FIS: CI & p-value parameters"),
         solidHeader = TRUE, status = "primary",
         fluidRow(
@@ -59,10 +46,6 @@ mod_local_panmixia_ui <- function(id) {
     ),
 
     h2("FIS · By Locus \u00d7 Population", class = "section-title"),
-    # tags$p(HTML(paste0(
-    #   "WC84 FIS and permutation p-values for every locus \u00d7 population combination. ",
-    #   "Permutation only (no bootstrap CI). Run independently of the main analysis above."
-    # )), style = "font-size: 16px; line-height: 1.5; color: #2c3e50;"),
 
     fluidRow(
       box(

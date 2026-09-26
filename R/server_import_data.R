@@ -964,7 +964,6 @@ server_import_data <- function(id, rv) {
         )
       )
       
-      
       # ---- build HF (chunked) AFTER meta exists
       .build_hf_from_params <- function(con, rv, missing_code_raw, batch_size = 10000L) {
         shiny::req(con)
@@ -1014,7 +1013,6 @@ server_import_data <- function(id, rv) {
         invisible(TRUE)
       }
       
-      
       tryCatch(
         {
           .build_hf_from_params(rv$con, rv, missing_code_raw = input$missing_code, batch_size = 10000L)
@@ -1031,9 +1029,6 @@ server_import_data <- function(id, rv) {
           shinyalert::shinyalert("HF build failed", conditionMessage(e), type = "error")
         }
       )
-      
     })
-    
-
   })
 }

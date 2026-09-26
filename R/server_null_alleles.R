@@ -1892,6 +1892,5 @@ server_null_alleles <- function(id, rv) {
     observeEvent(results_r(), {
       rv$null_alleles_results <- results_r()
     }, ignoreNULL = FALSE)
-
   }) # end moduleServer
 }
