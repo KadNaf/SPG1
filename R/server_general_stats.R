@@ -2120,6 +2120,17 @@ server_general_stats <- function(id, rv) {
     fst_boot_timing  <- reactiveVal(NULL)
     fst_perm_results <- reactiveVal(NULL)
     fst_parallel_meta <- reactiveVal(NULL)
+    # Genetic Diversities used to share fst_boot_results/fst_boot_timing with
+    # Subdivision (both call the same run_bootstrap_fst_analysis() helper,
+    # which computes FST/HS/HT together) — this silently showed one module's
+    # on-screen summary boxes with the OTHER module's last-run results
+    # whenever they were run with different parameters. Each module's own
+    # downloaded file was never affected (each already computed and wrote
+    # its own fresh result directly) — only the value boxes were shared.
+    # Giving Diversities its own reactiveVal fixes this without changing
+    # what either module computes.
+    div_boot_results <- reactiveVal(NULL)
+    div_boot_timing  <- reactiveVal(NULL)
     
     run_bootstrap_fst_analysis <- function(n_perm, n_boot, conf_level, missing_code = 0L,
                                             progress_id = NULL) {
@@ -2709,8 +2720,8 @@ server_general_stats <- function(id, rv) {
                                          title = "Done")
 
         duration <- round(as.numeric(difftime(Sys.time(), start_time, units = "secs")), 1)
-        fst_boot_timing(duration)
-        fst_boot_results(results)
+        div_boot_timing(duration)
+        div_boot_results(results)
 
         showNotification(
           "Computations completed.",
@@ -2719,8 +2730,8 @@ server_general_stats <- function(id, rv) {
         results
 
       }, error = function(e) {
-        fst_boot_results(NULL)
-        fst_boot_timing(NULL)
+        div_boot_results(NULL)
+        div_boot_timing(NULL)
         showNotification(paste("Error in FST analysis:", e$message), type = "error")
         NULL
       })
@@ -2840,9 +2851,11 @@ server_general_stats <- function(id, rv) {
     # ── One button, one click, one action: clicking "Run" IS the download
     #    request itself — the FST bootstrap/permutation runs inside this same
     #    content() function before the 3 result files + 1 parameters file
-    #    are zipped and streamed back. Also populates the shared
-    #    fst_boot_results()/fst_boot_timing() used by the Genetic Diversities
-    #    tab, exactly as before.
+    #    are zipped and streamed back. Populates fst_boot_results()/
+    #    fst_boot_timing() — Subdivision's own value boxes only; Genetic
+    #    Diversities has its own separate div_boot_results()/div_boot_timing()
+    #    (previously shared here, which caused each module's value boxes to
+    #    silently show the other module's last-run results).
     output$ui_fst_out_status <- renderUI({
       tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
         "The results will be saved in ", tags$code(paste0("subdivision_FST_", Sys.Date(), ".zip")), ".")
@@ -3049,7 +3062,7 @@ server_general_stats <- function(id, rv) {
     ## ===== Diversities tab value boxes (global_fst, global_hs, global_ht, time) =====
 
     output$global_fst_div_box <- renderValueBox({
-      res <- fst_boot_results()
+      res <- div_boot_results()
       shiny::req(!is.null(res), !is.null(res$final_table))
       fst <- res$final_table %>%
         dplyr::filter(ID == "Overall") %>%
@@ -3062,7 +3075,7 @@ server_general_stats <- function(id, rv) {
     })
 
     output$global_hs_box <- renderValueBox({
-      res <- fst_boot_results()
+      res <- div_boot_results()
       shiny::req(!is.null(res), !is.null(res$hs_table))
       hs <- res$hs_table %>%
         dplyr::filter(ID == "Overall") %>%
@@ -3075,7 +3088,7 @@ server_general_stats <- function(id, rv) {
     })
 
     output$global_ht_box <- renderValueBox({
-      res <- fst_boot_results()
+      res <- div_boot_results()
       shiny::req(!is.null(res), !is.null(res$ht_table))
       ht <- res$ht_table %>%
         dplyr::filter(ID == "Overall") %>%
@@ -3088,12 +3101,12 @@ server_general_stats <- function(id, rv) {
     })
 
     output$analysis_time_div_box <- renderValueBox({
-      shiny::req(fst_boot_timing())
-      time_sec <- fst_boot_timing()
+      shiny::req(div_boot_timing())
+      time_sec <- div_boot_timing()
       time_display <- if (is.na(time_sec)) "N/A" else if (time_sec < 60)
         paste0(time_sec, " s") else paste0(round(time_sec / 60, 1), " min")
       valueBox(value = time_display,
-               subtitle = HTML("<small>Computation Time<br>(shared with Subdivision)</small>"),
+               subtitle = HTML("<small>Computation Time</small>"),
                color = "light-blue", icon = icon("clock"), width = NULL)
     })
 

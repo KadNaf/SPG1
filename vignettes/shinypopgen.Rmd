@@ -1,8 +1,8 @@
 ---
-title: "Getting started with ShinyPopGen"
+title: "Getting started with PGA-cmdr"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Getting started with ShinyPopGen}
+  %\VignetteIndexEntry{Getting started with PGA-cmdr}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -13,23 +13,31 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 ## Overview
 
-**ShinyPopGen** is an interactive Shiny application for exploratory and
+**PGA-cmdr** is an interactive Shiny application for exploratory and
 descriptive population genetics analyses from individual-based multilocus
-datasets (microsatellites, codominant markers).
+datasets (microsatellites, codominant markers). All computations run
+locally in R/C++ (Rcpp, OpenMP) -- no data is sent to any server.
 
 It covers the full analytical workflow:
 
-1. Data import and automatic column detection
-2. Allele frequency distributions and missing data
-3. General statistics (N, Na, Ho, He)
+1. Data import, with automatic loci-range and encoding detection
+2. Allele frequencies per locus and population
+3. General statistics -- Ho, Hs, Ht, FIT/FIS/FST (Weir & Cockerham 1984),
+   plus optional Fst-max, Fst' (Meirmans), GST/GST'' (Nei/Hedrick)
 4. Null allele frequency estimation (FreeNA EM algorithm, ENA correction)
-5. Local panmixia -- FIS per locus and population (Weir & Cockerham 1984)
+5. Local panmixia -- FIS per locus and/or population (Weir & Cockerham 1984)
 6. Global panmixia -- FIT across all populations
-7. Population subdivision -- FST per locus and globally
-8. Genetic diversities -- HS, HT, with resampling over individuals,
-   populations, or loci
+7. Population subdivision -- FST per locus and globally, plus a G-test
+8. Genetic diversities -- HS, HT (Nei & Chesser 1983), with resampling over
+   individuals, sub-samples, or loci
 9. Linkage disequilibrium -- pairwise G-test with permutation p-values
-10. Isolation by distance -- FST/(1-FST) vs. geographic distance, Mantel test
+10. Isolation by distance -- Rousset's (1997) regression and a Mantel test
+
+Every module follows the same pattern: set parameters, click **Run**, and a
+`.zip` (or a single `.txt` for one-table modules) downloads automatically
+with everything you need -- there is nothing to preview or export
+separately first. The exact output file name(s) are always shown just
+above the Run button before you click it.
 
 ## Launch the application
 
@@ -38,17 +46,17 @@ library(shinypopgen)
 run_app()
 ```
 
-The application opens in your default browser. All computations run locally;
-no data is sent to any server.
+The application opens in your default browser.
 
 ## Data format
 
-ShinyPopGen accepts CSV or tabulation-delimited TXT files. The separator
-(comma, semicolon, or tab) is detected automatically. The file must contain
-a header row, one *population* column, and one or more *genetic marker*
-columns; metadata columns (e.g. individual ID, latitude, longitude) are
-optional and preserved through the analysis. Two genotype encodings are
-supported, but a single file must use only one of them.
+PGA-cmdr accepts CSV or tabulation-delimited TXT files. The separator
+(comma, semicolon, or tab) is detected automatically, and the file loads
+as soon as it is chosen -- no extra click needed. The file must contain a
+header row, one *population* column, and one or more *genetic marker*
+columns; other columns (individual ID, latitude, longitude, etc.) are
+simply ignored. Two genotype encodings are supported, but a single file
+must use only one of them throughout.
 
 ### Single-column format
 
@@ -62,13 +70,11 @@ Pop1        200/200  179/179  108/112
 Pop2        145/145  92/92    92/100
 ```
 
-### Two-column format
+### Paired-column format
 
-Each locus occupies two columns, one per allele. The first allele column
-carries the locus name (e.g. `B12`); the second must be named `B12_1` (or
-`B12.1`) -- any column whose name ends in a `_1`/`.1`-`.9` suffix is
-auto-paired with the column obtained by removing that suffix. Paired
-columns do not need to be adjacent:
+Each locus occupies two *adjacent* columns, one per allele. The first
+allele column carries the locus name (e.g. `B12`); the second must
+immediately follow it and be named `B12_1` (or `B12.1`):
 
 ```
 Population  B12  B12_1  C07  C07_1
@@ -77,107 +83,123 @@ Pop1        200  200    179  179
 Pop2        145  145     92   92
 ```
 
-If auto-detection picks up the wrong columns, use the manual column
-assignment panel on the Import page instead.
-
 Missing genotypes are coded as `0` (or `0/0`) by default and are
-customisable on import. For **null allele** screening specifically, null
-homozygotes must be coded as `999999/999999`, distinct from missing data
-(`0/0`); a per-locus override panel is available in the Null Alleles tab.
+customisable on import.
+
+## Setting the loci range on import
+
+Once the file is loaded, a numbered **Column reference** table appears at
+the bottom of the Import Data page, listing every column name next to its
+position -- use it to check exactly which number corresponds to which
+column.
+
+Fill in:
+
+1. **Population / Latitude / Longitude** -- pick the matching column from
+   each dropdown (Latitude/Longitude are optional, needed only for the
+   IBD module's automatic geographic-distance calculation).
+2. **Column number of the first locus** -- where your markers start.
+3. **Number of loci** -- the *actual number of genetic markers* (not raw
+   columns). As soon as the first locus column is set, this field is
+   **auto-suggested** from how many complete loci fit between that column
+   and the end of the file, correctly accounting for single- or
+   paired-column format. Adjust it down if some trailing columns aren't
+   loci.
+
+The app shows the resulting column range live (e.g. "6 loci x 2
+columns/locus = columns 9 to 20") before you click **Apply**.
 
 ## Worked example: *Boophilus* cattle ticks
 
-The package ships a demonstration dataset from Thierry de Meeûs' teaching
-material (`inst/extdata/default_dataset.csv`): 698 adult *Boophilus* ticks
-sampled from cattle across New Caledonia, genotyped at 6 microsatellite loci
-(B12, C07, D12, D10, A12, C03).
+The package ships a demonstration dataset from Thierry de Meeus' teaching
+material (`inst/extdata/default_dataset.csv`): adult *Boophilus* ticks
+sampled from cattle across New Caledonia, genotyped at 6 microsatellite
+loci (B12, C07, D12, D10, A12, C03) across 8 sampling localities.
 
 The steps below follow the app's recommended workflow (see the in-app
-**Help** tab).
+**Help** tab for the full reference list).
 
 ### 1. Import the data
 
-Click **"Load Default Data"** in the sidebar of the *Import Data* tab. The
-application will:
-
-- Import the file via DuckDB
-- Auto-detect the population column (`Pop`) and GPS coordinates
-- Detect the 12 allele columns (two-column format, loci B12 -- C03)
-- Build the internal genotype table (individual x locus, packed integers)
-- Display a preview table and a map of sampling localities
+Click **"Load Default Data"** in the sidebar of the *Import Data* tab, or
+follow the manual steps above for your own file. The application imports
+the data via DuckDB, builds the internal genotype table (individual x
+locus, packed integers), and is ready for every other module immediately.
 
 ### 2. Allele frequencies
 
-Navigate to *Allele Freq*. You will see per-locus allele frequency bar
-charts and a missing-data summary table; flag any locus with more than
-about 20% missing data. The Boophilus dataset has no missing data.
+Set an output name on the *Allele Freq* tab (or leave it auto-filled) and
+click **Run**. A single `.zip` downloads with per-locus, per-population
+allele frequencies plus a population-size-weighted global column -- every
+population and marker is included automatically.
 
 ### 3. General statistics
 
-The *General Stats* tab reports sample size (N), number of alleles (Na),
-observed heterozygosity (Ho), and expected heterozygosity (He) per locus
-and population.
+The *General Stats* tab reports, per locus: Ho, Hs, Ht, and FIT/FIS/FST
+(Weir & Cockerham 1984), plus any of the optional indices you tick
+(Fst-max, Fst', GST, GST''). The same Run also produces a per-population
+summary, per-locus detail for every population, and per-allele
+F-statistics -- all in one zip.
 
 ### 4. Null alleles
 
-If the Ho/He ratio at a locus looks unusually low, check the *Null Alleles*
-tab: null allele frequencies are estimated per locus x population by the
+If a locus's Ho/Hs ratio looks unusually low, check the *Null Alleles*
+tab: null allele frequencies are estimated per locus x sub-sample by the
 FreeNA EM algorithm (Chapuis & Estoup 2007), with both raw and
-ENA-corrected FST reported.
+ENA-corrected FST/DCSE reported, and a full pairwise table.
 
 ### 5. Local panmixia (FIS)
 
-The *Local Panmixia* tab reports per-locus FIS values within each
-population (Weir & Cockerham 1984), with:
-
-- **Bootstrap 95% CI** (resampling over individuals; 5,000 replicates by
-  default)
-- **Permutation p-value** (alleles reassigned within each population;
-  5,000 permutations by default)
+The *Local Panmixia* tab reports FIS (Weir & Cockerham 1984) both **by
+locus** and **by population** in the same output -- no need to choose one
+view, both are always computed. Each comes with a bootstrap confidence
+interval and a permutation p-value. Sub-sample or individual counts below
+5 are reported as `NA` rather than an unreliable estimate.
 
 ### 6. Global panmixia (FIT)
 
 The *Global Panmixia* tab reports the multilocus FIT across all
-populations, with the same bootstrap/permutation approach as above.
+populations, with the same bootstrap/permutation approach.
 
 ### 7. Subdivision (FST)
 
 The *Subdivision* tab estimates FST (Weir & Cockerham 1984) per locus and
-overall, with population-block or locus bootstrap CI and a permutation
-p-value; a genotype-reassignment G-test (as in FSTAT, Goudet et al. 1996)
-is also available for individuals with a complete multilocus genotype.
+overall, with bootstrap CI (over loci and over sub-samples) and a
+permutation p-value; a separate genotype-reassignment G-test (as in
+FSTAT, Goudet et al. 1996) is also available, reporting two one-sided
+p-values (heterozygote deficit / excess) matching FSTAT's own convention.
 
 ### 8. Genetic diversities (HS, HT)
 
 The *Diversities* tab reports HS (within-population) and HT (total) gene
-diversity (Nei 1987), per locus and as multilocus estimates, with
-confidence intervals from resampling over individuals, populations, or
-loci depending on the estimator.
+diversity -- using the **unbiased small-sample estimator of Nei & Chesser
+(1983)**, not the simpler biased form -- per locus and as multilocus
+estimates, with confidence intervals from resampling over individuals,
+sub-samples, or loci.
 
 ### 9. Linkage disequilibrium
 
-The *LD* tab tests all locus pairs within each population. The G-statistic
-is:
+The *LD* tab tests every locus pair, per population and combined ("All"),
+using a permutation-based log-likelihood-ratio (G) test. One locus's
+genotypes are permuted among individuals within each population
+(10,000 permutations by default) and compared to the observed G statistic.
 
+```{r ld-note, eval=FALSE}
+# G = 2 * sum(observed * log(observed / expected)), under independence
 ```
-G = 2 * sum(O * log(O / E))
-```
-
-where O and E are observed and expected counts under independence.
-P-values are Monte Carlo estimates from permutations of one locus column
-within each population (10,000 permutations by default).
 
 ### 10. Isolation by distance
 
-The *Isolation by Distance* tab requires GPS metadata (present in the
-Boophilus dataset). It plots pairwise FST/(1-FST) against geographic
-distance following **Rousset (1997)**, and offers a Mantel permutation test
-of the association.
+The *IBD* tab offers two independent analyses:
 
-### Export results
-
-Every results table has a download button (.csv / .txt). The formatted
-dataset can also be downloaded from the *Import Data* tab.
+- **Rousset's (1997) regression** of linearised genetic distance
+  (FST/(1-FST)) against geographic distance -- this module **reuses the
+  pairwise table already computed by the Null Alleles module** rather
+  than recomputing it, so run Null Alleles first (or upload an external
+  pairwise file). Geographic distance is computed automatically from
+  Latitude/Longitude set at import.
+- **A Mantel permutation test** (Pearson, Spearman, and Rousset 1D/2D
+  statistics), independent of the regression above.
 
 ## Statistical methods
 
@@ -186,10 +208,11 @@ All F-statistics follow **Weir & Cockerham (1984)**:
 > Weir, B.S. & Cockerham, C.C. (1984). Estimating F-statistics for the
 > analysis of population structure. *Evolution*, **38**, 1358--1370.
 
-Gene diversity (HS, HT) follows **Nei (1987)**:
+Gene diversity (HS, HT) follows the unbiased small-sample estimator of
+**Nei & Chesser (1983)**:
 
-> Nei, M. (1987). *Molecular Evolutionary Genetics*. Columbia University
-> Press, New York.
+> Nei, M. & Chesser, R.K. (1983). Estimation of fixation indices and gene
+> diversities. *Annals of Human Genetics*, **47**, 253--259.
 
 Null allele frequencies and the ENA correction follow **Chapuis & Estoup
 (2007)** (the FreeNA method):
@@ -209,9 +232,15 @@ The genotype-reassignment G-test for subdivision follows **FSTAT**:
 > Goudet, J., Raymond, M., de Meeus, T. & Rousset, F. (1996). Testing
 > differentiation in diploid populations. *Genetics*, **144**, 1933--1940.
 
+Fst-max and Fst' follow **Meirmans (2006)** and **Hedrick (2005)**; GST''
+follows **Meirmans & Hedrick (2011)**:
+
+> Meirmans, P.G. & Hedrick, P.W. (2011). Assessing population structure:
+> FST and related measures. *Molecular Ecology Resources*, **11**, 5--18.
+
 Permutation p-values use the formula `p = (b + 1) / (m + 1)`, where `b` is
-the number of permuted statistics at least as extreme as the observed value
-and `m` is the number of permutations, following:
+the number of permuted statistics at least as extreme as the observed
+value and `m` is the number of permutations, following:
 
 > Phipson, B. & Smyth, G.K. (2010). Permutation p-values should never be
 > zero: calculating exact p-values when permutations are randomly drawn.
@@ -219,6 +248,17 @@ and `m` is the number of permutations, following:
 
 Heavy computations (bootstrap, permutation loops) are parallelised with
 OpenMP via C++17 (Rcpp).
+
+## A note on cross-module dependencies
+
+Most modules are fully self-contained: they read the imported dataset and
+compute everything themselves. The one exception is **Isolation by
+Distance**, whose Rousset regression reuses the Null Alleles module's
+pairwise table instead of recomputing it. If you go directly to IBD
+without having run Null Alleles first, the app will tell you so and ask
+you to run it (or upload an external pairwise file instead). Keep this in
+mind if you change your imported data or parameters between the two --
+re-run Null Alleles before trusting IBD's regression output.
 
 ## Session info
 
