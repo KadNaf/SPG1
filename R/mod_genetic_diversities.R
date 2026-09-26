@@ -21,12 +21,7 @@ mod_genetic_diversities_ui <- function(id) {
             uiOutput(ns("ui_div_out_status")),
             downloadButton(ns("run_FST_Analysis_div"), " Run",
                          icon = icon("rocket"),
-                         class = "btn-action-primary btn-block", style = "font-weight: bold;"),
-            tags$small(
-              style = "color: #666; margin-top: 6px; display: block;",
-              icon("info-circle"),
-              "Also populates FST/FIT results in the Population subdivision tab."
-            )
+                         class = "btn-action-primary btn-block", style = "font-weight: bold;")
           ),
           column(9,
             h4(icon("chart-line"), "Diversity Analysis Summary",
