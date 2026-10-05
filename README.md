@@ -61,7 +61,7 @@ docker compose up
 ## Modules
 
 Every module follows the same pattern: set parameters, click **Run**, and
-a `.zip` (or, for single-table modules, a single `.txt`) downloads
+a single `.txt` file (Allele Freq, Local/Global Panmixia, Subdivision, Diversities, LD) or a `.zip` of several files (General Stats, Null Alleles, IBD, Mantel) downloads
 automatically with every result file needed — nothing is shown on screen
 first. Column numbering, loci detection (single- or paired-column allele
 format), and output file names are handled automatically wherever possible.
@@ -71,9 +71,9 @@ format), and output file names are handled automatically wherever possible.
 | **Import Data** | CSV/TXT import (auto-detected comma/semicolon/tab separator, loaded as soon as a file is chosen). Population, Latitude/Longitude column assignment; loci range entered as "number of loci" + "first locus column" (auto-suggested, and automatically adjusted for single- or paired-column allele encoding); a numbered column-reference table is shown so column numbers are never ambiguous. |
 | **Allele Freq** | Per-locus, per-population allele frequencies (plus a global column), computed automatically for every population and marker — no selection needed. |
 | **General Stats** | Per-locus Ho, Hs, Ht, FIT/FIS/FST (Weir & Cockerham 1984), and optional Fst-max (Meirmans), Fst' (Meirmans), GST (Nei), GST'' (Hedrick/Meirmans); per-population Ho/Hs/FIS summary and per-locus detail for every population; per-allele F-statistics (Weir & Cockerham components). |
-| **Local Panmixia** | Within-population FIS (Weir & Cockerham 1984) by locus or by population, with bootstrap CI (over individuals and over sub-samples) and a permutation p-value. Sub-sample or individual counts below 5 are reported as NA rather than an unreliable estimate. |
+| **Local Panmixia** | Within-population FIS (Weir & Cockerham 1984) by locus and by population (both in one file, with the bootstrap types and replicate counts stated), with bootstrap CI (over individuals and over sub-samples) and a permutation p-value. Sub-sample or individual counts below 5 are reported as NA rather than an unreliable estimate. |
 | **Global Panmixia** | Multilocus FIT across all populations, bootstrap CI (over loci and over sub-samples) and permutation p-value. |
-| **Subdivision** | FST (Weir & Cockerham 1984) per locus and overall, bootstrap CI (over loci and over sub-samples), a permutation p-value, and a separate G-test for genotypic differentiation. |
+| **Subdivision** | FST (Weir & Cockerham 1984) per locus and overall, bootstrap CI (over loci and over sub-samples), a permutation p-value, plus the FSTAT-style G-based test of genotypic differentiation (two p-value definitions, p_ge and p_gt) — everything in one output file. |
 | **Diversities** | HS and HT (Nei 1987, unbiased Nei & Chesser 1983 estimator) per locus and multilocus, with bootstrap CI over individuals, sub-samples, or loci. |
 | **LD** | Pairwise linkage disequilibrium between every locus pair, per population and combined ("All"), via a permutation-based G-test. |
 | **Null Alleles** | Null allele frequency estimation per locus × sub-sample (FreeNA EM algorithm, Chapuis & Estoup 2007), raw and ENA-corrected FST and DCSE with bootstrap CI (over loci and over sub-samples), and a full pairwise table (FST, FST-ENA, DCSE, DCSE-INA, linearised FST, geographic distance). |

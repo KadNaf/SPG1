@@ -3,14 +3,11 @@
 #' @import shiny
 #' @import bslib
 #' @import shinydashboard
-#' @import ggplot2
 #' @importFrom Rcpp sourceCpp
 #' @importFrom magrittr %>%
 #' @importFrom waiter Waiter useWaiter
 #' @importFrom htmltools tags HTML tagList withTags
-#' @importFrom leaflet leafletOutput renderLeaflet leafletProxy
 #' @importFrom DT DTOutput renderDT
-#' @importFrom plotly plotlyOutput renderPlotly ggplotly
 #' @importFrom utils combn
 #' @importFrom stats aggregate median rbinom sd
 #' @importFrom utils head write.csv write.table

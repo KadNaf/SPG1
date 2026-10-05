@@ -115,11 +115,16 @@ server_LD <- function(id, rv) {
       meta_ind_q <- as.character(DBI::dbQuoteIdentifier(con, meta_ind_col))
       pop_q      <- as.character(DBI::dbQuoteIdentifier(con, pop_col))
       
+      # Loci in the ORDER OF THE DATA FILE (first row each locus appears in),
+      # NOT alphabetical: the locus order drives the order of the columns and
+      # of the locus pairs in the output (B12 X C07, B12 X D12, ...).
       loci_sql <- sprintf("
-        SELECT DISTINCT CAST(%s AS VARCHAR) AS locus
-        FROM %s
-        WHERE %s IS NOT NULL
-        ORDER BY locus
+        SELECT locus FROM (
+          SELECT CAST(%s AS VARCHAR) AS locus, MIN(rowid) AS _rank
+          FROM %s
+          WHERE %s IS NOT NULL
+          GROUP BY 1
+        ) ORDER BY _rank
       ", hf_locus_q, hf_tbl_q, hf_locus_q)
       
       loci_df <- DBI::dbGetQuery(con, loci_sql)
@@ -173,8 +178,22 @@ server_LD <- function(id, rv) {
       shiny::validate(shiny::need(ncol(out) > 3, "LD: need at least 2 loci after reshaping."))
       
       fixed_cols <- c("Population", "individual")
-      locus_cols <- setdiff(names(out), fixed_cols)
-      out <- out[, c(fixed_cols, sort(locus_cols)), drop = FALSE]
+      # Keep the locus columns in data order (the order they were built in
+      # above) — no sort(): an alphabetical sort here used to scramble them.
+      locus_cols <- intersect(loci, setdiff(names(out), fixed_cols))
+      out <- out[, c(fixed_cols, locus_cols), drop = FALSE]
+
+      # Populations also in the order of the data file (first appearance in
+      # the meta table), not alphabetical.
+      pop_order <- DBI::dbGetQuery(con, sprintf("
+        SELECT Population FROM (
+          SELECT CAST(%s AS VARCHAR) AS Population, MIN(rowid) AS _rank
+          FROM %s
+          WHERE %s IS NOT NULL
+          GROUP BY 1
+        ) ORDER BY _rank
+      ", pop_q, meta_tbl_q, pop_q))$Population
+      out <- out[order(match(out$Population, pop_order), out$individual), , drop = FALSE]
       
       out
     })
@@ -235,42 +254,6 @@ server_LD <- function(id, rv) {
     ld_results_store <- reactiveVal(NULL)
     ld_results_reactive <- function() ld_results_store()
     
-    # ---- Table formatting / filtering ----
-    summary_table_reactive <- reactive({
-      req(ld_results_reactive())
-      pv <- ld_results_reactive()
-      if (is.null(pv) || nrow(pv) == 0) return(data.frame(Message = "No data available"))
-
-      dec_places <- input$decimal_places %||% 4
-      pv_formatted <- pv
-
-      for (j in 2:ncol(pv_formatted)) {
-        nums <- pv_formatted[[j]]
-        pv_formatted[[j]] <- ifelse(is.na(nums), "NA",
-                                    sprintf(paste0("%.", dec_places, "f"), nums))
-      }
-
-      # compute once, reuse for both filtering and sorting
-      min_pvals <- min_pvals_by_pair(pv)
-
-      if (!is.null(input$table_view) && input$table_view != "all") {
-        threshold <- switch(input$table_view,
-                            "sig_05"  = 0.05,
-                            "sig_01"  = 0.01,
-                            "sig_001" = 0.001,
-                            1.0)
-        keep <- min_pvals < threshold
-        pv_formatted <- pv_formatted[keep, , drop = FALSE]
-        min_pvals    <- min_pvals[keep]
-      }
-
-      if (!is.null(input$sort_by_ld) && input$sort_by_ld %in% c("pval_asc", "pval_desc")) {
-        ord <- order(min_pvals, decreasing = (input$sort_by_ld == "pval_desc"))
-        pv_formatted <- pv_formatted[ord, , drop = FALSE]
-      }
-
-      pv_formatted
-    })
     
     # ---- Value boxes ----
     output$total_pairs_box <- renderValueBox({
@@ -344,103 +327,62 @@ server_LD <- function(id, rv) {
       v
     }
     
-    safe_empty_plot <- function(msg) {
-      plot.new()
-      text(0.5, 0.5, msg, cex = 1.2)
-    }
     
-    # -----------------------------#
-    # summary table
-    # -----------------------------#
-    output$summary_output <- DT::renderDT({
-      df <- summary_table_reactive()
-      
-      if (is.null(df) || nrow(df) == 0) {
-        return(DT::datatable(data.frame(Message = "No data available. Click 'Run LD Analysis' to start.")))
-      }
-      
-      dt <- DT::datatable(
-        df,
-        extensions = "Buttons",
-        options = list(
-          dom = "Bfrtip",
-          buttons = c("copy"),
-          pageLength = 25,
-          scrollX = TRUE,
-          scrollY = "400px"
-        ),
-        rownames = FALSE
-      )
-      
-      # keep highlighting only if you still have that checkbox in UI
-      if (isTRUE(input$highlight_sig) && ncol(df) > 1) {
-        for (j in 2:ncol(df)) {
-          dt <- dt %>%
-            DT::formatStyle(
-              colnames(df)[j],
-              backgroundColor = DT::styleInterval(
-                c(0.001, 0.01, 0.05),
-                c("#ffcdd2", "#ffecb3", "#fff9c4", "#ffffff")
-              )
-            )
-        }
-      }
-      
-      dt
-    })
     
     # -----------------------------#
     # One button, one click, one action: clicking "Run" IS the download
     # request itself — the LD permutation test runs inside this same
     # content() function before the two files are zipped and streamed back.
     # -----------------------------#
-    .write_ld_params <- function(con) {
-      np <- suppressWarnings(as.integer(input$n_iterations))
+    .write_ld_params <- function(con, pv) {
+      np   <- suppressWarnings(as.integer(input$n_iterations))
       loci <- tryCatch(loci_names(), error = function(e) character(0))
+      pops <- setdiff(names(pv), c("Pair", "All"))
       hdr <- c(
-        "Linkage Disequilibrium \u2014 parameters used",
-        sprintf("Include missing data: %s", if (isTRUE(input$include_missing)) "Yes" else "No"),
-        sprintf("Number of permutations: %d", np),
-        sprintf("Genotype base: %s", base_r()),
-        sprintf("Loci tested (n = %d): %s", length(loci), paste(loci, collapse = ", "))
+        "Linkage Disequilibrium - genotypic disequilibrium between all pairs of loci",
+        sprintf("Dataset: %s", rv$dataset_filename %||% "default_dataset"),
+        sprintf("Loci tested (n = %d): %s", length(loci), paste(loci, collapse = ", ")),
+        sprintf("Populations (n = %d): %s", length(pops), paste(pops, collapse = ", ")),
+        "Loci, locus pairs and populations are listed in the order of the data file.",
+        "",
+        "Test: log-likelihood ratio (G) statistic on the genotype x genotype contingency table of each locus pair, within each population.",
+        sprintf("Permutation test: %d permutations; genotypes at the second locus are permuted among the individuals of each population.", np),
+        "  p-value = (b + 1) / (m + 1), b = number of permuted G >= observed G, m = number of permutations.",
+        "  Column 'All': G statistics summed over all populations, compared with the sum of the permuted G statistics of the same permutation round.",
+        "Missing data: an individual with a missing genotype at either locus of a pair is left out of that pair's table (pairwise deletion).",
+        sprintf("Genotype base: %s", base_r())
       )
       if (!is.na(np) && np < 1000L) {
         hdr <- c(hdr, "",
           "WARNING: fewer than 1000 permutations were requested. The Monte Carlo",
-          "p-value formula p = (n\u2265obs + 1) / B gives a slight overestimation when B",
+          "p-value formula p = (b + 1) / (m + 1) gives a slight overestimation when m",
           "is small, which may produce unreliable significance calls. A minimum of",
           "1000 permutations is recommended; 10 000 or more for publication-quality",
           "results.")
       }
-      writeLines(hdr, con = con, useBytes = TRUE)
+      writeLines(c(hdr, ""), con = con, useBytes = TRUE)
     }
 
-    .write_ld_results <- function(con, pv) {
-      writeLines(c("Linkage Disequilibrium \u2014 results (all locus pairs)", ""), con = con, useBytes = TRUE)
-      write.table(pv, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-    }
-
+    # One button, one click, one action: clicking "Run" IS the download
+    # request itself — the LD permutation test runs inside this same
+    # content() function and the methods block + results are written to ONE
+    # plain .txt file (no zip).
     output$ui_ld_out_status <- renderUI({
       tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
-        "The results will be saved in ", tags$code(paste0("LD_", Sys.Date(), ".zip")), ".")
+        "The results will be saved in ", tags$code(paste0("LD_", Sys.Date(), ".txt")), ".")
     })
 
     output$run_LD <- downloadHandler(
-      filename = function() paste0("LD_", Sys.Date(), ".zip"),
+      filename = function() paste0("LD_", Sys.Date(), ".txt"),
       content  = function(file) {
         pv <- .run_ld_computation()
         ld_results_store(pv)
         req(pv)
-        tmpdir <- tempfile("spg_ld_export_"); dir.create(tmpdir)
-        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
-
-        p1 <- file.path(tmpdir, paste0("LD_parameters_", Sys.Date(), ".txt"))
-        con1 <- file(p1, open = "w", encoding = "UTF-8"); .write_ld_params(con1); close(con1)
-
-        p2 <- file.path(tmpdir, paste0("LD_results_", Sys.Date(), ".txt"))
-        con2 <- file(p2, open = "w", encoding = "UTF-8"); .write_ld_results(con2, pv); close(con2)
-
-        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
+        con <- file(file, open = "w", encoding = "UTF-8")
+        on.exit(close(con), add = TRUE)
+        .write_ld_params(con, pv)
+        writeLines("Linkage disequilibrium p-values (all locus pairs)", con = con)
+        write.table(pv, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
       }
     )
   })

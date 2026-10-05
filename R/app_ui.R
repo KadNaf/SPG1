@@ -634,23 +634,6 @@ app_ui <- function() {
 
   # -- Welcome tab content ---------------------------------------------------
 
-  # Helper: one module feature card (clickable → navigates to tab)
-  module_card <- function(icon_name, title, desc, accent = "#8ea1b9", tab_value = NULL) {
-    onclick_js <- if (!is.null(tab_value))
-      paste0("document.querySelector('[data-value=\"", tab_value, "\"]').click();")
-    else NULL
-    shiny::div(
-      class = "spg-module-card",
-      style = paste0(
-        "border-bottom-color:", accent, ";",
-        if (!is.null(tab_value)) "cursor:pointer;" else ""
-      ),
-      onclick = onclick_js,
-      shiny::div(class = "card-icon", shiny::icon(icon_name)),
-      shiny::tags$h5(title),
-      shiny::tags$p(desc)
-    )
-  }
 
   welcome_content <- shiny::tagList(
 
@@ -903,7 +886,7 @@ app_ui <- function() {
           shiny::div(class = "spg-tip", shiny::icon("check-circle"),
             shiny::HTML(" <strong>Null alleles (FreeNA)</strong> use the standard missing-data code you set on import (e.g. <code>0/0</code>); the Null Alleles module handles the EM estimation from there.")),
           shiny::div(class = "spg-tip", shiny::icon("check-circle"),
-            shiny::HTML(" <strong>Every module downloads a zip (or a single file for one-table modules)</strong> as soon as you click Run \u2014 there is nothing to view or export separately beforehand; the exact output file name(s) are always shown just above the Run button.")),
+            shiny::HTML(" <strong>Every module downloads one plain .txt file (Allele Freq, Local/Global Panmixia, Subdivision, Diversities, LD) or a zip of several files (General Stats, Null Alleles, IBD, Mantel)</strong> as soon as you click Run \u2014 there is nothing to view or export separately beforehand; the exact output file name(s) are always shown just above the Run button.")),
           shiny::div(class = "spg-tip", shiny::icon("exclamation-triangle"),
             shiny::HTML(" <strong>All locus columns must use the same encoding</strong> (single- or paired-column) within a file. Mixed encoding is not supported.")),
           shiny::div(class = "spg-tip", shiny::icon("exclamation-triangle"),

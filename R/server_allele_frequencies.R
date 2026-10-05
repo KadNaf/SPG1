@@ -32,12 +32,12 @@ server_allele_frequencies <- function(id, rv) {
       r <- trimws(input$fstat_out_root %||% "")
       if (nzchar(r)) r else if (nzchar(last_auto_root_af())) last_auto_root_af() else "SPG_"
     })
-    fstat_out_filename <- function() paste0(fstat_out_root_r(), "allele_freq_by_locus.txt")
-    fstat_out_zip_filename <- function() paste0(fstat_out_root_r(), "allele_freq_by_locus.zip")
+    # Single result file -> plain .txt download (no zip wrapper needed).
+    fstat_out_filename <- function() paste0(fstat_out_root_r(), "-allele_freq_by_locus.txt")
 
     output$ui_fstat_out_status <- renderUI({
       tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
-        "The results will be saved in ", tags$code(fstat_out_zip_filename()), ".")
+        "The results will be saved in ", tags$code(fstat_out_filename()), ".")
     })
 
     # ── Defensive DB wrapper ─────────────────────────────────────────────────
@@ -353,56 +353,6 @@ ORDER BY lo._lo_rank ASC, f.Population, f.Allele",
       df
     })
 
-    # ── Fstat DT render ────────────────────────────────────────────────────
-    output$fstat_table <- DT::renderDT({
-      req(fstat_shown_r())
-      wide <- req(fstat_wide_r())
-      pops <- attr(wide,"pops") %||%
-        setdiff(names(wide),c("Locus","Row_label","Row_type","Global"))
-
-      display    <- wide[,c("Locus","Row_label",pops,"Global"),drop=FALSE]
-      col_labels <- c("Locus","Allele / stat",pops,"Global")
-
-      idx_stat <- which(wide$Row_type=="stat")     - 1L
-      idx_div  <- which(wide$Row_type=="div_stat") - 1L
-
-      DT::datatable(
-        display,
-        rownames=FALSE, colnames=col_labels,
-        selection="none",
-        class="compact hover stripe",
-        options=list(
-          pageLength=200, scrollX=TRUE, ordering=FALSE, dom="lrtip",
-          rowCallback=DT::JS(sprintf("
-function(row,data,index){
-  var si=[%s], di=[%s];
-  if(si.indexOf(index)>-1){
-    $('td',row).css({'font-size':'11px','color':'#6b7280','background':'#f9fafb'});
-    $('td:eq(1)',row).css('font-style','italic');
-    if(data[1]==='N missing'){
-      $('td',row).slice(2).each(function(){
-        var v=parseInt($(this).text());
-        if(!isNaN(v)&&v>0)
-          $(this).css({'color':'#854F0B','background':'#FAEEDA'});
-      });
-    }
-  }
-  if(di.indexOf(index)>-1){
-    $('td',row).css({'font-size':'11px','color':'#374151','background':'#f3f4f6'});
-    $('td:eq(1)',row).css({'font-weight':'500','font-style':'normal'});
-  }
-  if(data[0]!==''){
-    $('td:eq(0)',row).css({'font-weight':'600','font-size':'12px'});
-    $('td',row).css('border-top','2px solid #d1d5db');
-  }
-  $('td',row).slice(2).each(function(){
-    if($(this).text()==='0.0000') $(this).css('color','#d1d5db');
-  });
-}",
-            paste(idx_stat,collapse=","),
-            paste(idx_div, collapse=","))))
-      )
-    }, server=TRUE)
 
     # ── Value boxes ────────────────────────────────────────────────────────
     n_individuals_r <- reactive({
@@ -426,7 +376,7 @@ function(row,data,index){
     #    file is streamed back. Also flips fstat_shown_r() so the on-screen
     #    table appears too.
     output$update_fstat <- downloadHandler(
-      filename = function() fstat_out_zip_filename(),
+      filename = function() fstat_out_filename(),
       content  = function(file) {
         fstat_shown_r(TRUE)
         wide <- fstat_wide_r()
@@ -435,14 +385,8 @@ function(row,data,index){
         # Diversity-index rows (Na/Ne/He/Ho/Fis) are reported in the
         # General Statistics module instead — not needed in this table.
         wide <- wide[wide$Row_type != "div_stat", , drop = FALSE]
-
-        tmpdir <- tempfile("spg_af_export_"); dir.create(tmpdir)
-        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
-        p1 <- file.path(tmpdir, fstat_out_filename())
-        write.table(wide[, c("Locus", "Row_label", pops, "Global")], file = p1,
+        write.table(wide[, c("Locus", "Row_label", pops, "Global")], file = file,
                     sep = "\t", row.names = FALSE, quote = FALSE)
-
-        zip::zip(zipfile = file, files = basename(p1), root = tmpdir)
       }
     )
   })

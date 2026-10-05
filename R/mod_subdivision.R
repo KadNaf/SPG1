@@ -11,12 +11,12 @@ mod_subdivision_ui <- function(id) {
       box(
         width = 12,
         title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    "FST: CI & p-value parameters"),
+                    "FST and G-based test: CI & p-value parameters"),
         solidHeader = TRUE, status = "primary",
         fluidRow(
           column(3,
             h4(icon("sliders"), "Parameters"),
-            numericInput(ns("n_perm_fst"),     "Number of Permutations:",        value = 10000, min = 100,  max = 20000, step = 100),
+            numericInput(ns("n_perm_fst"),     "Number of Permutations (FST and G-test):",        value = 10000, min = 100,  max = 20000, step = 100),
             numericInput(ns("n_boot_fst"),     "Number of Bootstrap Replicates:", value = 10000, min = 100,  max = 20000, step = 100),
             numericInput(ns("conf_level_fst"), "Confidence Level:",               value = 0.95, min = 0.80, max = 0.99,  step = 0.01),
             uiOutput(ns("ui_fst_out_status")),
@@ -61,61 +61,8 @@ mod_subdivision_ui <- function(id) {
                 tags$p(style = "color:#666; font-size:12px; margin-top: 25px;",
                   icon("info-circle"),
                   " Overall FST with bootstrap CI obtained by resampling ", tags$b("loci"),
-                  " (with replacement) instead of subsamples. See the dedicated tab below for the full table (FST, FIT, FIS)."
+                  " (with replacement) instead of subsamples. The full table (FIS, FST, FIT) is in the downloaded file, Section 2."
                 )
-              )
-            )
-          )
-        )
-      )
-    ),
-
-    h2("G-based Permutation Test \u2014 Subdivision", class = "section-title"),
-
-    fluidRow(
-      box(
-        width = 12,
-        title = div(style = "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;",
-                    icon("flask"), "G-test: parameters"),
-        solidHeader = TRUE, status = "primary",
-        fluidRow(
-          column(3,
-            h4(icon("sliders"), "Parameters"),
-            numericInput(ns("n_perm_g"),     "Number of Permutations:",
-                         value = 10000, min = 1000, max = 50000, step = 1000),
-            numericInput(ns("conf_level_g"), "Confidence Level:",
-                         value = 0.95, min = 0.80, max = 0.99,  step = 0.01),
-            uiOutput(ns("ui_gtest_out_status")),
-            downloadButton(ns("run_G_test"), " Run",
-                         icon  = icon("rocket"),
-                         class = "btn-action-primary btn-block",
-                         style = "font-weight: bold;")
-          ),
-          column(9,
-            h4(icon("chart-area"), "G-test Summary",
-               style = "font-weight: 600; color: #2c3e50; margin-bottom: 15px;"),
-            fluidRow(
-              column(3,
-                valueBoxOutput(ns("g_global_obs_box"),    width = NULL),
-                valueBoxOutput(ns("g_power_box"),         width = NULL)
-              ),
-              column(3,
-                valueBoxOutput(ns("g_global_pvalue_box"), width = NULL),
-                valueBoxOutput(ns("g_mean_pvalue_box"),   width = NULL)
-              ),
-              column(3,
-                valueBoxOutput(ns("g_signif_loci_box"),   width = NULL),
-                valueBoxOutput(ns("g_time_box"),          width = NULL)
-              ),
-              column(3,
-                valueBoxOutput(ns("g_n_perm_box"),        width = NULL)
-              )
-            ),
-            fluidRow(
-              column(12,
-                h5("Analysis Progress", style = "margin-top: 15px; font-weight: 600;"),
-                shinyWidgets::progressBar(id = ns("g_progress"), value = 0,
-                                          title = "Overall Progress")
               )
             )
           )

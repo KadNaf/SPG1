@@ -1,151 +1,9 @@
 # server_general_stats.R
 
-hs_by_pop_locus_from_mat <- function(mat, base) {
-  stopifnot(is.matrix(mat), ncol(mat) >= 2L, base > 1L)
-  
-  pop_codes  <- as.integer(mat[, 1])
-  pop_levels <- attr(mat, "pop_levels")
-  loci       <- colnames(mat)[-1L]
-  
-  pops <- sort(unique(pop_codes[is.finite(pop_codes) & pop_codes > 0L]))
-  out  <- vector("list", length(loci) * length(pops))
-  ii   <- 1L
-  
-  for (j in seq_along(loci)) {
-    g_all <- as.integer(mat[, j + 1L])
-    
-    for (pp in pops) {
-      idx <- which(pop_codes == pp)
-      g   <- g_all[idx]
-      
-      ok_gt <- is.finite(g) & g > 0L
-      if (!any(ok_gt)) next
-      
-      g  <- g[ok_gt]
-      a1 <- g %/% base
-      a2 <- g %%  base
-      
-      ok <- a1 > 0L & a2 > 0L
-      if (!any(ok)) next
-      
-      a1 <- a1[ok]
-      a2 <- a2[ok]
-      n  <- length(a1)   # number of diploid genotypes
-      
-      hs <- if (n <= 1L) {
-        NA_real_
-      } else {
-        cnt <- table(c(a1, a2))
-        p   <- as.numeric(cnt) / (2 * n)
-        (2 * n / (2 * n - 1)) * (1 - sum(p^2))
-      }
-      
-      pop_name <- if (!is.null(pop_levels) &&
-                      pp >= 1L && pp <= length(pop_levels)) {
-        as.character(pop_levels[[pp]])
-      } else {
-        as.character(pp)
-      }
-      
-      out[[ii]] <- data.frame(
-        Locus      = loci[j],
-        Population = pop_name,
-        n_mat      = n,
-        Hs_mat     = hs,
-        stringsAsFactors = FALSE
-      )
-      ii <- ii + 1L
-    }
-  }
-  
-  out <- Filter(Negate(is.null), out)
-  if (length(out) == 0L) {
-    return(data.frame(
-      Locus = character(),
-      Population = character(),
-      n_mat = integer(),
-      Hs_mat = numeric(),
-      stringsAsFactors = FALSE
-    ))
-  }
-  
-  out <- do.call(rbind, out)
-  out[order(out$Locus, out$Population), , drop = FALSE]
-}
-
-duck_get_base <- function(con) {
-  p <-  .duckdb_get_params(con)
-  
-  # 1) if base already stored, trust it
-  base <- suppressWarnings(as.integer(p$base %|||% p$base_scalar_preview %|||% p$base_scalar_full))
-  if (length(base) == 1L && is.finite(base) && base > 0L) {
-    return(as.integer(base))
-  }
-  
-  # 2) otherwise compute from haplotype length / width
-  hl <- suppressWarnings(as.integer(
-    p$haplotype_length %|||%
-      p$width_scalar_preview %|||%
-      p$width_scalar_full %|||%
-      p$length_haplotype
-  ))
-  
-  if (length(hl) != 1L || is.na(hl) || hl <= 0L) {
-    stop("params must define base (positive integer) or haplotype_length/width_scalar_* to compute base=10^L")
-  }
-  
-  as.integer(10L ^ hl)
-}
-
-duck_get_haplotype_length <- function(con, default = 3L) {
-  p <- .duckdb_get_params(con)
-  
-  # 1) preferred explicit key
-  hl <- suppressWarnings(as.integer(p[["haplotype_length"]]))
-  if (is.finite(hl) && hl >= 1L) return(hl)
-  
-  # 2) backward-compatible alias
-  hl <- suppressWarnings(as.integer(p[["width_scalar_full"]]))
-  if (is.finite(hl) && hl >= 1L) return(hl)
-  
-  # 3) derive from base if needed
-  b <- suppressWarnings(as.numeric(p[["base"]]))
-  if (is.finite(b) && b > 1) {
-    hl <- as.integer(round(log10(b)))
-    if (is.finite(hl) && hl >= 1L) return(hl)
-  }
-  
-  stop("Invalid haplotype_length in params")
-}
 
 
-duck_get_loci <- function(con, tbl_hf = "hf") {
-  DBI::dbGetQuery(con, sprintf(
-    "SELECT DISTINCT locus_id AS Locus FROM %s ORDER BY 1",
-    sql_ident(con, tbl_hf)
-  ))$Locus
-}
-gs_dt_options <- function(pageLength = 10L) {
-  list(
-    dom = paste0(
-      "<'row'<'col-sm-6'l><'col-sm-6'f>>",   
-      "<'row'<'col-sm-12'B>>",               
-      "<'row'<'col-sm-12'tr>>",
-      "<'row'<'col-sm-5'i><'col-sm-7'p>>"
-    ),
-    buttons = list(
-      list(
-        extend = "copy",
-        text = "Copy",
-        title = NULL,
-        exportOptions = list(columns = ":visible")
-      )
-    ),
-    pageLength = pageLength,
-    scrollX = TRUE,
-    autoWidth = FALSE
-  )
-}
+
+
 
 ## =========================================================#
 # Server_general_stats ####
@@ -304,11 +162,8 @@ server_general_stats <- function(id, rv) {
 
       # IMPORTANT: matrix column-subsetting with `[` does NOT preserve
       # custom attributes (only dim/dimnames survive) — "pop_levels" was
-      # being silently dropped right here, which is the actual root cause
-      # of the G-test's parameters file falling back to generic "Pop1"..
-      # "PopN" labels (a previous fix removed a redundant as.matrix() call
-      # downstream, which was a real but secondary issue — THIS line was
-      # still wiping the attribute before it even left hf_mat_r()).
+      # silently dropped by the re-ordering just above, which made the
+      # G-test output fall back to generic "Pop1".."PopN" labels. Re-attach it.
       attr(mat, "pop_levels") <- pop_levels
 
       mat
@@ -382,15 +237,7 @@ server_general_stats <- function(id, rv) {
       sort(unique(meta_r()$Population))
     })
     
-    n_indv <- reactive({
-      db_ready()
-      nrow(meta_r())
-    })
     
-    nloci <- reactive({
-      db_ready()
-      ncol(hf_mat_r()) - 1L
-    })
     
     loci_names <- reactive({
       db_ready()
@@ -483,9 +330,10 @@ server_general_stats <- function(id, rv) {
         "Ho"                 = isTRUE(input$ho_checkbox),
         "Hs"                 = isTRUE(input$hs_checkbox),
         "Ht"                 = isTRUE(input$ht_checkbox),
-        "Fit (W&C)"          = isTRUE(input$fit_wc_checkbox),
+        # Output order: FIS, FST, FIT (requested convention for all outputs)
         "Fis (W&C)"          = isTRUE(input$fis_wc_checkbox),
         "Fst (W&C)"          = isTRUE(input$fst_wc_checkbox),
+        "Fit (W&C)"          = isTRUE(input$fit_wc_checkbox),
         "Fst-max (Meirmans)"  = isTRUE(input$fst_max_checkbox),
         "Fst' (Meirmans)"     = isTRUE(input$fst_prim_checkbox),
         # "Fst' (Hedrick)"      = isTRUE(input$fst_prim_hedrick_checkbox),
@@ -532,20 +380,6 @@ server_general_stats <- function(id, rv) {
     }
 
     
-    # ---- Basic stats table output ----
-    output$basic_stats_table <- DT::renderDT({
-      df <- shiny::req(result_stats_display_rv())
-      DT::datatable(
-        df,
-        extensions = "Buttons",
-        options = gs_dt_options(pageLength = 10L),
-        rownames = FALSE,
-        class = "compact nowrap",
-        callback = DT::JS("
-      table.columns.adjust();
-    ")
-      )
-    })
     # ── One button, one click, one action: clicking "Run" IS the download
     #    request itself — computes the selected basic statistics, the
     #    always-available gene-diversity / by-population tables (for ALL
@@ -640,66 +474,6 @@ server_general_stats <- function(id, rv) {
                         selected = "All")
     })
 
-    # ---- Table: per-locus stats for selected population
-    output$basic_stats_by_pop_selected <- DT::renderDT({
-      db_ready()
-      con  <- con_r()
-      base <- base_r()
-
-      shiny::req(input$selected_pop_overall)
-      pop_name <- input$selected_pop_overall
-
-      df <- duck_pop_stats_by_pop_one(
-        con          = con,
-        pop_name     = pop_name,
-        tbl_hf       = tbl_hf_r(),
-        tbl_meta     = tbl_meta_r(),
-        base         = base,
-        missing_code = 0L
-      )
-
-      if (is.null(df) || nrow(df) == 0) {
-        return(
-          DT::datatable(
-            data.frame(Message = paste("No data available for population:", pop_name)),
-            extensions = "Buttons",
-            options    = gs_dt_options(pageLength = 10L),
-            rownames   = FALSE,
-            class      = "compact nowrap",
-            callback   = DT::JS("table.columns.adjust();")
-          )
-        )
-      }
-
-      # ── Réordonner selon l'ordre physique DuckDB ──────────────────────────
-      # duck_pop_stats_by_pop_one() retourne ORDER BY locus (alphabétique)
-      # On identifie la colonne locus (Locus, Marker, locus_id, etc.)
-      locus_col_name <- intersect(c("Locus", "Marker", "locus_id", "locus"), names(df))[1]
-
-      if (!is.na(locus_col_name)) {
-        loci_ordered <- loci_order_r()
-        reorder_idx  <- match(loci_ordered, df[[locus_col_name]])
-        reorder_idx  <- reorder_idx[!is.na(reorder_idx)]
-        if (length(reorder_idx) > 0)
-          df <- df[reorder_idx, , drop = FALSE]
-      }
-
-      df_display <- df
-      num_cols   <- vapply(df_display, is.numeric, logical(1))
-      df_display[num_cols] <- lapply(df_display[num_cols], round, 5)
-
-      DT::datatable(
-        df_display,
-        extensions = "Buttons",
-        options    = c(
-          gs_dt_options(pageLength = 10L),
-          list(order = list())   # désactive tout tri automatique DT
-        ),
-        rownames = FALSE,
-        class    = "compact nowrap",
-        callback = DT::JS("table.columns.adjust();")
-      )
-    })
     
     # =========================================================#
     ## Download handlers (population section) ####
@@ -708,36 +482,6 @@ server_general_stats <- function(id, rv) {
     # 2) Overall by population (Ho/Hs/Fis Nei) — rendered on-screen only,
     #    downloadable via the merged Run+Download button above.
 
-    output$gene_diversity_table <- DT::renderDT({
-      df <- shiny::req(hs_by_pop_wide_r())
-
-      df_disp  <- df
-      num_cols <- names(df_disp)[vapply(df_disp, is.numeric, logical(1))]
-      df_disp[num_cols] <- lapply(df_disp[num_cols], round, 3)
-
-      rng <- range(unlist(df[num_cols], use.names = FALSE), na.rm = TRUE)
-      if (!all(is.finite(rng)) || diff(rng) == 0) rng <- c(0, 1)
-
-      DT::datatable(
-        df_disp,
-        extensions = "Buttons",
-        options = c(
-          gs_dt_options(pageLength = 10L),
-          list(order = list())    # désactive tout tri automatique DT
-        ),
-        rownames = FALSE,
-        class    = "compact nowrap",
-        callback = DT::JS("table.columns.adjust();")
-      ) %>%
-        DT::formatStyle(
-          columns         = num_cols,
-          backgroundColor = DT::styleColorBar(rng, "lightblue"),
-          backgroundSize  = "98% 88%",
-          backgroundRepeat    = "no-repeat",
-          backgroundPosition  = "center",
-          color = "black"
-        )
-    })
     
     # ==================================== FIS SECTION ANALYSIS ===============================================
     fis_context <- reactive({
@@ -1270,141 +1014,93 @@ server_general_stats <- function(id, rv) {
       )
     })
     
-    ## FIS result table ----
-    output$fis_results_table <- DT::renderDT({
-      shiny::req(fis_boot_results())
-      ctx <- fis_context()
-      
-      df <- fis_boot_results()$final_table
-      shiny::validate(shiny::need("ID" %in% names(df), "FIS results malformed: missing ID column."))
-      
-      # consistent column order
-      df <- df %>%
-        dplyr::select(dplyr::any_of(c("ID", "Observed_FIS", "Boot_Mean", "P_value", "CI_L", "CI_U")))
-      
-      pretty_names <- c(
-        ID           = ctx$id_label,
-        Observed_FIS = "Observed FIS",
-        Boot_Mean    = "Bootstrap mean",
-        P_value      = "P-value",
-        CI_L         = "CI lower",
-        CI_U         = "CI upper"
-      )
-      
-      DT::datatable(
-        df,
-        extensions = "Buttons",
-        options = list(
-          dom = "Bfrtip",
-          buttons = c("copy"),
-          pageLength = 10,
-          scrollX = TRUE
-        ),
-        rownames = FALSE,
-        colnames = unname(pretty_names[names(df)])
-      ) %>%
-        DT::formatRound(
-          columns = intersect(c("Observed_FIS", "Boot_Mean", "P_value", "CI_L", "CI_U"), names(df)),
-          digits = 4
-        )
-    })
     
     
+    # ── Methods/parameters block written at the TOP of the single FIS
+    #    output file: permutation count, bootstrap types and replicate
+    #    counts, confidence level and the NA rules.
     .write_fis_params <- function(con, res) {
       hdr <- c(
-        "Local Panmixia \u2014 FIS \u2014 parameters used",
-        sprintf("Number of permutations: %s", input$n_perm),
-        sprintf("Number of bootstrap replicates: %s", input$n_boot),
-        sprintf("Confidence level: %s", input$conf_level)
+        "Local Panmixia - FIS (Weir & Cockerham 1984)",
+        sprintf("Dataset: %s", rv$dataset_filename %||% "default_dataset"),
+        "",
+        "Permutation test (p-values):",
+        sprintf("  %s permutations; alleles randomised among individuals within each sample.", input$n_perm),
+        "  Two-sided p-value = (b + 1) / (m + 1), b = number of permuted |FIS| >= observed |FIS|, m = number of permutations.",
+        "",
+        "Confidence intervals (percentile bootstrap):",
+        sprintf("  Confidence level: %s", input$conf_level),
+        sprintf("  Bootstrap over INDIVIDUALS (resampled within each sample): %s replicates -> columns Boot_Mean_indiv, CI_L_indiv, CI_U_indiv", input$n_boot),
+        sprintf("  Bootstrap over SUB-SAMPLES (populations resampled as blocks): %s replicates -> columns Boot_Mean_subs, CI_L_subs, CI_U_subs (By Locus only)", input$n_boot),
+        "  NA rules: in 'By Population', a sample with fewer than 5 individuals gets NA for its bootstrap CI;",
+        "            in 'By Locus', fewer than 5 sub-samples gives NA for the sub-sample bootstrap CI.",
+        "  Overall row: By Locus = multilocus ratio-of-sums FIS; By Population = mean over samples.",
+        ""
       )
       writeLines(hdr, con = con, useBytes = TRUE)
     }
 
+    # By-locus table with BOTH bootstrap CIs, clearly labelled by type.
+    .fis_locus_export <- function(r) {
+      ft <- r$final_table
+      n  <- nrow(ft)
+      pick <- function(x, ov) {
+        v <- c(as.numeric(x), as.numeric(ov))
+        if (length(v) == n) v else rep(NA_real_, n)
+      }
+      data.frame(
+        ID              = ft$ID,
+        Observed_FIS    = ft$Observed_FIS,
+        Boot_Mean_indiv = ft$Boot_Mean,
+        CI_L_indiv      = ft$CI_L,
+        CI_U_indiv      = ft$CI_U,
+        Boot_Mean_subs  = pick(r$ci_pop$mean,  r$ci_pop$overall_mean),
+        CI_L_subs       = pick(r$ci_pop$ci_lo, r$ci_pop$overall_ci_lo),
+        CI_U_subs       = pick(r$ci_pop$ci_hi, r$ci_pop$overall_ci_hi),
+        P_value         = ft$P_value,
+        stringsAsFactors = FALSE
+      )
+    }
+
+    # By-population table (individual bootstrap within each sample).
+    .fis_pop_export <- function(r) {
+      ft <- r$final_table
+      data.frame(
+        ID              = ft$ID,
+        Observed_FIS    = ft$Observed_FIS,
+        Boot_Mean_indiv = ft$Boot_Mean,
+        CI_L_indiv      = ft$CI_L,
+        CI_U_indiv      = ft$CI_U,
+        P_value         = ft$P_value,
+        stringsAsFactors = FALSE
+      )
+    }
+
     # ── One button, one click, one action: clicking "Run" IS the download
-    #    request itself — the FIS bootstrap/permutation runs inside this same
-    #    content() function before the 2 result files + 1 parameters file
-    #    are zipped and streamed back.
+    #    request itself — both analysis levels run inside this same
+    #    content() function and everything (methods block + By Locus +
+    #    By Population) is written to ONE plain .txt file (no zip, no figure).
     output$ui_fis_out_status <- renderUI({
       tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
-        "The results will be saved in ", tags$code(paste0("local_panmixia_FIS_", Sys.Date(), ".zip")), ".")
+        "The results will be saved in ", tags$code(paste0("local_panmixia_FIS_", Sys.Date(), ".txt")), ".")
     })
 
     output$Run_FIS_Analysis <- downloadHandler(
-      filename = function() paste0("local_panmixia_FIS_", Sys.Date(), ".zip"),
+      filename = function() paste0("local_panmixia_FIS_", Sys.Date(), ".txt"),
       content  = function(file) {
         res <- .run_fis_computation()
         req(res)
-        tmpdir <- tempfile("spg_fis_export_"); dir.create(tmpdir)
-        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
-
-        p1 <- file.path(tmpdir, paste0("fis_results_", Sys.Date(), ".txt"))
-        con1 <- file(p1, open = "w", encoding = "UTF-8")
-        writeLines(c("FIS estimates with bootstrap CI and permutation p-values", ""), con = con1, useBytes = TRUE)
-        writeLines("By Locus:", con = con1)
-        write.table(res$by_locus$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con1)
-        writeLines("By Population:", con = con1)
-        write.table(res$by_pop$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        close(con1)
-
-        p2 <- file.path(tmpdir, paste0("fis_plot_", Sys.Date(), ".png"))
-        ggsave(p2, plot = make_fis_plot(), width = 10, height = 6, dpi = 300)
-
-        p3 <- file.path(tmpdir, paste0("fis_parameters_", Sys.Date(), ".txt"))
-        con3 <- file(p3, open = "w", encoding = "UTF-8"); .write_fis_params(con3, res); close(con3)
-
-        zip::zip(zipfile = file, files = basename(c(p1, p2, p3)), root = tmpdir)
+        con <- file(file, open = "w", encoding = "UTF-8")
+        on.exit(close(con), add = TRUE)
+        .write_fis_params(con, res)
+        writeLines("By Locus:", con = con)
+        write.table(.fis_locus_export(res$by_locus), file = con, sep = "\t", row.names = FALSE, quote = FALSE)
+        writeLines("", con = con)
+        writeLines("By Population:", con = con)
+        write.table(.fis_pop_export(res$by_pop), file = con, sep = "\t", row.names = FALSE, quote = FALSE)
       }
     )
-    
-    ## FIS visualization ----
-    make_fis_plot <- function() {
-      shiny::req(fis_boot_results())
-      ctx <- fis_context()
-      
-      df <- fis_boot_results()$final_table
-      shiny::validate(shiny::need(all(c("ID", "Observed_FIS", "CI_L", "CI_U") %in% names(df)),
-                    "FIS results malformed: missing required columns."))
-      
-      overall_row <- df %>% dplyr::filter(ID == "Overall")
-      df          <- df %>% dplyr::filter(ID != "Overall")
 
-      if (nrow(df) == 0) {
-        return(ggplot() + labs(title = "No FIS data available") + theme_minimal())
-      }
-
-      p <- ggplot(df, aes(x = ID, y = Observed_FIS)) +
-        geom_point(size = 3.5, color = "#ff9800") +
-        geom_errorbar(aes(ymin = CI_L, ymax = CI_U), width = 0.2,
-                      color = "#ff9800", linewidth = 0.9) +
-        geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-        labs(
-          title = ctx$title,
-          x = ctx$id_label,
-          y = "FIS (heterozygote deficit/excess; W&C estimator)"
-        ) +
-        theme_minimal() +
-        theme(
-          axis.text.x = element_text(angle = 45, hjust = 1),
-          plot.title  = element_text(face = "bold", hjust = 0.5)
-        )
-
-      # Add Overall FIS as a labelled dotted horizontal line
-      if (nrow(overall_row) == 1L && is.finite(overall_row$Observed_FIS)) {
-        ov <- overall_row$Observed_FIS
-        p <- p +
-          geom_hline(yintercept = ov, linetype = "dotted",
-                     color = "#2c3e50", linewidth = 1) +
-          ggplot2::annotate("text", x = Inf, y = ov,
-                            label = sprintf("Overall FIS = %.4f", ov),
-                            hjust = 1.05, vjust = -0.4,
-                            color = "#2c3e50", size = 3.5, fontface = "italic")
-      }
-      p
-    }
-    
-    
-    
     ## ---- Locus × Population cross-table ----
     fis_locus_pop_r <- reactiveVal(NULL)
 
@@ -1494,55 +1190,36 @@ server_general_stats <- function(id, rv) {
       res
     }
 
-    output$fis_locus_pop_obs <- DT::renderDT({
-      shiny::req(fis_locus_pop_r())
-      df <- as.data.frame(round(fis_locus_pop_r()$fis, 4))
-      df <- tibble::rownames_to_column(df, "Locus")
-      DT::datatable(df, rownames = FALSE, filter = "top",
-                    extensions = "Buttons",
-                    options = list(pageLength = 25, scrollX = TRUE,
-                                   dom = "Bfrtip", buttons = c("copy"))) %>%
-        DT::formatRound(columns = fis_locus_pop_r()$pop_names, digits = 4)
-    })
 
-    output$fis_locus_pop_pval <- DT::renderDT({
-      shiny::req(fis_locus_pop_r())
-      df <- as.data.frame(round(fis_locus_pop_r()$pval, 4))
-      df <- tibble::rownames_to_column(df, "Locus")
-      DT::datatable(df, rownames = FALSE, filter = "top",
-                    extensions = "Buttons",
-                    options = list(pageLength = 25, scrollX = TRUE,
-                                   dom = "Bfrtip", buttons = c("copy"))) %>%
-        DT::formatRound(columns = fis_locus_pop_r()$pop_names, digits = 4) %>%
-        DT::formatStyle(
-          columns    = fis_locus_pop_r()$pop_names,
-          background = DT::styleInterval(c(0.01, 0.05),
-                                         c("#f8d7da", "#fff3cd", "white"))
-        )
-    })
 
     .write_fis_lp_params <- function(con) {
       hdr <- c(
-        "Local Panmixia \u2014 FIS per locus \u00d7 population \u2014 parameters used",
-        sprintf("Number of permutations: %s", input$fis_lp_n_perm)
+        "Local Panmixia - FIS per locus x population (Weir & Cockerham 1984)",
+        sprintf("Dataset: %s", rv$dataset_filename %||% "default_dataset"),
+        "",
+        "Permutation test (p-values):",
+        sprintf("  %s permutations; alleles randomised among individuals within each sample, one sample at a time.", input$fis_lp_n_perm),
+        "  Section 2 (two-sided): p = (b + 1) / (m + 1), b = number of permuted |FIS| >= observed |FIS|.",
+        "  Section 3 (heterozygote deficit, one-sided): proportion of permuted FIS >= observed FIS (FSTAT's first table).",
+        "  Section 4 (heterozygote excess, one-sided): proportion of permuted FIS <= observed FIS (FSTAT's second table).",
+        "No bootstrap is used in this analysis.",
+        ""
       )
       writeLines(hdr, con = con, useBytes = TRUE)
     }
 
     # ── One button, one click, one action: clicking "Run" IS the download
-    #    request itself.
+    #    request itself; everything is written to ONE plain .txt file.
     output$ui_fislp_out_status <- renderUI({
       tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
-        "The results will be saved in ", tags$code(paste0("fis_locus_by_pop_", Sys.Date(), ".zip")), ".")
+        "The results will be saved in ", tags$code(paste0("fis_locus_by_pop_", Sys.Date(), ".txt")), ".")
     })
 
     output$run_fis_locus_pop <- downloadHandler(
-      filename = function() paste0("fis_locus_by_pop_", Sys.Date(), ".zip"),
+      filename = function() paste0("fis_locus_by_pop_", Sys.Date(), ".txt"),
       content  = function(file) {
         r <- .run_fis_locus_pop_computation()
         req(r)
-        tmpdir <- tempfile("spg_fis_lp_export_"); dir.create(tmpdir)
-        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
 
         fis  <- as.data.frame(round(r$fis,  4))
         pval <- as.data.frame(round(r$pval, 4))
@@ -1553,70 +1230,24 @@ server_general_stats <- function(id, rv) {
         pval_deficit <- tibble::rownames_to_column(pval_deficit, "Locus")
         pval_excess  <- tibble::rownames_to_column(pval_excess,  "Locus")
 
-        p1 <- file.path(tmpdir, paste0("fis_locus_by_pop_", Sys.Date(), ".txt"))
-        con1 <- file(p1, open = "w", encoding = "UTF-8")
-        writeLines(c("FIS (WC84) per locus \u00d7 population", ""), con = con1, useBytes = TRUE)
-        writeLines("Section 1: Observed FIS", con = con1)
-        write.table(fis, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con1)
-        writeLines("Section 2: Permutation p-values (two-sided, |permuted FIS| >= |observed FIS|)", con = con1)
-        write.table(pval, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con1)
-        writeLines("Section 3: Heterozygote deficit, one-sided (permuted FIS >= observed FIS) - matches FSTAT's first table", con = con1)
-        write.table(pval_deficit, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con1)
-        writeLines("Section 4: Heterozygote excess, one-sided (permuted FIS <= observed FIS) - matches FSTAT's second table", con = con1)
-        write.table(pval_excess, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        close(con1)
-
-        p2 <- file.path(tmpdir, paste0("fis_locus_by_pop_parameters_", Sys.Date(), ".txt"))
-        con2 <- file(p2, open = "w", encoding = "UTF-8"); .write_fis_lp_params(con2); close(con2)
-
-        zip::zip(zipfile = file, files = basename(c(p1, p2)), root = tmpdir)
+        con <- file(file, open = "w", encoding = "UTF-8")
+        on.exit(close(con), add = TRUE)
+        .write_fis_lp_params(con)
+        writeLines("Section 1: Observed FIS", con = con)
+        write.table(fis, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
+        writeLines("", con = con)
+        writeLines("Section 2: Permutation p-values (two-sided, |permuted FIS| >= |observed FIS|)", con = con)
+        write.table(pval, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
+        writeLines("", con = con)
+        writeLines("Section 3: Heterozygote deficit, one-sided (permuted FIS >= observed FIS) - matches FSTAT's first table", con = con)
+        write.table(pval_deficit, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
+        writeLines("", con = con)
+        writeLines("Section 4: Heterozygote excess, one-sided (permuted FIS <= observed FIS) - matches FSTAT's second table", con = con)
+        write.table(pval_excess, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
       }
     )
 
-    ## Per-allele F-stats table ----
-    output$fis_allele_table <- DT::renderDT({
-      shiny::req(fis_allele_results())
-      df <- fis_allele_results()
-      DT::datatable(
-        df,
-        rownames  = FALSE,
-        filter    = "top",
-        extensions = "Buttons",
-        options   = list(
-          pageLength = 25,
-          scrollX    = TRUE,
-          dom        = "Bfrtip",
-          buttons    = list("colvis")
-        )
-      ) %>%
-        DT::formatRound(columns = c("Freq", "FIS", "FST", "FIT"), digits = 4) %>%
-        DT::formatStyle(
-          "FIS",
-          backgroundColor = DT::styleInterval(
-            c(-0.1, 0.1, 0.3),
-            c("#d4edda", "#fff3cd", "#f8d7da", "#721c24")
-          )
-        ) %>%
-        DT::formatStyle(
-          "FST",
-          backgroundColor = DT::styleInterval(
-            c(0.05, 0.15, 0.25),
-            c("#d4edda", "#fff3cd", "#f8d7da", "#721c24")
-          )
-        )
-    })
 
-    .write_allele_fstats_params <- function(con) {
-      hdr <- c(
-        "F-statistics per allele (Weir & Cockerham) \u2014 parameters used",
-        "FIS = b/(b+c), FST = a/(a+b+c), FIT = (a+b)/(a+b+c) \u2014 WC84 variance components",
-        "(a = between-populations, b = between-individuals, c = within-individuals)."
-      )
-      writeLines(hdr, con = con, useBytes = TRUE)
-    }
 
     ## Compute per-allele F-statistics (independent of bootstrap analyses) ----
     .run_allele_fstats_computation <- function() {
@@ -1976,136 +1607,62 @@ server_general_stats <- function(id, rv) {
       )
     })
     
-    ## FIT Table results 
-    output$fit_results_table <- DT::renderDT({
-      shiny::req(fit_boot_results())
-      
-      df <- fit_boot_results()$final_table %>%
-        dplyr::select(dplyr::any_of(c("ID","Observed_FIT","Boot_Mean","P_value","CI_L","CI_U")))
-      
-      # force Overall last
-      if ("Overall" %in% df$ID) {
-        df <- rbind(
-          df[df$ID != "Overall", , drop = FALSE],
-          df[df$ID == "Overall", , drop = FALSE]
-        )
-      }
-      
-      pretty <- c(
-        ID           = "Locus",
-        Observed_FIT = "Observed FIT",
-        Boot_Mean    = "Bootstrap mean",
-        P_value      = "P-value",
-        CI_L         = "CI lower",
-        CI_U         = "CI upper"
-      )
-      
-      DT::datatable(
-        df,
-        extensions = "Buttons",
-        options = list(
-          dom = "Bfrtip",
-          buttons = c("copy"),
-          pageLength = 15,
-          scrollX = TRUE
-        ),
-        rownames = FALSE,
-        colnames = unname(pretty[names(df)])
-      ) %>%
-        DT::formatRound(
-          columns = intersect(c("Observed_FIT","Boot_Mean","P_value","CI_L","CI_U"), names(df)),
-          digits = 4
-        )
-    })
     
     
     
-    ## FIT visualization ====
-    .make_fit_plot <- function() {
-      shiny::req(fit_boot_results())
-      
-      df <- fit_boot_results()$final_table %>%
-        dplyr::filter(ID != "Overall")
-      
-      # robust guards
-      if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) {
-        return(ggplot2::ggplot() +
-                 ggplot2::labs(title = "No FIT data available") +
-                 ggplot2::theme_minimal())
-      }
-      
-      # mark significant loci if P_value exists
-      if ("P_value" %in% names(df)) {
-        df <- df %>%
-          dplyr::mutate(Significant = !is.na(P_value) & P_value < 0.05)
-      } else {
-        df$Significant <- FALSE
-      }
-      
-      ggplot2::ggplot(df, ggplot2::aes(x = ID, y = Observed_FIT)) +
-        ggplot2::geom_point(ggplot2::aes(shape = Significant), size = 3, color = "#ff9800") +
-        ggplot2::geom_errorbar(ggplot2::aes(ymin = CI_L, ymax = CI_U), width = 0.2, color = "#ff9800") +
-        ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-        ggplot2::labs(
-          title = "FIT estimates with confidence intervals",
-          x = "Locus",
-          y = "FIT estimate",
-          shape = "p < 0.05"
-        ) +
-        ggplot2::theme_minimal() +
-        ggplot2::theme(
-          axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
-          plot.title  = ggplot2::element_text(face = "bold", hjust = 0.5)
-        )
-    }
-
-        
-    .write_fit_params <- function(con) {
+    ## FIT export (single plain .txt: methods block + results; no figure) ====
+    .write_fit_params <- function(con, res) {
+      md <- res$metadata
       hdr <- c(
-        "Global Panmixia \u2014 FIT \u2014 parameters used",
-        sprintf("Number of permutations: %s", input$n_perm_fit),
-        sprintf("Number of bootstrap replicates: %s", input$n_boot_fit),
-        sprintf("Confidence level: %s", input$conf_level_fit)
+        "Global Panmixia - FIT (Weir & Cockerham 1984)",
+        sprintf("Dataset: %s", rv$dataset_filename %||% "default_dataset"),
+        "",
+        "Permutation test (p-values):",
+        sprintf("  %s permutations; alleles randomised over all samples (FSTAT 'randomising alleles overall samples').", input$n_perm_fit),
+        "  Two-sided p-value on |FIT|.",
+        "",
+        "Confidence intervals (percentile bootstrap):",
+        sprintf("  Confidence level: %s", input$conf_level_fit),
+        sprintf("  Bootstrap over SUB-SAMPLES (populations resampled as blocks): %s replicates -> columns Boot_Mean_subs, CI_L_subs, CI_U_subs", input$n_boot_fit),
+        "  NA rule: fewer than 5 sub-samples gives NA for the bootstrap CI.",
+        "  Overall row: multilocus ratio-of-sums FIT.",
+        ""
       )
       writeLines(hdr, con = con, useBytes = TRUE)
     }
 
     # ── One button, one click, one action: clicking "Run" IS the download
-    #    request itself — the FIT bootstrap/permutation runs inside this same
-    #    content() function before the 2 result files + 1 parameters file
-    #    are zipped and streamed back.
+    #    request itself — the FIT bootstrap/permutation runs inside this
+    #    same content() function and the methods block + results are written
+    #    to ONE plain .txt file (no zip, no figure).
     output$ui_fit_out_status <- renderUI({
       tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
-        "The results will be saved in ", tags$code(paste0("global_panmixia_FIT_", Sys.Date(), ".zip")), ".")
+        "The results will be saved in ", tags$code(paste0("global_panmixia_FIT_", Sys.Date(), ".txt")), ".")
     })
 
     output$Run_FIT_Analysis <- downloadHandler(
-      filename = function() paste0("global_panmixia_FIT_", Sys.Date(), ".zip"),
+      filename = function() paste0("global_panmixia_FIT_", Sys.Date(), ".txt"),
       content  = function(file) {
         res <- .run_fit_computation()
         req(res)
-        tmpdir <- tempfile("spg_fit_export_"); dir.create(tmpdir)
-        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
-
-        p1 <- file.path(tmpdir, paste0("fit_results_", Sys.Date(), ".txt"))
-        con1 <- file(p1, open = "w", encoding = "UTF-8")
-        writeLines(c("FIT estimates with bootstrap CI and permutation p-values", ""), con = con1, useBytes = TRUE)
-        write.table(res$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        close(con1)
-
-        p2 <- file.path(tmpdir, paste0("fit_plot_", Sys.Date(), ".png"))
-        ggsave(p2, plot = .make_fit_plot(), width = 12, height = 6, dpi = 300)
-
-        p3 <- file.path(tmpdir, paste0("fit_parameters_", Sys.Date(), ".txt"))
-        con3 <- file(p3, open = "w", encoding = "UTF-8"); .write_fit_params(con3); close(con3)
-
-        zip::zip(zipfile = file, files = basename(c(p1, p2, p3)), root = tmpdir)
+        ft <- res$final_table
+        out <- data.frame(
+          ID             = ft$ID,
+          Observed_FIT   = ft$Observed_FIT,
+          Boot_Mean_subs = ft$Boot_Mean,
+          CI_L_subs      = ft$CI_L,
+          CI_U_subs      = ft$CI_U,
+          P_value        = ft$P_value,
+          stringsAsFactors = FALSE
+        )
+        con <- file(file, open = "w", encoding = "UTF-8")
+        on.exit(close(con), add = TRUE)
+        .write_fit_params(con, res)
+        write.table(out, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
       }
     )
-    
-    
-    
-    # ==================================== FST SECTION ANALYSIS ===============================================
+
+        # ==================================== FST SECTION ANALYSIS ===============================================
     
     # hard guard: fail early if C++ funcs are missing
     stopifnot(
@@ -2118,7 +1675,6 @@ server_general_stats <- function(id, rv) {
     ## FST Analysis reactives ----
     fst_boot_results <- reactiveVal(NULL)
     fst_boot_timing  <- reactiveVal(NULL)
-    fst_perm_results <- reactiveVal(NULL)
     fst_parallel_meta <- reactiveVal(NULL)
     # Genetic Diversities used to share fst_boot_results/fst_boot_timing with
     # Subdivision (both call the same run_bootstrap_fst_analysis() helper,
@@ -2132,8 +1688,12 @@ server_general_stats <- function(id, rv) {
     div_boot_results <- reactiveVal(NULL)
     div_boot_timing  <- reactiveVal(NULL)
     
+    # diversity_extras = TRUE  -> also compute the HS-by-individuals bootstrap and the
+    #   per-population HS bootstrap (needed ONLY by the Genetic Diversities module).
+    # diversity_extras = FALSE -> skipped (Subdivision does not use them; they used to
+    #   be computed anyway and made the FST run noticeably slower than it needs to be).
     run_bootstrap_fst_analysis <- function(n_perm, n_boot, conf_level, missing_code = 0L,
-                                            progress_id = NULL) {
+                                            progress_id = NULL, diversity_extras = TRUE) {
       db_ready()
 
       # Real intermediate progress: each call below corresponds to one of the
@@ -2366,26 +1926,29 @@ server_general_stats <- function(id, rv) {
       ))
 
       # ── Individual bootstrap CI for HS (resample individuals within pops) ──
-      indiv_boot_res <- .step("boot_indiv_hs_cpp()", boot_indiv_hs_cpp(
-        dat            = mat,
-        pop_col_1based = 1L,
-        missing_code   = as.integer(missing_code),
-        base           = as.integer(base),
-        B              = as.integer(n_boot),
-        seed           = .seed(),
-        n_threads      = .n_threads()
-      ))
-      hs_indiv_boot_mat <- indiv_boot_res$HS_boot
-      colnames(hs_indiv_boot_mat) <- as.character(indiv_boot_res$locus_names)
-      hs_indiv_overall_boot <- indiv_boot_res$HS_overall_boot
+      # Genetic Diversities only (skipped for Subdivision, see diversity_extras).
+      if (isTRUE(diversity_extras)) {
+        indiv_boot_res <- .step("boot_indiv_hs_cpp()", boot_indiv_hs_cpp(
+          dat            = mat,
+          pop_col_1based = 1L,
+          missing_code   = as.integer(missing_code),
+          base           = as.integer(base),
+          B              = as.integer(n_boot),
+          seed           = .seed(),
+          n_threads      = .n_threads()
+        ))
+        hs_indiv_boot_mat <- indiv_boot_res$HS_boot
+        colnames(hs_indiv_boot_mat) <- as.character(indiv_boot_res$locus_names)
+        hs_indiv_overall_boot <- indiv_boot_res$HS_overall_boot
 
-      sum_hs_indiv <- .step("summarize_boot_ci(HS indiv)", summarize_boot_ci(
-        boot_mat     = hs_indiv_boot_mat,
-        obs          = hs_obs_vec,
-        obs_overall  = hs_obs_overall,
-        boot_overall = hs_indiv_overall_boot,
-        confidence   = conf_level
-      ))
+        sum_hs_indiv <- .step("summarize_boot_ci(HS indiv)", summarize_boot_ci(
+          boot_mat     = hs_indiv_boot_mat,
+          obs          = hs_obs_vec,
+          obs_overall  = hs_obs_overall,
+          boot_overall = hs_indiv_overall_boot,
+          confidence   = conf_level
+        ))
+      }
 
       loc_fst <- loc
       loc_hs  <- loc
@@ -2426,10 +1989,12 @@ server_general_stats <- function(id, rv) {
         rbind(per_locus, overall)
       }
 
-      # Table 1: HS by individuals
-      hs_indiv_tbl <- .hs_boot_tbl(sum_hs_indiv,
-                                    hs_indiv_boot_mat, hs_indiv_overall_boot,
-                                    hs_obs_vec, hs_obs_overall, loc_hs)
+      # Table 1: HS by individuals (Genetic Diversities only)
+      hs_indiv_tbl <- if (isTRUE(diversity_extras))
+        .hs_boot_tbl(sum_hs_indiv,
+                     hs_indiv_boot_mat, hs_indiv_overall_boot,
+                     hs_obs_vec, hs_obs_overall, loc_hs)
+      else NULL
 
       # Table 2: HS by populations (block bootstrap)
       hs_pop_tbl <- .hs_boot_tbl(sum_hs,
@@ -2479,62 +2044,76 @@ server_general_stats <- function(id, rv) {
       ht_final <- rbind(ht_tbl, ht_overall_row)
 
       # Table 4: HS per population — observed + individual bootstrap CI
+      # (Genetic Diversities only; skipped for Subdivision, see diversity_extras).
       # Bootstrap unit: individuals resampled with replacement within each population.
-      # Observed HS per population = mean of per-locus WC84 HS (same formula as
-      # hs_by_pop_locus_from_mat), averaged across loci for that population.
-      .hs_one_pop_locus <- function(g, base) {
-        ok <- is.finite(g) & g > 0L
-        if (sum(ok) <= 1L) return(NA_real_)
-        g  <- g[ok]; a1 <- g %/% base; a2 <- g %% base
-        ok2 <- a1 > 0L & a2 > 0L
-        if (sum(ok2) <= 1L) return(NA_real_)
-        a1 <- a1[ok2]; a2 <- a2[ok2]; n <- length(a1)
-        cnt <- table(c(a1, a2)); p <- as.numeric(cnt) / (2 * n)
-        (2 * n / (2 * n - 1)) * (1 - sum(p^2))
+      # HS uses the SAME unbiased Nei & Chesser (1983) estimator as everywhere else
+      # in the app:  Hs = n/(n-1) * (1 - sum(p^2) - Ho/(2n)),  n = genotyped individuals.
+      # (This block used to use the simpler (2n/(2n-1))*(1-sum(p^2)) form, which does
+      #  not agree with FSTAT/GENEPOP, and `table()` inside a 480,000-iteration R
+      #  loop, which made it by far the slowest step of the whole analysis.)
+      hs_per_pop_tbl <- data.frame(Population=character(), Observed_HS=numeric(),
+                                   Boot_Mean=numeric(), Boot_SE=numeric(),
+                                   CI_L=numeric(), CI_U=numeric(),
+                                   N_loci=integer(), stringsAsFactors=FALSE)
+      if (isTRUE(diversity_extras)) {
+        # Unbiased Hs for one population x one locus from decoded alleles (complete genotypes).
+        .hs_nc <- function(a1, a2) {
+          n <- length(a1)
+          if (n <= 1L) return(NA_real_)
+          cnt <- tabulate(c(a1, a2), nbins = max(a1, a2))
+          p2  <- sum((cnt / (2 * n))^2)
+          ho  <- mean(a1 != a2)
+          (n / (n - 1)) * (1 - p2 - ho / (2 * n))
+        }
+
+        pop_codes_pp  <- as.integer(mat[, 1])
+        pop_levels_pp <- attr(mat, "pop_levels")
+        pops_pp <- sort(unique(pop_codes_pp[is.finite(pop_codes_pp) & pop_codes_pp > 0L]))
+        n_loci_pp <- ncol(mat) - 1L
+        alpha_pp <- (1 - conf_level) / 2
+
+        set.seed(.seed())
+        hs_per_pop_rows <- lapply(pops_pp, function(pp) {
+          idx  <- which(pop_codes_pp == pp)
+          n_pp <- length(idx)
+          pop_name <- if (!is.null(pop_levels_pp) && pp >= 1L && pp <= length(pop_levels_pp))
+            as.character(pop_levels_pp[[pp]]) else as.character(pp)
+
+          # Decode genotypes ONCE per population (missing -> NA); the bootstrap loop
+          # below only re-indexes these matrices.
+          G  <- matrix(as.integer(mat[idx, -1L, drop = FALSE]), nrow = n_pp)
+          A1 <- G %/% as.integer(base)
+          A2 <- G %%  as.integer(base)
+          bad <- is.na(G) | G <= 0L | A1 <= 0L | A2 <= 0L
+          A1[bad] <- NA_integer_; A2[bad] <- NA_integer_
+
+          hs_rep <- function(ib) {
+            a1m <- A1[ib, , drop = FALSE]; a2m <- A2[ib, , drop = FALSE]
+            vapply(seq_len(n_loci_pp), function(j) {
+              ok <- !is.na(a1m[, j])
+              .hs_nc(a1m[ok, j], a2m[ok, j])
+            }, numeric(1))
+          }
+
+          hs_obs_loci <- hs_rep(seq_len(n_pp))
+          hs_obs_mean <- mean(hs_obs_loci, na.rm = TRUE)
+
+          boot_means <- vapply(seq_len(n_boot), function(b)
+            mean(hs_rep(sample.int(n_pp, n_pp, replace = TRUE)), na.rm = TRUE), numeric(1))
+
+          data.frame(
+            Population  = pop_name,
+            Observed_HS = hs_obs_mean,
+            Boot_Mean   = mean(boot_means, na.rm = TRUE),
+            Boot_SE     = sd(boot_means, na.rm = TRUE),
+            CI_L        = as.numeric(quantile(boot_means, alpha_pp,     na.rm = TRUE)),
+            CI_U        = as.numeric(quantile(boot_means, 1 - alpha_pp, na.rm = TRUE)),
+            N_loci      = as.integer(sum(!is.na(hs_obs_loci))),
+            stringsAsFactors = FALSE
+          )
+        })
+        if (length(hs_per_pop_rows) > 0) hs_per_pop_tbl <- do.call(rbind, hs_per_pop_rows)
       }
-
-      pop_codes_pp  <- as.integer(mat[, 1])
-      pop_levels_pp <- attr(mat, "pop_levels")
-      pops_pp <- sort(unique(pop_codes_pp[is.finite(pop_codes_pp) & pop_codes_pp > 0L]))
-      n_loci_pp <- ncol(mat) - 1L
-
-      set.seed(.seed())
-      hs_per_pop_rows <- lapply(pops_pp, function(pp) {
-        idx <- which(pop_codes_pp == pp)
-        n_pp <- length(idx)
-        pop_name <- if (!is.null(pop_levels_pp) && pp >= 1L && pp <= length(pop_levels_pp))
-          as.character(pop_levels_pp[[pp]]) else as.character(pp)
-
-        hs_obs_loci <- vapply(seq_len(n_loci_pp), function(j)
-          .hs_one_pop_locus(as.integer(mat[idx, j + 1L]), base), numeric(1))
-        hs_obs_mean <- mean(hs_obs_loci, na.rm = TRUE)
-
-        boot_means <- vapply(seq_len(n_boot), function(b) {
-          idx_b <- idx[sample.int(n_pp, n_pp, replace = TRUE)]
-          hs_b  <- vapply(seq_len(n_loci_pp), function(j)
-            .hs_one_pop_locus(as.integer(mat[idx_b, j + 1L]), base), numeric(1))
-          mean(hs_b, na.rm = TRUE)
-        }, numeric(1))
-
-        alpha <- (1 - conf_level) / 2
-        data.frame(
-          Population  = pop_name,
-          Observed_HS = hs_obs_mean,
-          Boot_Mean   = mean(boot_means, na.rm = TRUE),
-          Boot_SE     = sd(boot_means, na.rm = TRUE),
-          CI_L        = as.numeric(quantile(boot_means, alpha,     na.rm = TRUE)),
-          CI_U        = as.numeric(quantile(boot_means, 1 - alpha, na.rm = TRUE)),
-          N_loci      = as.integer(sum(!is.na(hs_obs_loci))),
-          stringsAsFactors = FALSE
-        )
-      })
-      hs_per_pop_tbl <- if (length(hs_per_pop_rows) > 0)
-        do.call(rbind, hs_per_pop_rows)
-      else
-        data.frame(Population=character(), Observed_HS=numeric(),
-                   Boot_Mean=numeric(), Boot_SE=numeric(),
-                   CI_L=numeric(), CI_U=numeric(),
-                   N_loci=integer(), stringsAsFactors=FALSE)
 
       # Backward-compat alias used by value box and download handler
       hs_final <- hs_pop_tbl
@@ -2666,7 +2245,8 @@ server_general_stats <- function(id, rv) {
           n_boot         = input$n_boot_fst,
           conf_level     = input$conf_level_fst,
           missing_code   = 0L,
-          progress_id    = "fst_progress"
+          progress_id    = "fst_progress",
+          diversity_extras = FALSE      # HS-by-individuals / HS-per-population: Diversities only
         )
         
         shinyWidgets::updateProgressBar(session, "fst_progress", value = 100,
@@ -2795,103 +2375,85 @@ server_general_stats <- function(id, rv) {
       }
     })
 
-    ### FST \u2014 loci bootstrap table (FST/FIT/FIS, Overall only) ----
-    output$fst_locus_boot_table <- DT::renderDT({
-      shiny::req(fst_boot_results())
-      lb <- fst_boot_results()$locus_boot_table
-      shiny::validate(shiny::need(is.data.frame(lb), "Run the FST analysis first."))
 
-      df <- lb[lb$Statistic %in% c("FST", "FIT", "FIS"), , drop = FALSE]
-      pretty_names <- c(Statistic = "Statistic", Observed = "Observed",
-                         Boot_Mean = "Bootstrap mean", SE = "Bootstrap SE",
-                         CI_L = "CI lower", CI_U = "CI upper")
-      round_cols <- which(names(df) %in% c("Observed", "Boot_Mean", "SE", "CI_L", "CI_U"))
-
-      DT::datatable(
-        df, rownames = FALSE, colnames = unname(pretty_names[names(df)]),
-        options = list(dom = "t", pageLength = 5, ordering = FALSE)
-      ) %>% DT::formatRound(columns = round_cols, digits = 4)
-    })
-
-    ### FST \u2014 loci bootstrap downloads (with metadata header) ----
-    .make_fst_plot <- function() {
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$final_table))
-      df <- res$final_table
-      loci_only <- df$ID[df$ID != "Overall"]
-      df$ID <- factor(df$ID, levels = c(unique(loci_only), "Overall"))
-      df <- df %>% dplyr::mutate(Significant = !is.na(P_value) & P_value < 0.05)
-      ggplot(df, aes(x = ID, y = Observed_FST)) +
-        geom_point(aes(shape = Significant), size = 3, color = "#3498db") +
-        geom_errorbar(aes(ymin = CI_L, ymax = CI_U), width = 0.2, color = "#3498db") +
-        labs(title = "FST estimates with confidence intervals",
-             x = "Locus", y = "FST estimate", shape = "p < 0.05") +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1),
-              plot.title  = element_text(face = "bold", hjust = 0.5))
-    }
-
-    .write_fst_params <- function(con, res) {
+    # ── Methods block written at the TOP of the single Subdivision output file.
+    .write_fst_params <- function(con, res, gres) {
       md <- if (is.list(res)) res$metadata else NULL
+      loci <- md$loci_names %||% character(0)
+      pops <- md$pop_names  %||% character(0)
       hdr <- c(
-        "Population Subdivision \u2014 FST \u2014 parameters used",
-        sprintf("Dataset: %s", if (!is.null(md$dataset_name)) md$dataset_name else "default_dataset"),
-        sprintf("Number of permutations: %s", if (!is.null(md$n_permutations)) md$n_permutations else input$n_perm_fst),
-        sprintf("Number of bootstrap replicates: %s", if (!is.null(md$n_bootstrap)) md$n_bootstrap else input$n_boot_fst),
-        sprintf("Confidence level: %s", if (!is.null(md$conf_level)) md$conf_level else input$conf_level_fst),
-        sprintf("Loci (n = %d): %s", length(md$loci_names %||% character(0)), paste(md$loci_names, collapse = ", ")),
-        sprintf("Populations (n = %d): %s", length(md$pop_names %||% character(0)), paste(md$pop_names, collapse = ", ")),
+        "Population Subdivision - FST (Weir & Cockerham 1984) and G-based test (Goudet et al. 1996)",
+        sprintf("Dataset: %s", if (!is.null(md$dataset_name) && !is.na(md$dataset_name)) md$dataset_name else "default_dataset"),
+        sprintf("Loci (n = %d): %s", length(loci), paste(loci, collapse = ", ")),
+        sprintf("Populations (n = %d): %s", length(pops), paste(pops, collapse = ", ")),
         "",
-        "Bootstrap over SUBSAMPLES: whole populations resampled as blocks, percentile CI.",
-        "Permutation p-value: genotypes randomly reassigned among subsamples (one-sided, FST >= observed)."
+        "FST permutation test (Section 1, column P_value):",
+        sprintf("  %s permutations; individuals reassigned at random among sub-samples (population labels shuffled).", md$n_permutations %||% input$n_perm_fst),
+        "  One-sided p-value: proportion of permuted FST >= observed FST, (b + 1) / (m + 1).",
+        "",
+        "Confidence intervals (percentile bootstrap):",
+        sprintf("  Confidence level: %s", md$conf_level %||% input$conf_level_fst),
+        sprintf("  Bootstrap over SUB-SAMPLES (populations resampled as blocks): %s replicates (Section 1, columns Boot_Mean, Boot_Median, CI_L, CI_U).", md$n_bootstrap %||% input$n_boot_fst),
+        "     NA rule: fewer than 5 sub-samples gives NA.",
+        sprintf("  Bootstrap over LOCI (loci resampled with replacement): %s replicates (Section 2).", md$n_bootstrap %||% input$n_boot_fst),
+        "",
+        "G-based test (Section 3):",
+        sprintf("  %s permutations of COMPLETE MULTILOCUS GENOTYPES (whole individuals) among sub-samples; valid when Hardy-Weinberg is NOT assumed within samples.",
+                if (is.list(gres)) gres$metadata$n_perm else input$n_perm_fst),
+        "  Only individuals with a complete genotype at ALL loci are used (N_geno column).",
+        "  p_ge = (b + 1) / (m + 1) with b = #{G_perm >= G_obs};  p_gt uses b = #{G_perm > G_obs} (FSTAT's two columns).",
+        "  Overall row = G summed over loci, tested the same way.",
+        ""
       )
       writeLines(hdr, con = con, useBytes = TRUE)
     }
 
     # ── One button, one click, one action: clicking "Run" IS the download
-    #    request itself — the FST bootstrap/permutation runs inside this same
-    #    content() function before the 3 result files + 1 parameters file
-    #    are zipped and streamed back. Populates fst_boot_results()/
-    #    fst_boot_timing() — Subdivision's own value boxes only; Genetic
-    #    Diversities has its own separate div_boot_results()/div_boot_timing()
-    #    (previously shared here, which caused each module's value boxes to
-    #    silently show the other module's last-run results).
+    #    request itself — the FST bootstrap/permutation AND the G-based test
+    #    run inside this same content() function, and everything (methods
+    #    block + FST per locus + bootstrap over loci + G-based test) is
+    #    written to ONE plain .txt file (no zip, no figure).
+    #    Populates fst_boot_results()/fst_boot_timing() — Subdivision's own
+    #    value boxes only; Genetic Diversities has its own separate
+    #    div_boot_results()/div_boot_timing().
     output$ui_fst_out_status <- renderUI({
       tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
-        "The results will be saved in ", tags$code(paste0("subdivision_FST_", Sys.Date(), ".zip")), ".")
+        "The results will be saved in ", tags$code(paste0("subdivision_FST_", Sys.Date(), ".txt")), ".")
     })
 
     output$run_FST_Analysis <- downloadHandler(
-      filename = function() paste0("subdivision_FST_", Sys.Date(), ".zip"),
+      filename = function() paste0("subdivision_FST_", Sys.Date(), ".txt"),
       content  = function(file) {
         res <- .run_subdivision_fst_computation()
         req(res)
-        tmpdir <- tempfile("spg_fst_export_"); dir.create(tmpdir)
-        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+        # G-based test: same number of permutations as the FST test.
+        gres <- .run_g_test_computation(n_perm = input$n_perm_fst)
 
-        p1 <- file.path(tmpdir, paste0("fst_results_subsamples_", Sys.Date(), ".txt"))
-        con1 <- file(p1, open = "w", encoding = "UTF-8")
-        writeLines(c("FST per locus \u2014 bootstrap over subsamples (population blocks) + permutation p-value", ""),
-                   con = con1, useBytes = TRUE)
-        write.table(res$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        close(con1)
-
-        p2 <- file.path(tmpdir, paste0("fst_results_loci_", Sys.Date(), ".txt"))
-        con2 <- file(p2, open = "w", encoding = "UTF-8")
-        writeLines(c("FST/FIT/FIS/HS/HT \u2014 bootstrap over LOCI (resampled with replacement)", ""),
-                   con = con2, useBytes = TRUE)
+        # Section 2: bootstrap over loci, rows in FIS, FST, FIT, HS, HT order.
         lb <- res$locus_boot_table
-        if (is.data.frame(lb)) lb <- lb[lb$Statistic %in% c("FST", "FIT", "FIS", "HS", "HT"), , drop = FALSE]
-        write.table(lb, file = con2, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        close(con2)
+        if (is.data.frame(lb)) {
+          lb <- lb[lb$Statistic %in% c("FIS", "FST", "FIT", "HS", "HT"), , drop = FALSE]
+          lb <- lb[order(match(lb$Statistic, c("FIS", "FST", "FIT", "HS", "HT"))), , drop = FALSE]
+        }
 
-        p3 <- file.path(tmpdir, paste0("fst_plot_", Sys.Date(), ".png"))
-        ggsave(p3, plot = .make_fst_plot(), width = 12, height = 6, dpi = 300)
+        con <- file(file, open = "w", encoding = "UTF-8")
+        on.exit(close(con), add = TRUE)
+        .write_fst_params(con, res, gres)
 
-        p4 <- file.path(tmpdir, paste0("fst_parameters_", Sys.Date(), ".txt"))
-        con4 <- file(p4, open = "w", encoding = "UTF-8"); .write_fst_params(con4, res); close(con4)
+        writeLines("Section 1: FST per locus - bootstrap over sub-samples + permutation p-value", con = con)
+        write.table(res$final_table, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
+        writeLines("", con = con)
 
-        zip::zip(zipfile = file, files = basename(c(p1, p2, p3, p4)), root = tmpdir)
+        writeLines("Section 2: FIS / FST / FIT / HS / HT - bootstrap over loci", con = con)
+        write.table(lb, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
+        writeLines("", con = con)
+
+        writeLines("Section 3: G-based test of genotypic differentiation (multilocus genotypes permuted among sub-samples)", con = con)
+        if (is.list(gres)) {
+          write.table(gres$final_table, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
+        } else {
+          writeLines("G-based test could not be computed (see the notification shown in the app).", con = con)
+        }
       }
     )
 
@@ -3110,164 +2672,13 @@ server_general_stats <- function(id, rv) {
                color = "light-blue", icon = icon("clock"), width = NULL)
     })
 
-    ## ===== Locus bootstrap summary table =====
-    output$locus_boot_table <- DT::renderDT({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$locus_boot_table))
-      df <- res$locus_boot_table
-      pretty <- c(
-        Statistic = "Statistic",
-        Observed  = "Observed",
-        Boot_Mean = "Bootstrap mean",
-        SE        = "Bootstrap SE",
-        CI_L      = "CI lower",
-        CI_U      = "CI upper"
-      )
-      DT::datatable(
-        df,
-        extensions = "Buttons",
-        options = list(
-          dom = "t",
-          pageLength = 10,
-          scrollX = TRUE
-        ),
-        rownames = FALSE,
-        colnames = unname(pretty[names(df)])
-      ) %>%
-        DT::formatRound(
-          columns = intersect(
-            c("Observed", "Boot_Mean", "SE", "CI_L", "CI_U"), names(df)),
-          digits = 4
-        )
-    })
 
-    ## ===== FST, HT, HS result tables =====
-    ### HT #####
-    output$ht_results_table <- DT::renderDT({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$ht_table))
-
-      df <- res$ht_table %>%
-        dplyr::select(dplyr::any_of(c(
-          "ID","Observed_HT",
-          "Subsamp_CI_L","Subsamp_CI_U",
-          "Locus_CI_L","Locus_CI_U"
-        )))
-
-      if ("Overall" %in% df$ID)
-        df <- rbind(df[df$ID != "Overall",, drop=FALSE],
-                    df[df$ID == "Overall",, drop=FALSE])
-
-      pretty_names <- c(
-        ID           = "Locus",
-        Observed_HT  = "Observed HT",
-        Subsamp_CI_L = "Populations CI lower",
-        Subsamp_CI_U = "Populations CI upper",
-        Locus_CI_L   = "Locus bootstrap CI lower",
-        Locus_CI_U   = "Locus bootstrap CI upper"
-      )
-
-      DT::datatable(df, extensions = "Buttons",
-        options = list(dom="Bfrtip", buttons=c("copy"), pageLength=15, scrollX=TRUE),
-        rownames = FALSE,
-        colnames = unname(pretty_names[names(df)])
-      ) %>%
-        DT::formatRound(
-          columns = intersect(c("Observed_HT","Subsamp_CI_L","Subsamp_CI_U",
-                                "Locus_CI_L","Locus_CI_U"), names(df)),
-          digits = 4
-        )
-    })
     
-    ### HS #####
-    # Helper: render one of the 3 HS tables (all share the same column structure)
-    .render_hs_tbl <- function(df) {
-      shiny::req(is.data.frame(df), nrow(df) > 0)
-      if ("ID" %in% names(df) && "Overall" %in% df$ID)
-        df <- rbind(df[df$ID != "Overall",, drop=FALSE],
-                    df[df$ID == "Overall",, drop=FALSE])
-      num_cols <- intersect(c("Observed_HS","Boot_Mean","Boot_SE","CI_L","CI_U"), names(df))
-      pretty <- c(ID="Locus", Observed_HS="Observed HS",
-                  Boot_Mean="Bootstrap mean", Boot_SE="Bootstrap SE",
-                  CI_L="CI lower", CI_U="CI upper")
-      DT::datatable(df, rownames=FALSE, extensions="Buttons",
-        options=list(pageLength=15, scrollX=TRUE, dom="Bfrtip", buttons=c("copy")),
-        colnames=unname(pretty[names(df)])
-      ) %>% DT::formatRound(columns=num_cols, digits=4)
-    }
 
-    output$hs_indiv_table <- DT::renderDT({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$hs_indiv_tbl))
-      .render_hs_tbl(res$hs_indiv_tbl)
-    })
 
-    output$hs_pop_table <- DT::renderDT({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$hs_pop_tbl))
-      .render_hs_tbl(res$hs_pop_tbl)
-    })
 
-    output$hs_locus_table <- DT::renderDT({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$hs_locus_tbl))
-      df <- res$hs_locus_tbl
-      num_cols <- intersect(c("Observed","Boot_Mean","Boot_SE","CI_L","CI_U"), names(df))
-      pretty <- c(Statistic="Statistic", Observed="Observed HS",
-                  Boot_Mean="Bootstrap mean", Boot_SE="Bootstrap SE",
-                  CI_L="CI lower", CI_U="CI upper")
-      DT::datatable(df, rownames=FALSE, extensions="Buttons",
-        options=list(pageLength=5, scrollX=TRUE, dom="Bfrtip", buttons=c("copy")),
-        colnames=unname(pretty[names(df)])
-      ) %>% DT::formatRound(columns=num_cols, digits=4)
-    })
     
-    output$hs_per_pop_table <- DT::renderDT({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$hs_per_pop_tbl))
-      df <- res$hs_per_pop_tbl
-      num_cols <- intersect(c("Observed_HS","Boot_Mean","Boot_SE","CI_L","CI_U"), names(df))
-      pretty <- c(Population="Population",
-                  Observed_HS="Observed HS", Boot_Mean="Bootstrap mean",
-                  Boot_SE="Bootstrap SE", CI_L="CI lower", CI_U="CI upper",
-                  N_loci="N loci")
-      DT::datatable(df, rownames=FALSE, extensions="Buttons",
-        options=list(pageLength=25, scrollX=TRUE, dom="Bfrtip", buttons=c("copy")),
-        colnames=unname(pretty[names(df)])
-      ) %>% DT::formatRound(columns=num_cols, digits=4)
-    })
 
-    ### FST #####
-    output$fst_results_table <- DT::renderDT({
-      res <- fst_boot_results()
-      shiny::req(is.list(res), !is.null(res$final_table))
-      
-      df <- res$final_table %>%
-        dplyr::select(dplyr::any_of(c("ID","Observed_FST","Boot_Mean","P_value","CI_L","CI_U")))
-      
-      pretty_names <- c(
-        ID           = "Locus",
-        Observed_FST = "Observed FST",
-        Boot_Mean    = "Bootstrap mean",
-        P_value      = "P-value",
-        CI_L         = "CI lower",
-        CI_U         = "CI upper"
-      )
-      DT::datatable(
-        df,
-        extensions = "Buttons",
-        
-        options = list(
-          dom = "Bfrtip",
-          buttons = c("copy"),
-          pageLength = 15,
-          scrollX = TRUE
-        ),
-        rownames = FALSE,
-        colnames = unname(pretty_names[names(df)])
-      ) %>%
-        DT::formatRound(columns = intersect(c("Observed_FST","Boot_Mean","P_value","CI_L","CI_U"), names(df)), digits = 4)
-    })
     
     
     ## ===== FST, HT, HS  plots =====
@@ -3275,213 +2686,76 @@ server_general_stats <- function(id, rv) {
     # Helper: build a combined per-locus + Overall plot for HS or HT.
     # Mirrors FST plot style: size=3, width=0.2, no size/linewidth aesthetics.
 
-    .diversity_plot <- function(full_df, obs_col, ci_l_col, ci_u_col, y_label, title) {
-      df_loci    <- full_df %>% dplyr::filter(ID != "Overall")
-      df_overall <- full_df %>% dplyr::filter(ID == "Overall")
-
-      if (nrow(df_loci) == 0)
-        return(ggplot() + labs(title = paste("No", y_label, "data available")) +
-               theme_minimal())
-
-      # Ordre d'apparition dans df_loci = ordre DuckDB (hf_mat_r réordonné)
-      locus_levels <- c(unique(df_loci$ID), if (nrow(df_overall) > 0) "Overall")
-      df_loci    <- df_loci    %>% dplyr::mutate(ID = factor(ID, levels = locus_levels))
-      df_overall <- df_overall %>% dplyr::mutate(ID = factor(ID, levels = locus_levels))
-
-      p <- ggplot(mapping = aes(x = ID, y = .data[[obs_col]])) +
-        geom_point(data = df_loci, size = 3, color = "#3498db", shape = 16) +
-        geom_errorbar(data = df_loci,
-                      aes(ymin = .data[[ci_l_col]], ymax = .data[[ci_u_col]]),
-                      width = 0.2, color = "#3498db") +
-        labs(title = title, x = "Locus", y = y_label) +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1),
-              plot.title  = element_text(face = "bold", hjust = 0.5))
-
-      if (nrow(df_overall) > 0 &&
-          is.finite(df_overall[[obs_col]][1]) &&
-          ci_l_col %in% names(df_overall) &&
-          ci_u_col %in% names(df_overall) &&
-          is.finite(df_overall[[ci_l_col]][1])) {
-        p <- p +
-          geom_point(data = df_overall, size = 3, color = "#e74c3c", shape = 18) +
-          geom_errorbar(data = df_overall,
-                        aes(ymin = .data[[ci_l_col]], ymax = .data[[ci_u_col]]),
-                        width = 0.2, color = "#e74c3c")
-      }
-      p
-    }
-
-    ## ===== FST, HT, HS  download handlers =====
-    ### HS/HT/locus-bootstrap — merged into the single Run+Download button ###
+    # ── Methods block written at the TOP of the single Diversities file.
     .write_div_params <- function(con, res) {
-      md <- if (is.list(res)) res$metadata else NULL
+      md   <- if (is.list(res)) res$metadata else NULL
+      loci <- md$loci_names %||% character(0)
+      pops <- md$pop_names  %||% character(0)
       hdr <- c(
-        "Genetic Diversities (HS / HT) \u2014 parameters used",
-        sprintf("Dataset: %s", if (!is.null(md$dataset_name)) md$dataset_name else "default_dataset"),
-        sprintf("Number of permutations: %s", if (!is.null(md$n_permutations)) md$n_permutations else input$n_perm_fst_div),
-        sprintf("Number of bootstrap replicates: %s", if (!is.null(md$n_bootstrap)) md$n_bootstrap else input$n_boot_fst_div),
-        sprintf("Confidence level: %s", if (!is.null(md$conf_level)) md$conf_level else (input$conf_level_fst_div %||% 0.95)),
-        sprintf("Loci (n = %d): %s", length(md$loci_names %||% character(0)), paste(md$loci_names, collapse = ", ")),
-        sprintf("Populations (n = %d): %s", length(md$pop_names %||% character(0)), paste(md$pop_names, collapse = ", ")),
+        "Diversities confidence intervals - HS and HT (Nei & Chesser 1983)",
+        sprintf("Dataset: %s", if (!is.null(md$dataset_name) && !is.na(md$dataset_name)) md$dataset_name else "default_dataset"),
+        sprintf("Loci (n = %d): %s", length(loci), paste(loci, collapse = ", ")),
+        sprintf("Populations (n = %d): %s", length(pops), paste(pops, collapse = ", ")),
         "",
-        "Resampling schemes: HS per locus (individuals within population, and populations);",
-        "HS/HT overall (loci); FST/FIT/FIS/HS/HT multilocus estimators (locus bootstrap)."
+        "Estimators: HS = unbiased gene diversity within populations, n/(n-1) * (1 - sum(p^2) - Ho/(2n)) per population,",
+        "            averaged over populations; HT = total gene diversity from the mean allele frequencies.",
+        "",
+        "Confidence intervals (percentile bootstrap):",
+        sprintf("  Confidence level: %s", md$conf_level %||% input$conf_level_fst_div %||% 0.95),
+        sprintf("  Bootstrap over INDIVIDUALS (resampled within each population): %s replicates (Sections 1 and 3).", md$n_bootstrap %||% input$n_boot_fst_div),
+        sprintf("  Bootstrap over SUB-SAMPLES (populations resampled as blocks): %s replicates (Sections 2 and 4).", md$n_bootstrap %||% input$n_boot_fst_div),
+        "     NA rule: fewer than 5 sub-samples gives NA.",
+        sprintf("  Bootstrap over LOCI (loci resampled with replacement): %s replicates (Section 5).", md$n_bootstrap %||% input$n_boot_fst_div),
+        "  In every table the 'Overall' row is the multilocus value.",
+        ""
       )
       writeLines(hdr, con = con, useBytes = TRUE)
     }
 
-    .write_div_table <- function(con, title, df) {
-      writeLines(c(title, ""), con = con, useBytes = TRUE)
-      write.table(df, file = con, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+    # Writes one titled section: a title line, then the table (no `append`
+    # argument: writing to an already-open connection just continues).
+    .write_div_section <- function(con, title, df) {
+      writeLines(title, con = con, useBytes = TRUE)
+      write.table(df, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
+      writeLines("", con = con)
     }
 
     # ── One button, one click, one action: clicking "Run" IS the download
-    #    request itself — the FST/HS/HT bootstrap analysis runs inside this
-    #    same content() function before the 7 result files + 1 parameters
-    #    file are zipped and streamed back.
+    #    request itself — the bootstrap analysis runs inside this same
+    #    content() function and ALL results are written to ONE plain .txt
+    #    file (methods block + 5 sections; no zip, no figures).
     output$ui_div_out_status <- renderUI({
       tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
-        "The results will be saved in ", tags$code(paste0("genetic_diversities_", Sys.Date(), ".zip")), ".")
+        "The results will be saved in ", tags$code(paste0("Diversities_confidence_intervals_", Sys.Date(), ".txt")), ".")
     })
 
     output$run_FST_Analysis_div <- downloadHandler(
-      filename = function() paste0("genetic_diversities_", Sys.Date(), ".zip"),
+      filename = function() paste0("Diversities_confidence_intervals_", Sys.Date(), ".txt"),
       content  = function(file) {
         res <- .run_diversities_computation()
         req(res)
-        tmpdir <- tempfile("spg_div_export_"); dir.create(tmpdir)
-        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
 
-        all_files <- character(0)
+        # Multilocus estimators (bootstrap over loci), in FIS, FST, FIT, HS, HT order.
+        lb <- res$locus_boot_table
+        if (is.data.frame(lb)) {
+          lb <- lb[order(match(lb$Statistic, c("FIS", "FST", "FIT", "HS", "HT"))), , drop = FALSE]
+        }
 
-        # 1) HS per locus — individuals CI + populations CI, one file, two sections
-        p1 <- file.path(tmpdir, paste0("hs_per_locus_", Sys.Date(), ".txt"))
-        con1 <- file(p1, open = "w", encoding = "UTF-8")
-        writeLines(c("HS per locus", ""), con = con1, useBytes = TRUE)
-        writeLines("Section 1: CI from resampling individuals within each population", con = con1)
-        write.table(res$hs_indiv_tbl, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        writeLines("", con = con1)
-        writeLines("Section 2: CI from resampling populations", con = con1)
-        write.table(res$hs_pop_tbl, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        close(con1)
-        all_files <- c(all_files, p1)
-
-        # 2) HS per population
-        p2 <- file.path(tmpdir, paste0("hs_per_population_", Sys.Date(), ".txt"))
-        con2 <- file(p2, open = "w", encoding = "UTF-8")
-        .write_div_table(con2, "HS per population", res$hs_per_pop_tbl)
-        close(con2)
-        all_files <- c(all_files, p2)
-
-        # 3) Overall HS (loci bootstrap)
-        p3 <- file.path(tmpdir, paste0("overall_hs_loci_", Sys.Date(), ".txt"))
-        con3 <- file(p3, open = "w", encoding = "UTF-8")
-        .write_div_table(con3, "Overall HS \u2014 loci bootstrap", res$hs_locus_tbl)
-        close(con3)
-        all_files <- c(all_files, p3)
-
-        # 4) HS plot (.png)
-        p4 <- file.path(tmpdir, paste0("hs_plot_", Sys.Date(), ".png"))
-        p_hs <- .diversity_plot(res$hs_pop_tbl, "Observed_HS", "CI_L", "CI_U", "HS",
-                                 "HS per locus \u2014 populations block bootstrap CI")
-        ggsave(p4, plot = p_hs, width = 12, height = 6, dpi = 300)
-        all_files <- c(all_files, p4)
-
-        # 5) HT results
-        p5 <- file.path(tmpdir, paste0("ht_results_", Sys.Date(), ".txt"))
-        con5 <- file(p5, open = "w", encoding = "UTF-8")
-        .write_div_table(con5, "Total gene diversity (HT)", res$ht_table)
-        close(con5)
-        all_files <- c(all_files, p5)
-
-        # 6) HT plot (.png)
-        p6 <- file.path(tmpdir, paste0("ht_plot_", Sys.Date(), ".png"))
-        ci_l <- if ("Subsamp_CI_L" %in% names(res$ht_table)) "Subsamp_CI_L" else "CI_L"
-        ci_u <- if ("Subsamp_CI_U" %in% names(res$ht_table)) "Subsamp_CI_U" else "CI_U"
-        p_ht <- .diversity_plot(res$ht_table, "Observed_HT", ci_l, ci_u, "HT",
-                                 "HT per locus \u2014 populations bootstrap CI")
-        ggsave(p6, plot = p_ht, width = 12, height = 6, dpi = 300)
-        all_files <- c(all_files, p6)
-
-        # 7) Locus bootstrap (multilocus estimators)
-        p7 <- file.path(tmpdir, paste0("locus_bootstrap_", Sys.Date(), ".txt"))
-        con7 <- file(p7, open = "w", encoding = "UTF-8")
-        .write_div_table(con7, "Multilocus estimators \u2014 locus bootstrap", res$locus_boot_table)
-        close(con7)
-        all_files <- c(all_files, p7)
-
-        # 8) Parameters
-        p8 <- file.path(tmpdir, paste0("diversities_parameters_", Sys.Date(), ".txt"))
-        con8 <- file(p8, open = "w", encoding = "UTF-8")
-        .write_div_params(con8, res)
-        close(con8)
-        all_files <- c(all_files, p8)
-
-        zip::zip(zipfile = file, files = basename(all_files), root = tmpdir)
+        con <- file(file, open = "w", encoding = "UTF-8")
+        on.exit(close(con), add = TRUE)
+        .write_div_params(con, res)
+        .write_div_section(con, "Section 1: HS per locus - CI from resampling individuals within each population", res$hs_indiv_tbl)
+        .write_div_section(con, "Section 2: HS per locus - CI from resampling sub-samples (populations as blocks)", res$hs_pop_tbl)
+        .write_div_section(con, "Section 3: HS per population - CI from resampling individuals", res$hs_per_pop_tbl)
+        .write_div_section(con, "Section 4: HT per locus - CI from resampling sub-samples (populations as blocks)", res$ht_table)
+        .write_div_section(con, "Section 5: Multilocus estimators - CI from resampling loci", lb)
       }
     )
-    ### FST ####
-    ### Shared metadata-header builder for FST/HS/HT exports (population-block
-    ### bootstrap = "bootstrap over subsamples") ---------------------------
-    .fst_export_header <- function(title, extra = NULL) {
-      res <- fst_boot_results()
-      md  <- if (is.list(res)) res$metadata else NULL
-      spg_export_header(
-        title           = title,
-        dataset_name    = if (!is.null(md)) md$dataset_name else NULL,
-        subsamples      = if (!is.null(md)) md$pop_names    else NULL,
-        loci            = if (!is.null(md)) md$loci_names   else NULL,
-        n_perm          = if (!is.null(md)) md$n_permutations else NULL,
-        n_boot          = if (!is.null(md)) md$n_bootstrap    else NULL,
-        resampling_unit = "Bootstrap over SUBSAMPLES: whole populations are resampled as blocks (individuals within a resampled population kept together), percentile CI. Permutation p-value: genotypes randomly reassigned among subsamples (one-sided test, FST >= observed). For the loci-based bootstrap (loci resampled with replacement instead of subsamples), see the 'FST bootstrap over loci' table/export.",
-        extra           = extra
-      )
-    }
 
-    ## --- Testing outputs ---
-    ### Testing local panmixia (FIS permutation) ---
-    output$fis_pval_testing <- DT::renderDT({
-      shiny::req(fis_boot_results())
-      df <- fis_boot_results()$final_table
-      shiny::validate(shiny::need(all(c("ID", "Observed_FIS", "P_value") %in% names(df)),
-                                  "FIS results malformed."))
-      df[, c("ID", "Observed_FIS", "P_value")]
-    },
-    options = list(pageLength = 25, scrollX = TRUE),
-    rownames = FALSE,
-    caption = "FIS permutation test \u2014 H0: local panmixia"
-    )
 
-    ### Testing global panmixia (FIT permutation) ----
-    output$fit_pval_testing <- DT::renderDT({
-      shiny::req(fit_boot_results())
-      df <- fit_boot_results()$final_table
-      shiny::validate(shiny::need(all(c("ID", "Observed_FIT", "P_value") %in% names(df)),
-                                  "FIT results malformed."))
-      df[, c("ID", "Observed_FIT", "P_value")]
-    },
-    options = list(pageLength = 25, scrollX = TRUE),
-    rownames = FALSE,
-    caption = "FIT permutation test \u2014 H0: global panmixia"
-    )
 
-    ### Testing subdivision (FST permutation) ----
-    output$fst_pval_testing <- DT::renderDT({
-      shiny::req(fst_boot_results())
-      df <- fst_boot_results()$final_table
-      shiny::validate(shiny::need(all(c("ID", "Observed_FST", "P_value") %in% names(df)),
-                                  "FST results malformed."))
-      df[, c("ID", "Observed_FST", "P_value")]
-    },
-    options = list(pageLength = 25, scrollX = TRUE),
-    rownames = FALSE,
-    caption = "FST permutation test \u2014 H0: no subdivision"
-    )
 
     ## Reactive containers ----
-    g_test_results <- reactiveVal(NULL)
-    g_test_timing  <- reactiveVal(NULL)
 
     ## G à partir d'un tableau de comptage n_pop x n_allele ("flat", vecteur) ----
     .g_stat_from_flat <- function(cnt_flat, n_pop, n_allele) {
@@ -3505,30 +2779,31 @@ server_general_stats <- function(id, rv) {
     }
 
     ## Observer: Run button ----
-    .run_g_test_computation <- function() {
+    # Runs the FSTAT-style G-based subdivision test and RETURNS the result list
+    # (NULL on failure). Called from the Subdivision Run button, with the same
+    # number of permutations as the FST test (no separate G-test parameters).
+    .run_g_test_computation <- function(n_perm) {
       db_ready()
-
-      if (input$n_perm_g < 1000) {
-        showNotification("Minimum 1 000 permutations required.", type = "warning")
-        return(FALSE)
+      n_perm <- as.integer(n_perm)
+      if (!is.finite(n_perm) || n_perm < 1000L) {
+        showNotification("Minimum 1 000 permutations required for the G-based test.", type = "warning")
+        return(NULL)
       }
 
       ok <- tryCatch({
         start_time <- Sys.time()
-        shinyWidgets::updateProgressBar(session, "g_progress", value = 5)
 
         # ── Sources DB-first (même pattern que FST) ──────────────────────────
         mat  <- hf_mat_r()   # colonnes déjà réordonnées via loci_order_r() dans hf_mat_r
         base <- base_r()
 
-        # NOTE: hf_mat_r() already returns a genuine matrix with a
-        # "pop_levels" attribute (the real population names). A previous
-        # `mat <- as.matrix(mat)` here was redundant AND silently stripped
-        # that attribute (as.matrix() does not guarantee preservation of
-        # custom attributes even on an already-matrix input), which made
-        # the G-test's parameters file fall back to generic "Pop1".."PopN"
-        # labels instead of the real population names. storage.mode<- below
-        # is attribute-preserving and is enough to guarantee integer type.
+        # NOTE: hf_mat_r() already returns a genuine matrix carrying a
+        # "pop_levels" attribute (the real population names), so no
+        # as.matrix() is needed here; storage.mode<- below keeps attributes
+        # and is enough to guarantee integer type. (The generic "Pop1".."PopN"
+        # labels once seen in the G-test output came from the column
+        # re-ordering inside hf_mat_r(), which dropped the attribute — fixed
+        # there, see the comment in hf_mat_r().)
         storage.mode(mat) <- "integer"
         shiny::validate(
           shiny::need(is.integer(mat),                      "hf_mat_r() must return an integer matrix"),
@@ -3630,7 +2905,6 @@ server_general_stats <- function(id, rv) {
           g_obs_overall <- sum(g_obs, na.rm = TRUE)
         }
 
-        shinyWidgets::updateProgressBar(session, "g_progress", value = 15)
 
         # ── Permutations ──────────────────────────────────────────────────────
         # H0 (FSTAT, NOT assuming HW within samples) : les GÉNOTYPES complets sont
@@ -3638,7 +2912,6 @@ server_general_stats <- function(id, rv) {
         # globale par réplicat b (niveau individu), réutilisée pour tous les loci
         # (même individu = même ré-affectation partout dans un même réplicat),
         # en ne gardant que les lignes valides de chaque locus.
-        n_perm         <- as.integer(input$n_perm_g)
         n_ind          <- length(pop_idx0_full)
         G_null_locus   <- matrix(NA_real_, nrow = n_perm, ncol = n_loci)
         G_null_overall <- numeric(n_perm)
@@ -3665,8 +2938,6 @@ server_general_stats <- function(id, rv) {
               G_null_locus[rows, ] <- rb$g_null_locus
               G_null_overall[rows] <- rb$g_null_overall
               done <- done + bs
-              shinyWidgets::updateProgressBar(session, "g_progress",
-                                               value = as.integer(15 + 80 * done / n_perm))
             }
             TRUE
           }, error = function(e) FALSE)
@@ -3690,15 +2961,9 @@ server_general_stats <- function(id, rv) {
             G_null_locus[b, ]  <- g_perm
             G_null_overall[b]  <- sum(g_perm, na.rm = TRUE)
 
-            if (b %% tick == 0L)
-              shinyWidgets::updateProgressBar(
-                session, "g_progress",
-                value = as.integer(15 + 80 * b / n_perm)
-              )
           }
         }
 
-        shinyWidgets::updateProgressBar(session, "g_progress", value = 95)
 
         # ── P-values : deux définitions, comme FSTAT (colonnes [>= obs] et [> obs]) ──
         .pvals <- function(obs, null) {
@@ -3743,273 +3008,30 @@ server_general_stats <- function(id, rv) {
         # Overall toujours en dernière ligne — même convention que FST
         final_tbl <- rbind(per_locus_tbl, overall_row)
 
-        shinyWidgets::updateProgressBar(session, "g_progress", value = 100)
 
         duration <- round(as.numeric(difftime(Sys.time(), start_time, units = "secs")), 1)
-        g_test_timing(duration)
-        g_test_results(list(
+        list(
           final_table    = final_tbl,
           g_obs_overall  = g_obs_overall,
           p_global       = p_ge_overall,
           p_global_gt    = p_gt_overall,
-          G_null_overall = G_null_overall,
+          duration       = duration,
           metadata       = list(
             n_perm       = n_perm,
             loci_names   = loci_names,
             pop_names    = pop_names,
             dataset_name = if (!is.null(rv$dataset_filename)) rv$dataset_filename else NA_character_
           )
-        ))
-
-        showNotification(
-          paste("G-based test completed in", duration, "seconds"),
-          type = "message"
         )
-        TRUE
 
       }, error = function(e) {
-        g_test_results(NULL); g_test_timing(NULL)
         showNotification(paste("Error in G-based test:", e$message), type = "error")
-        FALSE
+        NULL
       })
 
       ok
     }
 
-    ## ===== G-test value boxes =====
-
-    ### G global observé ----
-    output$g_global_obs_box <- renderValueBox({
-      shiny::req(g_test_results())
-      G <- g_test_results()$g_obs_overall
-      valueBox(
-        value    = if (is.na(G)) "N/A" else format(round(G, 2), nsmall = 2),
-        subtitle = HTML("<small>G<sub>obs</sub><br>global</small>"),
-        color    = if (is.na(G)) "light-blue" else "purple",
-        icon     = icon("chart-area"), width = NULL
-      )
-    })
-
-    ### P-value globale ----
-    output$g_global_pvalue_box <- renderValueBox({
-      shiny::req(g_test_results())
-      p <- g_test_results()$p_global
-      display <- if (is.na(p)) "N/A" else if (p < 0.0001) "< 0.0001" else
-                if (p < 0.001) "< 0.001" else format(round(p, 4), nsmall = 4)
-      color <- if (is.na(p)) "red" else if (p < 0.001) "red" else
-              if (p < 0.05) "yellow" else "green"
-      valueBox(
-        value    = display,
-        subtitle = HTML("<small>Global <i>p</i>-value (\u2265)<br>one-sided G permutation</small>"),
-        color    = color, icon = icon("balance-scale"), width = NULL
-      )
-    })
-
-    ### Loci significatifs (p < 0.05, sans correction) ----
-    output$g_signif_loci_box <- renderValueBox({
-      shiny::req(g_test_results())
-      df  <- g_test_results()$final_table %>% dplyr::filter(ID != "Overall")
-      tot <- nrow(df)
-      sig <- sum(!is.na(df$p_ge) & df$p_ge < 0.05, na.rm = TRUE)
-      pct <- if (tot > 0) round(100 * sig / tot, 1) else 0
-      valueBox(
-        value    = paste0(sig, " / ", tot),
-        subtitle = HTML(paste0("<small>Loci p &lt; 0.05<br>", pct, "% of total</small>")),
-        color    = if (sig > 0) "yellow" else "aqua",
-        icon     = icon("vial"), width = NULL
-      )
-    })
-
-    ### P-value moyenne par locus ----
-    output$g_mean_pvalue_box <- renderValueBox({
-      shiny::req(g_test_results())
-      df <- g_test_results()$final_table %>% dplyr::filter(ID != "Overall")
-      mp <- mean(df$p_ge, na.rm = TRUE)
-      valueBox(
-        value    = if (is.na(mp)) "N/A" else format(round(mp, 4), nsmall = 4),
-        subtitle = HTML("<small>Mean <i>p</i>-value<br>per locus (\u2265)</small>"),
-        color    = "purple", icon = icon("calculator"), width = NULL
-      )
-    })
-
-    ### Temps de calcul ----
-    output$g_time_box <- renderValueBox({
-      shiny::req(g_test_timing())
-      sec <- g_test_timing()
-      valueBox(
-        value    = if (sec < 60) paste0(sec, " s") else paste0(round(sec / 60, 1), " min"),
-        subtitle = HTML("<small>Computation Time<br>G permutation</small>"),
-        color    = "light-blue", icon = icon("clock"), width = NULL
-      )
-    })
-
-    ### Power proxy ----
-    output$g_power_box <- renderValueBox({
-      shiny::req(g_test_results())
-      p     <- g_test_results()$p_global
-      power <- if (is.na(p)) NA_real_ else 1 - p
-      valueBox(
-        value    = if (is.na(power)) "N/A" else paste0(round(100 * power, 1), "%"),
-        subtitle = HTML("<small>Power proxy<br>(1 \u2212 p-value)</small>"),
-        color    = "teal", icon = icon("bolt"), width = NULL
-      )
-    })
-
-    ### N permutations ----
-    output$g_n_perm_box <- renderValueBox({
-      shiny::req(g_test_results())
-      valueBox(
-        value    = format(g_test_results()$metadata$n_perm, big.mark = "\u202f"),
-        subtitle = HTML("<small>Permutations<br>performed</small>"),
-        color    = "light-blue", icon = icon("random"), width = NULL
-      )
-    })
-
-    ## G-test results table ----
-    output$g_results_table <- DT::renderDT({
-      shiny::req(g_test_results())
-
-      # Ordre physique DuckDB garanti depuis final_table
-      # Overall en dernière ligne
-      df         <- g_test_results()$final_table
-      df_loci    <- df[df$ID != "Overall", , drop = FALSE]
-      df_overall <- df[df$ID == "Overall", , drop = FALSE]
-      df         <- rbind(df_loci, df_overall)
-
-      pretty_names <- c(
-        ID     = "Locus",
-        N_geno = "N genotypes",
-        G_obs  = "G observed",
-        p_ge   = "p (\u2265 obs.)",
-        p_gt   = "p (> obs.)"
-      )
-
-      DT::datatable(
-        df,
-        extensions = "Buttons",
-        options = list(
-          dom        = "Bfrtip",
-          buttons    = c("copy"),
-          pageLength = 15,
-          scrollX    = TRUE,
-          order      = list()   # désactive tout tri automatique DT
-        ),
-        rownames = FALSE,
-        colnames = unname(pretty_names[names(df)])
-      ) %>%
-        DT::formatRound(
-          columns = intersect(c("G_obs", "p_ge", "p_gt"), names(df)),
-          digits  = 4
-        ) %>%
-        DT::formatStyle(
-          "p_ge",
-          backgroundColor = DT::styleInterval(c(0.01, 0.05), c("#f8d7da", "#fff3cd", "white"))
-        )
-    })
-
-    ## G-test visualization ----
-    .make_g_plot <- function() {
-      shiny::req(g_test_results())
-
-      df <- g_test_results()$final_table
-      df <- df[df$ID != "Overall", , drop = FALSE]
-
-      if (nrow(df) == 0)
-        return(ggplot2::ggplot() +
-              ggplot2::labs(title = "No G-test data available") +
-              ggplot2::theme_minimal())
-
-      df <- df %>%
-        dplyr::mutate(Significant = !is.na(p_ge) & p_ge < 0.05)
-
-      # Ordre d'apparition dans final_table = ordre physique DuckDB
-      df$ID <- factor(df$ID, levels = unique(df$ID))
-
-      ggplot2::ggplot(df, ggplot2::aes(x = ID, y = G_obs)) +
-        ggplot2::geom_point(ggplot2::aes(shape = Significant), size = 3, color = "#7c3aed") +
-        ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-        ggplot2::labs(
-          title = "G-statistic estimates by locus",
-          x     = "Locus",
-          y     = "G observed",
-          shape = "p < 0.05"
-        ) +
-        ggplot2::theme_minimal() +
-        ggplot2::theme(
-          axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
-          plot.title  = ggplot2::element_text(face = "bold", hjust = 0.5)
-        )
-    }
-
-    
-    ## G-test download handlers ----
-    .g_export_header <- function(title, extra = NULL) {
-      res <- g_test_results()
-      md  <- if (is.list(res)) res$metadata else NULL
-      spg_export_header(
-        title           = title,
-        dataset_name    = if (!is.null(md)) md$dataset_name else NULL,
-        subsamples      = if (!is.null(md)) md$pop_names    else NULL,
-        loci            = if (!is.null(md)) md$loci_names   else NULL,
-        n_perm          = if (!is.null(md)) md$n_perm       else NULL,
-        n_boot          = NULL,
-        resampling_unit = "Permutation of COMPLETE MULTILOCUS GENOTYPES (whole individuals) among subsamples \u2014 the valid scheme when Hardy-Weinberg is NOT assumed within samples (Goudet et al. 1996, section 7.1). Only individuals with a complete genotype at ALL loci simultaneously are used (N_geno column). Two one-sided p-values per locus: p(>= obs.) = (b+1)/(m+1) with b = #{G_perm >= G_obs}; p(> obs.) with b = #{G_perm > G_obs}. Overall row = G summed over loci (additive property), tested the same way.",
-        extra           = extra
-      )
-    }
-
-    .write_g_params <- function(con, res) {
-      md <- if (is.list(res)) res$metadata else NULL
-      hdr <- c(
-        "Population Subdivision \u2014 G-test \u2014 parameters used",
-        sprintf("Dataset: %s", if (!is.null(md$dataset_name)) md$dataset_name else "default_dataset"),
-        sprintf("Number of permutations: %s", if (!is.null(md$n_perm)) md$n_perm else input$n_perm_g),
-        sprintf("Confidence level: %s", input$conf_level_g %||% 0.95),
-        sprintf("Loci (n = %d): %s", length(md$loci_names %||% character(0)), paste(md$loci_names, collapse = ", ")),
-        sprintf("Populations (n = %d): %s", length(md$pop_names %||% character(0)), paste(md$pop_names, collapse = ", ")),
-        "",
-        "Permutation of COMPLETE MULTILOCUS GENOTYPES (whole individuals) among subsamples",
-        "\u2014 valid when Hardy-Weinberg is NOT assumed within samples (Goudet et al. 1996, \u00a77.1).",
-        "Two one-sided p-values per locus: p(>= obs.) and p(> obs.). Overall row = G summed over loci."
-      )
-      writeLines(hdr, con = con, useBytes = TRUE)
-    }
-
-    # ── One button, one click, one action: clicking "Run" IS the download
-    #    request itself — the G-test permutation runs inside this same
-    #    content() function before the 2 result files + 1 parameters file
-    #    are zipped and streamed back.
-    output$ui_gtest_out_status <- renderUI({
-      tags$p(style = "color:#555;font-size:14px;margin-top:6px;",
-        "The results will be saved in ", tags$code(paste0("subdivision_Gtest_", Sys.Date(), ".zip")), ".")
-    })
-
-    output$run_G_test <- downloadHandler(
-      filename = function() paste0("subdivision_Gtest_", Sys.Date(), ".zip"),
-      content  = function(file) {
-        ok <- .run_g_test_computation()
-        req(isTRUE(ok))
-        res <- g_test_results()
-        req(res)
-        tmpdir <- tempfile("spg_gtest_export_"); dir.create(tmpdir)
-        on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
-
-        p1 <- file.path(tmpdir, paste0("g_test_results_", Sys.Date(), ".txt"))
-        con1 <- file(p1, open = "w", encoding = "UTF-8")
-        writeLines(c("G-based permutation test \u2014 subdivision (multilocus genotypes permuted among subsamples)", ""),
-                   con = con1, useBytes = TRUE)
-        write.table(res$final_table, file = con1, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
-        close(con1)
-
-        p2 <- file.path(tmpdir, paste0("g_test_plot_", Sys.Date(), ".png"))
-        ggplot2::ggsave(p2, plot = .make_g_plot(), width = 12, height = 6, dpi = 300)
-
-        p3 <- file.path(tmpdir, paste0("g_test_parameters_", Sys.Date(), ".txt"))
-        con3 <- file(p3, open = "w", encoding = "UTF-8"); .write_g_params(con3, res); close(con3)
-
-        zip::zip(zipfile = file, files = basename(c(p1, p2, p3)), root = tmpdir)
-      }
-    )
     # ==================================== FIN G-TEST ===============================================
 
     ###

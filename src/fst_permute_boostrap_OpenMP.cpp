@@ -338,18 +338,33 @@ static inline WC84LocusStats wc84_locus_stats_ptr_ld(
   
   // Nei HS: unweighted mean of per-population unbiased gene diversities.
   // Each population contributes equally regardless of sample size.
+  //
+  // Unbiased estimator of Nei & Chesser (1983) (eq. 7.39 in Nei 1987), the one
+  // used by FSTAT and GENEPOP:
+  //     Hs_pop = n/(n-1) * ( 1 - sum(p^2) - Ho_pop/(2n) )
+  // where n = number of genotyped individuals in the population and Ho_pop is
+  // its observed heterozygosity. The previous simplified form
+  // (2n/(2n-1)) * (1 - sum(p^2)) has no Ho term and reproduces GENETIX, NOT
+  // FSTAT/GENEPOP (differences up to ~0.003 for samples of ~25 individuals).
+  // This is the SAME formula as in nei_het_stats_cpp(); keep both in sync.
   double Hs_num = 0.0, Hs_den = 0.0;
   for (int pi = 0; pi < r; ++pi) {
     const int ni = n_i[pi];
     if (ni <= 1) continue;  // need n > 1 for unbiased estimate
-    const double denom2 = 2.0 * (double)ni;
+    const double n_pi   = (double)ni;
+    const double denom2 = 2.0 * n_pi;
     double sum_p2 = 0.0;
     for (auto &kv2 : acount[pi]) {
       const double pk = (double)kv2.second / denom2;
       sum_p2 += pk * pk;
     }
-    double Hpop = 1.0 - sum_p2;
-    Hpop *= (denom2 / (denom2 - 1.0));  // unbiased correction
+    // Heterozygote count of this population: each heterozygous individual
+    // added 1 to mho[pi] for each of its two alleles, hence the factor 1/2.
+    double het_pop = 0.0;
+    for (auto &kv3 : mho[pi]) het_pop += (double)kv3.second;
+    het_pop *= 0.5;
+    const double Ho_pi = het_pop / n_pi;
+    const double Hpop  = (n_pi / (n_pi - 1.0)) * (1.0 - sum_p2 - Ho_pi / denom2);
     Hs_num += Hpop;  // equal weight per population (NOT n_i-weighted)
     Hs_den += 1.0;
   }

@@ -20,7 +20,6 @@ server_null_alleles <- function(id, rv) {
            label = paste0(round((1 - alpha) * 100, 3), "% CI"))
     }
 
-    fmt6 <- function(x) if (is.na(x)) "NA" else formatC(as.numeric(x), digits = 6, format = "f")
 
     # ── DB plumbing ────────────────────────────────────────────────────────────
     db_tick    <- reactive({ rv$db_tick })
@@ -1306,22 +1305,6 @@ server_null_alleles <- function(id, rv) {
            data   = data)
     })
 
-    output$boot_dist_plot <- plotly::renderPlotly({
-      r <- tryCatch(results_r(), error=function(e) NULL)
-      shiny::validate(shiny::need(!is.null(r), "Run computation first."))
-      plotly::plot_ly() |>
-        plotly::add_histogram(x = r$boot_gl_loci$boot_ena_vec, name = "Over loci",
-          marker = list(color="rgba(37,99,235,0.55)"), opacity = 0.7) |>
-        plotly::add_histogram(x = r$boot_gl_subs$boot_ena_vec, name = "Over sub-samples",
-          marker = list(color="rgba(220,38,38,0.55)"), opacity = 0.7) |>
-        plotly::layout(barmode = "overlay",
-          shapes = list(list(type="line", x0=r$fst_global$global_ena, x1=r$fst_global$global_ena,
-                              y0=0, y1=1, yref="paper",
-                              line=list(color="#0f172a", width=2, dash="dash"))),
-          xaxis = list(title = "Global FST-ENA (bootstrap replicates)"),
-          yaxis = list(title = "Count"),
-          legend = list(x=0.02, y=0.98))
-    })
 
     # ── Show the actual computed filename on each output-file card ────────────
     output$ui_filename_1 <- renderUI(tags$code(out_filename("null_allele_frequencies")))
@@ -1571,14 +1554,6 @@ server_null_alleles <- function(id, rv) {
       tags$div(class="na-dl-row", downloadButton(session$ns("dl_file7_txt"), ".txt", class="btn btn-default btn-xs"))
     })
 
-    # ── Results tab: Full pairwise table ───────────────────────────────────
-    output$dt_full_pairwise <- DT::renderDT({
-      df <- full_pairwise_r()
-      DT::datatable(df, rownames = FALSE,
-        options = list(scrollX = TRUE, pageLength = 15, dom = "lrtip"),
-        class = "compact stripe hover") |>
-        DT::formatRound(setdiff(names(df)[sapply(df, is.numeric)], character(0)), 6)
-    })
 
     # ── Build every output file into a temp directory; returns the file
     #    paths written. Shared by both the browser-download zip and the
@@ -1665,224 +1640,13 @@ server_null_alleles <- function(id, rv) {
       )
     })
 
-    # ── Value boxes ──────────────────────────────────────────────────────────
-    # (shinydashboard valueBox, same component/icons/colors as everywhere else
-    #  in the app — the Isolation by Distance module reuses these very numbers
-    #  with the same icon/color choices for "Loci", "Populations" and
-    #  "Global FST-ENA", see server_isolation_by_distance.R)
-    output$vb_loci <- renderValueBox({
-      n <- tryCatch(length(markers_r()), error = function(e) NA_integer_)
-      valueBox(if (is.na(n)) "\u2014" else n, "Loci", icon = icon("dna"), color = "navy")
-    })
-    output$vb_pops <- renderValueBox({
-      n <- tryCatch(length(pops_r()), error = function(e) NA_integer_)
-      valueBox(if (is.na(n)) "\u2014" else n, "Populations", icon = icon("users"), color = "teal")
-    })
-    output$vb_n <- renderValueBox({
-      n <- tryCatch({
-        db_ready(); con <- con_r(); ms <- meta_schema_r()
-        DBI::dbGetQuery(con, sprintf(
-          "SELECT COUNT(DISTINCT CAST(%s AS VARCHAR)) AS n FROM %s WHERE %s IS NOT NULL",
-          sql_id(con,ms$ind_col),sql_id(con,tbl_meta_r()),sql_id(con,ms$ind_col)))$n[[1]]
-      }, error = function(e) NA_integer_)
-      valueBox(if (is.na(n)) "\u2014" else n, "Individuals", icon = icon("user"), color = "purple")
-    })
-    output$vb_avg_null <- renderValueBox({
-      v <- tryCatch({
-        r <- results_r()
-        round(mean(r$t1$p_nulls, na.rm = TRUE), 4)
-      }, error = function(e) NA_real_)
-      col <- if (is.na(v)) "navy" else if (v > .20) "red" else if (v > .10) "yellow" else "green"
-      valueBox(if (is.na(v)) "\u2014" else v, "Avg p_nulls", icon = icon("percent"), color = col)
-    })
-    output$vb_max_null <- renderValueBox({
-      v <- tryCatch({
-        r <- results_r()
-        round(max(r$t1$p_nulls, na.rm = TRUE), 4)
-      }, error = function(e) NA_real_)
-      col <- if (is.na(v)) "navy" else if (v > .30) "red" else if (v > .15) "yellow" else "green"
-      valueBox(if (is.na(v)) "\u2014" else v, "Max p_nulls", icon = icon("arrow-up"), color = col)
-    })
-    output$vb_fst_ena <- renderValueBox({
-      v <- tryCatch({
-        r <- results_r()
-        round(r$fst_global$global_ena, 4)
-      }, error = function(e) NA_real_)
-      col <- if (is.na(v)) "navy" else if (v > .15) "red" else if (v > .05) "yellow" else "green"
-      valueBox(if (is.na(v)) "\u2014" else v, HTML("Global F<sub>ST</sub>-ENA"),
-               icon = icon("chart-bar"), color = col)
-    })
 
-    # ── Tab 1: null allele frequencies DTs ────────────────────────────────────
-    # t1 columns: Locus, Subsample, Miss, p_nulls, N, N_blanks, N_exp_blanks
-    output$dt_t1 <- DT::renderDT({
-      r <- results_r()
-      shiny::validate(shiny::need(nrow(r$t1)>0, "No data yet. Click Compute."))
-      d <- r$t1
-      names(d) <- c("Locus","Subsample","Miss","p_nulls",
-                    "N","N_blanks","N_exp_blanks")
-      DT::datatable(d, rownames=FALSE,
-        options=list(pageLength=20, scrollX=TRUE, dom="lftip",
-          columnDefs=list(list(className="dt-right", targets=3:6))),
-        class="compact hover stripe") |>
-        DT::formatRound("p_nulls",           6) |>
-        DT::formatRound("N_exp_blanks",       6) |>
-        DT::formatStyle("p_nulls",
-          backgroundColor = DT::styleInterval(
-            c(0.05,0.10,0.20,0.30),
-            c("#f0fdf4","#dcfce7","#fefce8","#fff7ed","#fef2f2"))) |>
-        DT::formatStyle("Locus", fontWeight="600", color="#0f172a")
-    }, server=TRUE)
 
-    # t2 columns: Locus, Miss, Av(N_exp_blanks), Av(p_nulls), N_tot, N_blanks,
-    #             f(expBlanks), p-value, p_nulls — matches FreeNA's per-locus
-    #             summary report.
-    output$dt_t2 <- DT::renderDT({
-      r <- results_r()
-      shiny::validate(shiny::need(nrow(r$t2)>0, "No data yet. Click Compute."))
-      d <- r$t2
-      names(d) <- c("Locus","Miss","Av(N_exp_blanks)","Av(p_nulls)",
-                    "N_tot","N_blanks","f(expBlanks)","p-value","p_nulls")
-      DT::datatable(d, rownames=FALSE,
-        options=list(pageLength=20, scrollX=TRUE, dom="lftip",
-          columnDefs=list(list(className="dt-right", targets=2:8))),
-        class="compact hover stripe") |>
-        DT::formatRound("Av(p_nulls)",       6) |>
-        DT::formatRound("Av(N_exp_blanks)",  6) |>
-        DT::formatRound("f(expBlanks)",      6) |>
-        DT::formatRound("p-value",           3) |>
-        DT::formatRound("p_nulls",           6) |>
-        DT::formatStyle("Av(p_nulls)",
-          backgroundColor = DT::styleInterval(
-            c(0.05,0.10,0.20),
-            c("#f0fdf4","#dcfce7","#fefce8","#fef2f2"))) |>
-        DT::formatStyle("Locus", fontWeight="600", color="#0f172a")
-    }, server=TRUE)
 
-    # ── Tab 2: FST DTs ─────────────────────────────────────────────────────────
-    output$dt_fst_global <- DT::renderDT({
-      r <- results_r(); d <- r$fst_global$per_locus
-      shiny::validate(shiny::need(nrow(d)>0, "No data yet. Click Compute."))
-      ci_pct <- paste0(round((1-r$alpha)*100,3),"%")
-      # Attach per-locus sub-samples bootstrap CI (populations resampled
-      # as blocks) — bootstrap-over-loci CI is not shown here as it is
-      # only meaningful at the multilocus level (see GLOBAL row below and
-      # the "Bootstrap CI — Global FST and FST-ENA" panel).
-      subs_pl <- r$boot_gl_subs$per_locus
-      if (!is.null(subs_pl) && nrow(subs_pl) > 0) {
-        d <- merge(d, subs_pl, by = "Locus", all.x = TRUE, sort = FALSE)
-        d <- d[match(r$fst_global$per_locus$Locus, d$Locus), , drop = FALSE]
-      } else {
-        d$CI_lo_raw_subs <- NA_real_; d$CI_hi_raw_subs <- NA_real_
-        d$CI_lo_ENA_subs <- NA_real_; d$CI_hi_ENA_subs <- NA_real_
-      }
-      glob <- data.frame(
-        Locus="[GLOBAL MULTILOCUS]",
-        FST_raw=round(r$fst_global$global_raw,6),
-        FST_ENA=round(r$fst_global$global_ena,6),
-        N_pops_raw=NA_integer_, N_pops_ENA=NA_integer_,
-        CI_lo_raw_subs=round(r$boot_gl_subs$raw[1],6),
-        CI_hi_raw_subs=round(r$boot_gl_subs$raw[3],6),
-        CI_lo_ENA_subs=round(r$boot_gl_subs$ena[1],6),
-        CI_hi_ENA_subs=round(r$boot_gl_subs$ena[3],6),
-        stringsAsFactors=FALSE)
-      disp <- rbind(glob[, names(d)], d)
-      names(disp) <- c("Locus","Raw FST","FST-ENA","N pops (raw)","N pops (ENA)",
-                        paste0("Raw FST CI lo (subs, ",ci_pct,")"),
-                        paste0("Raw FST CI hi (subs, ",ci_pct,")"),
-                        paste0("FST-ENA CI lo (subs, ",ci_pct,")"),
-                        paste0("FST-ENA CI hi (subs, ",ci_pct,")"))
-      DT::datatable(disp, rownames=FALSE,
-        options=list(pageLength=25,scrollX=TRUE,dom="lftip",
-          columnDefs=list(list(className="dt-right",targets=1:8))),
-        class="compact hover stripe") |>
-        DT::formatRound(c("Raw FST","FST-ENA",names(disp)[6:9]),6)|>
-        DT::formatStyle("FST-ENA",backgroundColor=DT::styleInterval(
-          c(0.05,0.15,0.25),c("#f0fdf4","#dcfce7","#fefce8","#fef2f2")))|>
-        DT::formatStyle("Locus",fontWeight="600",color="#0f172a")
-    }, server=TRUE)
 
-    # ── Bootstrap CI display helper ────────────────────────────────────────────
-    boot_tbl <- function(d, cols, col_labels, char_cols = c("Pop1","Pop2","Locus")) {
-      rows_html <- sapply(seq_len(nrow(d)), function(i) {
-        cells <- paste(sapply(cols, function(cn) {
-          val <- d[[cn]][i]
-          if (cn %in% char_cols)
-            sprintf('<td class="lbl">%s</td>', htmltools::htmlEscape(as.character(val)))
-          else {
-            num <- suppressWarnings(as.numeric(val))
-            sprintf('<td>%s</td>', if(is.na(num)) "NA" else formatC(num,digits=6,format="f"))
-          }
-        }), collapse="")
-        paste0("<tr>",cells,"</tr>")
-      })
-      HTML(paste0(
-        '<table class="na-matrix" style="width:100%"><thead><tr>',
-        paste(sprintf("<th>%s</th>",col_labels),collapse=""),
-        '</tr></thead><tbody>',paste(rows_html,collapse=""),'</tbody></table>'))
-    }
 
-    render_mat_html <- function(mat, fmt=6,
-                                thr =c(0.05,0.15,0.25),
-                                clrs=c("#f0fdf4","#dcfce7","#fefce8","#fef2f2")) {
-      pops <- rownames(mat); n <- length(pops)
-      cell <- function(i,j) {
-        if (i==j) return('<td class="diag">\u2014</td>')
-        if (i<j)  return('<td class="upper">\u00b7</td>')
-        v <- mat[i,j]; if (is.na(v)) return('<td style="color:#94a3b8;">NA</td>')
-        bg <- clrs[findInterval(v,thr)+1L]
-        sprintf('<td style="background:%s;">%s</td>',bg,round(v,fmt))
-      }
-      thead <- paste0('<tr><th></th>',paste(sprintf('<th>%s</th>',pops[-n]),collapse=""),'</tr>')
-      tbody <- paste(sapply(seq_len(n),function(i){
-        if(i==1L) return("")
-        paste0('<tr><td class="lbl">',pops[i],'</td>',
-               paste(sapply(seq_len(n),function(j)cell(i,j)),collapse=""),'</tr>')
-      }),collapse="")
-      HTML(sprintf('<div class="na-matrix-wrap"><table class="na-matrix"><thead>%s</thead><tbody>%s</tbody></table></div>',
-                   thead,tbody))
-    }
 
-    # ── Tab 4: per-locus x pair DTs ───────────────────────────────────────────
-    output$dt_fst_locus <- DT::renderDT({
-      r <- tryCatch(results_r(), error=function(e) NULL)
-      shiny::validate(shiny::need(!is.null(r), "Run computation first."))
-      d <- r$per_locus_pair$fst
-      sl <- safe_choice(input$fl_locus,"all")
-      sp1 <- safe_choice(input$fl_pop1,"all"); sp2 <- safe_choice(input$fl_pop2,"all")
-      if (!identical(sl,"all"))  d <- d[d$Locus==sl,,drop=FALSE]
-      if (!identical(sp1,"all")) d <- d[d$Pop1==sp1|d$Pop2==sp1,,drop=FALSE]
-      if (!identical(sp2,"all")) d <- d[d$Pop2==sp2|d$Pop1==sp2,,drop=FALSE]
-      shiny::validate(shiny::need(nrow(d)>0,"No data for selected filters."))
-      names(d) <- c("Locus","Pop 1","Pop 2","Raw FST","FST-ENA")
-      DT::datatable(d, rownames=FALSE,
-        options=list(pageLength=25,scrollX=TRUE,dom="lftip",
-          columnDefs=list(list(className="dt-right",targets=3:4))),
-        class="compact hover stripe") |>
-        DT::formatRound("Raw FST",6)|>DT::formatRound("FST-ENA",6)|>
-        DT::formatStyle("FST-ENA",backgroundColor=DT::styleInterval(
-          c(0.05,0.15,0.25),c("#f0fdf4","#dcfce7","#fefce8","#fef2f2")))|>
-        DT::formatStyle("Locus",fontWeight="600",color="#0f172a")
-    }, server=TRUE)
 
-    output$dt_dc_locus <- DT::renderDT({
-      r <- tryCatch(results_r(), error=function(e) NULL)
-      shiny::validate(shiny::need(!is.null(r), "Run computation first."))
-      d <- r$per_locus_pair$dc
-      sl <- safe_choice(input$fl_locus,"all")
-      sp1 <- safe_choice(input$fl_pop1,"all"); sp2 <- safe_choice(input$fl_pop2,"all")
-      if (!identical(sl,"all"))  d <- d[d$Locus==sl,,drop=FALSE]
-      if (!identical(sp1,"all")) d <- d[d$Pop1==sp1|d$Pop2==sp1,,drop=FALSE]
-      if (!identical(sp2,"all")) d <- d[d$Pop2==sp2|d$Pop1==sp2,,drop=FALSE]
-      shiny::validate(shiny::need(nrow(d)>0,"No data for selected filters."))
-      names(d) <- c("Locus","Pop 1","Pop 2","Raw DCSE","DCSE-INA")
-      DT::datatable(d, rownames=FALSE,
-        options=list(pageLength=25,scrollX=TRUE,dom="lftip",
-          columnDefs=list(list(className="dt-right",targets=3:4))),
-        class="compact hover stripe") |>
-        DT::formatRound("Raw DCSE",6)|>DT::formatRound("DCSE-INA",6)|>
-        DT::formatStyle("Locus",fontWeight="600",color="#0f172a")
-    }, server=TRUE)
 
     # ══════════════════════════════════════════════════════════════════════════
     #  SHARE RESULTS WITH OTHER MODULES (e.g. Isolation by Distance / Mantel)

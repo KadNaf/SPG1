@@ -423,20 +423,6 @@ server_isolation_by_distance <- function(id, rv) {
         icon("check-circle"), " ", tags$strong("Computations completed."))
     })
 
-    output$dt_ibd_reg <- DT::renderDT({
-      r <- ibd_results_r()
-      req(r)
-      s <- as.data.frame(r$summary, stringsAsFactors = FALSE)
-      s$b   <- round(as.numeric(s$b), 6)
-      s$Nb  <- round(as.numeric(s$Nb), 2)
-      s$Nem <- round(as.numeric(s$Nem), 2)
-      names(s) <- c("slope", "b", "Nb", "Nem")
-      DT::datatable(s, rownames = FALSE,
-        options = list(dom = "t", pageLength = 3, ordering = FALSE),
-        class = "compact stripe") |>
-        DT::formatRound("b", 6) |>
-        DT::formatRound(c("Nb", "Nem"), 2)
-    })
 
     # ══════════════════════════════════════════════════════════════════════
     #  TAB 2 — Mantel test (joint row/column permutation; rectangular-safe)
@@ -839,14 +825,6 @@ server_isolation_by_distance <- function(id, rv) {
     mantel_results_store <- reactiveVal(NULL)
     mantel_result_r <- function() mantel_results_store()
 
-    # R² is reported once, from the statistic that best represents a "base"
-    # linear fit: the first Rousset stat if any is selected (since that's
-    # the one an IBD regression R² conventionally refers to), otherwise the
-    # first selected statistic.
-    .mantel_r2_stat <- function(r) {
-      pref <- intersect(c("rousset2d", "rousset1d", "r", "spearman"), r$selected)
-      r$stats[[pref[1]]]
-    }
 
     output$ui_mantel_status <- renderUI({
       r <- mantel_result_r()
@@ -894,14 +872,6 @@ server_isolation_by_distance <- function(id, rv) {
       d
     }
 
-    output$dt_mantel_summary <- DT::renderDT({
-      r <- mantel_result_r()
-      req(r)
-      d <- .mantel_summary_df(r)
-      DT::datatable(d, rownames = FALSE,
-        options = list(dom = "t", pageLength = nrow(d), ordering = FALSE, scrollX = TRUE),
-        class = "compact stripe hover")
-    })
 
     # ── One button, one click, one action: clicking "Run" IS the download
     #    request itself — a single results file, zipped, no separate
@@ -926,36 +896,6 @@ server_isolation_by_distance <- function(id, rv) {
       }
     )
 
-    output$dt_mantel_quantiles <- DT::renderDT({
-      r <- mantel_result_r()
-      req(r)
-      probs <- c(0.005, 0.01, 0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975, 0.99, 0.995)
-      cols <- lapply(r$selected, function(k) {
-        s <- r$stats[[k]]
-        if (length(s$perm_stats) == 0L) return(rep(NA_character_, length(probs) + 1L))
-        q <- stats::quantile(s$perm_stats, probs = probs, na.rm = TRUE, type = 7)
-        c(vapply(unname(q), .fmt_stat, character(1L)), .fmt_stat(s$stat_obs))
-      })
-      names(cols) <- vapply(r$selected, function(k) r$stats[[k]]$label, character(1L))
-      d <- data.frame(Percentile = c(paste0(probs * 100, "%"), "OBSERVED"),
-                       cols, check.names = FALSE, stringsAsFactors = FALSE)
-      DT::datatable(d, rownames = FALSE,
-        options = list(dom = "t", pageLength = nrow(d), ordering = FALSE, scrollX = TRUE),
-        class = "compact stripe hover") |>
-        DT::formatStyle("Percentile", target = "row",
-          backgroundColor = DT::styleEqual("OBSERVED", "#fef3c7"),
-          fontWeight = DT::styleEqual("OBSERVED", "bold"))
-    })
 
-    output$dt_mantel_data <- DT::renderDT({
-      r <- mantel_result_r()
-      req(r)
-      ref <- .mantel_r2_stat(r)
-      df <- data.frame(Pop1 = ref$pop1, Pop2 = ref$pop2, X = round(ref$x, 6), Y = round(ref$y, 6))
-      names(df)[3:4] <- c(ref$x_label, ref$y_label)
-      DT::datatable(df, rownames = FALSE,
-        options = list(scrollX = TRUE, pageLength = 10, dom = "lrtip"),
-        class = "compact stripe hover")
-    })
   })
 }

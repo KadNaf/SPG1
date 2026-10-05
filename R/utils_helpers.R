@@ -108,28 +108,6 @@ module_banner <- function(icon_name, title, subtitle, accent = "#6B64EF") {
   x
 }
 
-.merge_paired_preview <- function(df, allele_cols) {
-  # allele_cols: c("B12","B12_1","C07","C07_1",...)
-  loci <- unique(sub("(_1|\\.[0-9]+)$", "", allele_cols))
-  
-  pick_b <- function(locus) {
-    cands <- c(paste0(locus, "_1"), paste0(locus, ".", 1:9))
-    hit <- cands[cands %in% names(df)]
-    if (length(hit)) hit[1] else NA_character_
-  }
-  
-  for (locus in loci) {
-    a <- locus
-    b <- pick_b(locus)
-    if (!a %in% names(df) || is.na(b) || !b %in% names(df)) next
-    
-    df[[locus]] <- paste0(df[[a]], "/", df[[b]])
-    df[[a]] <- paste0(df[[a]], "/", df[[b]])
-    df[[b]] <- NULL
-  }
-  
-  df
-}
 
 .get_locus_cols_from_marker_cols <- function(marker_cols) {
   marker_cols <- as.character(marker_cols)
@@ -649,14 +627,6 @@ reset_downstream_state <- function(rv) {
     try(.duckdb_clear_params(rv$con), silent = TRUE)
   }
   
-  if (!is.null(rv$populationsLL_grouped) && is.function(rv$populationsLL_grouped)) {
-    rv$populationsLL_grouped(NULL)
-  }
-  
-  # IMPORTANT: do NOT re-render the widget; just clear layers
-  leaflet::leafletProxy("map") %>%
-    leaflet::clearMarkers() %>%
-    leaflet::clearShapes()
 }
 
 # .duckdb_import_raw <- function(con, tbl_raw, file_path, sep, header) {
@@ -891,11 +861,6 @@ reset_downstream_state <- function(rv) {
   if (is.na(x) || !nzchar(x)) default else x
 }
 
-.duckdb_get_param_json <- function(con, key) {
-  x <- .duckdb_get_param(con, key, default = NA_character_)
-  if (is.na(x) || !nzchar(x)) return(character(0))
-  tryCatch(jsonlite::fromJSON(x), error = function(e) character(0))
-}
 
 .find_longest_contiguous_block <- function(idxs) {
   if (!length(idxs)) return(integer(0))
@@ -1270,50 +1235,6 @@ batch_permute_wc84_fst_auto <- function(dat,
   res
 }
 
-boot_indiv_wc84_fst_auto <- function(mat,
-                                     pop_col_1based = 1,
-                                     missing_code = 0,
-                                     base = 1000,
-                                     B = 1000,
-                                     n_threads = 1,
-                                     seed = 1,
-                                     debug = FALSE) {
-  nt <- .normalize_threads(n_threads)
-  
-  use_par <- (nt > 1L) && .pkg_has_fun("boot_indiv_wc84_fst_parallel")
-  if (isTRUE(debug)) {
-    msg <- if (use_par) "[boot indiv FST] using PARALLEL backend" else "[boot indiv FST] using SERIAL backend"
-    message(sprintf("%s (requested n_threads=%d)", msg, nt))
-  }
-  
-  res <- if (use_par) {
-    boot_indiv_wc84_fst_parallel(
-      mat,
-      pop_col_1based = pop_col_1based,
-      missing_code   = missing_code,
-      base           = base,
-      B              = B,
-      n_threads      = nt,
-      seed           = seed
-    )
-  } else {
-    boot_indiv_wc84_fst(
-      mat,
-      pop_col_1based = pop_col_1based,
-      missing_code   = missing_code,
-      base           = base,
-      B              = B
-    )
-  }
-  
-  attr(res, "parallel") <- list(
-    used_parallel     = isTRUE(use_par),
-    requested_threads = nt,
-    backend           = if (use_par) "cpp_parallel" else "cpp_serial",
-    parallel_symbol   = if (use_par) "boot_indiv_wc84_fst_parallel" else NA_character_
-  )
-  res
-}
 
 boot_popblock_wc84_fst_auto <- function(mat,
                                         pop_col_1based = 1,
@@ -1712,12 +1633,6 @@ boot_popblock_wc84_fst_auto <- function(mat,
 
 
 
-.duckdb_write_table <- function(con, tbl, df, overwrite = TRUE) {
-  stopifnot(DBI::dbIsValid(con))
-  if (!is.data.frame(df)) df <- as.data.frame(df, stringsAsFactors = FALSE)
-  DBI::dbWriteTable(con, name = tbl, value = df, overwrite = overwrite)
-  invisible(TRUE)
-}
 
 sql_ident <- function(con, x) {
   as.character(DBI::dbQuoteIdentifier(con, x))
@@ -1727,31 +1642,9 @@ duck_tbl_exists <- function(con, tbl) {
   isTRUE(tryCatch(DBI::dbExistsTable(con, tbl), error = function(e) FALSE))
 }
 
-duck_list_fields <- function(con, tbl) {
-  tryCatch(DBI::dbListFields(con, tbl), error = function(e) character(0))
-}
 
-duck_count_rows <- function(con, tbl) {
-  q <- sprintf("SELECT COUNT(*) AS n FROM %s", sql_ident(con, tbl))
-  DBI::dbGetQuery(con, q)$n[[1]]
-}
 
-duck_pop_sizes <- function(con, tbl_meta) {
-  if (!duck_tbl_exists(con, tbl_meta)) return(data.frame())
-  q <- sprintf("
-    SELECT Population, COUNT(*) AS Sample_Size
-    FROM %s
-    GROUP BY Population
-    ORDER BY Sample_Size DESC, Population
-  ", sql_ident(con, tbl_meta))
-  DBI::dbGetQuery(con, q)
-}
 
-duck_n_pop <- function(con, tbl_meta) {
-  if (!duck_tbl_exists(con, tbl_meta)) return(0L)
-  q <- sprintf("SELECT COUNT(DISTINCT Population) AS n FROM %s", sql_ident(con, tbl_meta))
-  as.integer(DBI::dbGetQuery(con, q)$n[[1]])
-}
 
 # ---- Gene diversity (Hs) per Population x Locus (DB-first)
 duck_hs_by_pop_locus_long <- function(con,
@@ -1960,95 +1853,7 @@ duck_pop_stats_by_pop_one <- function(con, pop_name,
 }
 
 
-compute_pop_stats_from_mat <- function(mat, base, pop_code) {
-  
-  # mat structure:
-  # col 1 = pop
-  # col 2..L+1 = packed genotypes
-  
-  pop_vec <- mat[, 1]
-  geno    <- mat[, -1, drop = FALSE]
-  
-  idx <- which(pop_vec == pop_code)
-  if (length(idx) == 0L) return(NULL)
-  
-  G <- geno[idx, , drop = FALSE]
-  
-  L <- ncol(G)
-  
-  Ho  <- numeric(L)
-  Hs  <- numeric(L)
-  Fis <- numeric(L)
-  
-  for (j in seq_len(L)) {
-    
-    g <- G[, j]
-    g <- g[g != 0L]  # remove missing
-    
-    if (length(g) == 0L) {
-      Ho[j]  <- NA_real_
-      Hs[j]  <- NA_real_
-      Fis[j] <- NA_real_
-      next
-    }
-    
-    # decode
-    a1 <- g %/% base
-    a2 <- g %%  base
-    
-    # Ho = proportion heterozygotes
-    Ho[j] <- mean(a1 != a2)
-    
-    # allele vector
-    alleles <- c(a1, a2)
-    
-    # allele frequencies
-    tab <- table(alleles)
-    p   <- tab / sum(tab)
-    
-    Hs[j] <- 1 - sum(p^2)
-    
-    Fis[j] <- if (Hs[j] > 0) 1 - Ho[j] / Hs[j] else NA_real_
-  }
-  
-  data.frame(
-    Locus = colnames(mat)[-1L],
-    Ho = Ho,
-    Hs = Hs,
-    `Fis (Nei)` = Fis,
-    stringsAsFactors = FALSE
-  )
-}
 
-run_basic_wc84 <- function(mat, base) {
-  
-  res <- wc84_components_fst(
-    dat          = mat,
-    pop_col      = 0L,
-    missing_code = 0L,
-    base         = base
-  )
-  
-  # assume res returns list with per_locus and overall
-  
-  per_locus <- as.data.frame(res$per_locus)
-  
-  colnames(per_locus) <- c(
-    "Locus",
-    "Fit (W&C)",
-    "Fst (W&C)",
-    "Fis (W&C)"
-  )
-  
-  overall <- data.frame(
-    Locus = "Overall",
-    "Fit (W&C)" = res$overall_fit,
-    "Fst (W&C)" = res$overall_fst,
-    "Fis (W&C)" = res$overall_fis
-  )
-  
-  rbind(per_locus, overall)
-}
 
 summarize_boot_ci <- function(boot_mat,
                               obs,
@@ -2115,201 +1920,15 @@ summarize_boot_ci <- function(boot_mat,
 
 # ================== LINKAGE DISEQUILIBRIUM (LD tab) ===========================
 
-#' Linkage disequilibrium (LD) helpers: contingency tables, G-test, permutations
-#'
-#' This block implements a simple LD test per population by:
-#'  1) building haplotype contingency tables for all locus pairs,
-#'  2) computing a likelihood-ratio (G) statistic for each table,
-#'  3) estimating p-values by permutation (randomisation) within population.
-#'
-#' The code assumes:
-#'  - `data$Population` defines populations (one value per sample/row),
-#'  - loci columns contain haplotype/genotype strings (e.g. "92/100"),
-#'  - missing genotypes are coded as "0/0" when `include_missing = FALSE`.
-#'
-#' Main functions
-#' - `create_contingency_tables(data, loci, include_missing)`:
-#'     For each population and each pair of loci, returns a contingency table
-#'     (rows = locus1 haplotypes, cols = locus2 haplotypes). Optionally drops
-#'     rows where either locus is "0/0".
-#'
-#' - `calculate_g_stat(contingency_table)`:
-#'     Computes expected counts under independence and the G statistic:
-#'       G = 2 * sum(O * log(O/E))   (only for cells with O > 0)
-#'     Returns both `expected` and `g_stat`.
-#'
-#' - `add_g_stats(contingency_tables)`:
-#'     Wraps each (pop, pair) table into a list containing:
-#'       observed contingency table, expected table, and G statistic.
-#'     Pair names are sanitised to use "." separators.
-#'
-#' - `randomized_g_stats(data, loci, n_simulations, calculate_g_stat, include_missing)`:
-#'     Permutation test per population and locus pair:
-#'       independently shuffles locus1 and locus2 columns within population,
-#'       recomputes G, and stores the simulated G distribution.
-#'     Parallelised over populations (foreach/doParallel).
-#'
-#' P-values and reporting
-#' - `calculate_pvalues(observed_g_stats, simulated_g_stats, epsilon)`:
-#'     For each (pop, pair), estimates p = mean(G_sim >= G_obs - epsilon),
-#'     dropping NA simulations.
-#'
-#' - `calculate_global_pvalues(observed_g_stats, simulated_g_stats)`:
-#'     Computes a crude “global” p-value per locus pair by comparing the mean
-#'     observed G across populations to the pooled simulated G values.
-#'
-#' - `create_summary_table(pvalues, global_pvalues)`:
-#'     Builds a data.frame with one row per locus pair, one column per population
-#'     (p-values), plus a `Global_P_Value` column.
-#'
-#' @name ld_helpers
-NULL
 
 
 
-# Function to create contingency tables for each population
-create_contingency_tables <- function(data, loci, include_missing = TRUE) {
-  populations <- unique(data$Population)
-  
-  contingency_tables <- lapply(populations, function(pop) {
-    pop_data <- data[data$Population == pop, ]
-    locus_pairs <- combn(loci, 2, simplify = FALSE)
-    
-    contingency_list <- setNames(
-      lapply(locus_pairs, function(pair) {
-        locus1 <- pair[1]
-        locus2 <- pair[2]
-        
-        if (!include_missing) {
-          pop_data <- pop_data[pop_data[[locus1]] != "0/0" & pop_data[[locus2]] != "0/0", ]
-        }
-        
-        haplotype_data <- data.frame(
-          Locus1_haplotype = pop_data[[locus1]],
-          Locus2_haplotype = pop_data[[locus2]]
-        )
-        
-        table(haplotype_data$Locus1_haplotype, haplotype_data$Locus2_haplotype)
-      }),
-      sapply(locus_pairs, function(pair) paste(pair[1], pair[2], sep = "-"))
-    )
-    return(contingency_list)
-  })
-  names(contingency_tables) <- populations
-  return(contingency_tables)
-}
 
-# Function to calculate G-statistic
-calculate_g_stat <- function(contingency_table) {
-  nt <- sum(contingency_table)
-  row_sum <- rowSums(contingency_table)
-  col_sum <- colSums(contingency_table)
-  expected <- outer(row_sum, col_sum) / nt
-  non_zero <- contingency_table > 0
-  observed_non_zero <- contingency_table[non_zero]
-  expected_non_zero <- expected[non_zero]
-  g_stat <- 2 * sum(observed_non_zero * log(observed_non_zero / expected_non_zero), na.rm = TRUE)
-  return(list(expected = expected, g_stat = g_stat))
-}
 
-# Function to add G-statistics to contingency tables
-add_g_stats <- function(contingency_tables) {
-  lapply(contingency_tables, function(pop_tables) {
-    setNames(
-      lapply(names(pop_tables), function(pair_name) {
-        contingency_table <- pop_tables[[pair_name]]
-        g_stat <- calculate_g_stat(contingency_table)
-        list(
-          contingency_table = contingency_table,
-          expected_contingency_table = g_stat$expected,
-          g_stat = g_stat$g_stat
-        )
-      }),
-      gsub("[-`]+", ".", names(pop_tables))
-    )
-  })
-}
 
-# Function to calculate p-values
-calculate_pvalues <- function(observed_g_stats, simulated_g_stats, epsilon = 1e-10) {
-  results <- lapply(names(observed_g_stats), function(pop) {
-    observed <- observed_g_stats[[pop]]
-    simulated <- simulated_g_stats[[pop]]
-    setNames(
-      lapply(names(observed), function(pair) {
-        observed_g <- observed[[pair]]$g_stat
-        simulated_g <- simulated[[pair]][!is.na(simulated[[pair]])]
-        p_value <- if (length(simulated_g) > 0) mean(simulated_g >= (observed_g - epsilon)) else NaN
-        list(observed_g_stat = observed_g, p_value = p_value)
-      }),
-      names(observed)
-    )
-  })
-  names(results) <- names(observed_g_stats)
-  return(results)
-}
 
-# Function to calculate global p-values
-calculate_global_pvalues <- function(observed_g_stats, simulated_g_stats) {
-  locus_pairs <- unique(unlist(lapply(observed_g_stats, names)))
-  sapply(locus_pairs, function(pair) {
-    g_obs <- unlist(lapply(observed_g_stats, function(pop) pop[[pair]]$g_stat))
-    g_sim <- unlist(lapply(simulated_g_stats, function(pop) pop[[pair]]))
-    mean(g_sim >= mean(g_obs, na.rm = TRUE))
-  })
-}
 
-# Function to create summary table
-create_summary_table <- function(pvalues, global_pvalues) {
-  all_pairs <- unique(unlist(lapply(pvalues, names)))
-  summary_table <- data.frame(Locus_Pair = all_pairs)
-  for (pop in names(pvalues)) {
-    summary_table[[pop]] <- sapply(all_pairs, function(pair) pvalues[[pop]][[pair]]$p_value)
-  }
-  summary_table$Global_P_Value <- sapply(all_pairs, function(pair) global_pvalues[pair])
-  return(summary_table)
-}
 
-# Function to generate randomized G-statistics
-randomized_g_stats <- function(data, loci, n_simulations, calculate_g_stat, include_missing = TRUE) {
-  workers <- parallel::detectCores() - 1
-  cl <- makeCluster(workers)
-  registerDoParallel(cl)
-  clusterExport(cl, varlist = c("calculate_g_stat"), envir = environment())
-  
-  populations <- unique(data$Population)
-  locus_pairs <- combn(loci, 2, simplify = FALSE)
-  
-  results <- foreach(pop = populations, .combine = 'c', .packages = 'dplyr') %dopar% {
-    pop_data <- data[data$Population == pop, ]
-    pop_results <- setNames(vector("list", length(locus_pairs)), sapply(locus_pairs, function(pair) gsub("[-`]+", ".", paste(pair[1], pair[2], sep = "."))))
-    
-    for (pair in locus_pairs) {
-      locus1 <- pair[1]
-      locus2 <- pair[2]
-      g_stats <- numeric(n_simulations)
-      for (i in 1:n_simulations) {
-        randomized_data <- pop_data
-        randomized_data[[locus1]] <- sample(pop_data[[locus1]])
-        randomized_data[[locus2]] <- sample(pop_data[[locus2]])
-        
-        if (!include_missing) {
-          randomized_data <- randomized_data[randomized_data[[locus1]] != "0/0" & randomized_data[[locus2]] != "0/0", ]
-        }
-        
-        if (nrow(randomized_data) > 0) {
-          contingency_table <- table(randomized_data[[locus1]], randomized_data[[locus2]])
-          g_stats[i] <- calculate_g_stat(contingency_table)$g_stat
-        }
-      }
-      pop_results[[gsub("[-`]+", ".", paste(locus1, locus2, sep = "."))]] <- g_stats
-    }
-    list(setNames(list(pop_results), pop))
-  }
-  
-  stopCluster(cl)
-  return(do.call(c, results))
-}
 
 # engine_freena.R
 # Faithful R translation of FreeNA_optm2R.pas
@@ -2336,349 +1955,31 @@ randomized_g_stats <- function(data, loci, n_simulations, calculate_g_stat, incl
 # 1. Genotype parsing
 # ============================================================
 
-# Parse all genotypes for one (locus, population) combination.
-# gt_vec   : character vector of genotypes, e.g. "101/103", "999999/999999"
-# null_code: character, e.g. "999999"
-# miss_set : codes treated as missing alleles (besides blank/NA)
-.fr_parse_locus_pop <- function(gt_vec, null_code, miss_set = c("0", "000", "0000", "000000")) {
-  gt <- as.character(gt_vec)
-  n_absent <- 0L; n_nullhomo <- 0L; n_nullhet <- 0L
-  a1v <- character(0L); a2v <- character(0L)
-
-  for (g in gt) {
-    g <- trimws(g)
-    if (is.na(g) || g == "" || g == "NA") { n_absent <- n_absent + 1L; next }
-
-    al <- if (grepl("/", g, fixed = TRUE)) strsplit(g, "/", fixed = TRUE)[[1L]]
-          else if (grepl("-", g, fixed = TRUE)) strsplit(g, "-", fixed = TRUE)[[1L]]
-          else c(g, g)
-    a1 <- trimws(al[1L]); a2 <- trimws(al[2L])
-
-    miss1 <- a1 %in% c(miss_set, "", "NA")
-    miss2 <- a2 %in% c(miss_set, "", "NA")
-    if (miss1 || miss2) { n_absent <- n_absent + 1L; next }   # full or partial missing
-
-    null1 <- identical(a1, null_code); null2 <- identical(a2, null_code)
-    if (null1 && null2) { n_nullhomo <- n_nullhomo + 1L; next }
-    if (null1 || null2) { n_nullhet  <- n_nullhet  + 1L; next }  # deviation: treated as absent
-
-    a1v <- c(a1v, a1); a2v <- c(a2v, a2)
-  }
-
-  n_valid <- length(a1v)
-  alleles <- sort(unique(c(a1v, a2v)))
-  A <- length(alleles)
-  H_ii <- stats::setNames(integer(A), alleles)
-  H_iX <- stats::setNames(integer(A), alleles)
-  cnt  <- stats::setNames(integer(A), alleles)
-
-  for (k in seq_len(n_valid)) {
-    x <- a1v[k]; y <- a2v[k]
-    cnt[x] <- cnt[x] + 1L; cnt[y] <- cnt[y] + 1L
-    if (x == y) H_ii[x] <- H_ii[x] + 1L
-    else { H_iX[x] <- H_iX[x] + 1L; H_iX[y] <- H_iX[y] + 1L }
-  }
-
-  list(n_absent = n_absent, n_nullhomo = n_nullhomo, n_nullhet = n_nullhet,
-       n_valid = n_valid, alleles = alleles, cnt = cnt, H_ii = H_ii, H_iX = H_iX)
-}
 
 # ============================================================
 # 2. EM null-allele estimation (Dempster, Laird & Rubin 1977 / FreeNA)
 #    — faithful to rDempster_per_locus, including the corrected cpt=0 formula
 # ============================================================
 
-# parsed : output of .fr_parse_locus_pop()
-# efpop  : total individuals assigned to this population (constant across loci)
-.fr_em_null <- function(parsed, efpop, tol = 1e-6, max_iter = 10000L) {
-  n_absent_eff <- parsed$n_absent + parsed$n_nullhet   # nullhet folded into "absent"
-  N <- efpop - n_absent_eff                             # Pascal: efpop - absentgeno
-  nnullhomo <- parsed$n_nullhomo
-  alleles <- parsed$alleles
-  A <- length(alleles)
-
-  empty <- list(rd = 0.0, cq = stats::setNames(numeric(0), character(0)),
-                N = N, alleles = character(0),
-                genefreq = stats::setNames(numeric(0), character(0)),
-                H_ii = parsed$H_ii, H_iX = parsed$H_iX,
-                n_valid = 0L, nnullhomo = nnullhomo, notappl = TRUE)
-
-  if (N <= 0L || A == 0L) return(empty)
-
-  n_valid <- N - nnullhomo
-  genefreq <- if (n_valid > 0L) parsed$cnt / (2 * n_valid)
-              else stats::setNames(rep(0, A), alleles)
-
-  # rd initialisation (Pascal: nnullhomo>0 -> sqrt(nnullhomo/N); else sqrt(1/(N+1)))
-  rd <- if (nnullhomo > 0L) sqrt(nnullhomo / N) else sqrt(1 / (N + 1))
-
-  # cpt = 0 initialisation of corrdgenefreq
-  # Faithful simplification using hotot == ii (see Pascal source: hotot is
-  # reset to 0 then immediately set to ii within the SAME allele iteration,
-  # so "hotot - ii" cancels to 0 in both branches of the original formula):
-  #   nnullhomo>0 : X = N - ii - jj,      Y = N
-  #   nnullhomo=0 : X = 1 + N - ii - jj,  Y = N + 1
-  cq <- stats::setNames(numeric(A), alleles)
-  for (k in seq_len(A)) {
-    a <- alleles[k]
-    if (genefreq[a] <= 0) { cq[k] <- 0; next }
-    ii <- parsed$H_ii[a]; jj <- parsed$H_iX[a]
-    if (nnullhomo > 0L) { Xv <- N - ii - jj;     Yv <- N }
-    else                { Xv <- 1 + N - ii - jj; Yv <- N + 1 }
-    cq[k] <- 1 - sqrt(max(0, Xv / Yv))
-  }
-
-  # EM iterations
-  for (iter in seq_len(max_iter)) {
-    cq_old <- cq
-    rdi <- 0.0
-    re  <- 0L
-    for (k in seq_len(A)) {
-      a <- alleles[k]
-      if (genefreq[a] <= 0) next
-      ii <- parsed$H_ii[a]; jj <- parsed$H_iX[a]
-      p_old <- cq_old[k]
-      denom <- p_old + 2 * rd
-      if (denom <= 0) next
-      p_new <- (p_old + rd) / denom * (ii / N) + jj / (2 * N)
-      rdi   <- rdi + (rd / denom) * (ii / N)
-      cq[k] <- p_new
-      if (abs(p_new - p_old) > tol) re <- re + 1L
-    }
-    rd_new <- rdi + nnullhomo / N
-    if (abs(rd_new - rd) > tol) re <- re + 1L
-    rd <- rd_new
-    if (re == 0L) break
-  }
-
-  list(rd = rd, cq = cq, N = N, alleles = alleles, genefreq = genefreq,
-       H_ii = parsed$H_ii, H_iX = parsed$H_iX,
-       n_valid = n_valid, nnullhomo = nnullhomo, notappl = FALSE)
-}
 
 # ============================================================
 # 3. WC84 Fst components for K populations at ONE locus
 #    (K = npop for global Fst, K = 2 for pairwise Fst)
 # ============================================================
 
-# pop_data: list of length K, each list(ni=<numeric>, nA=<named vector>, AA=<named vector>)
-#   RAW : ni = n_valid (excludes null homozygotes); nA = cnt (raw allele counts);
-#         AA = H_ii (raw homozygote counts)
-#   ENA : ni = N (includes null homozygotes, excludes only missing); nA = cq*2*N;
-#         AA = cAA (corrected homozygote counts, see .fr_build_ena_popdata)
-# alleles : character vector of all alleles to sum over (union across pops)
-.fr_wc84_components <- function(pop_data, alleles) {
-  ni_vec  <- vapply(pop_data, function(p) p$ni, numeric(1))
-  ntot    <- sum(ni_vec)
-  ntot2   <- sum(ni_vec^2)
-  npopeff <- sum(ni_vec > 0)
 
-  if (ntot <= 0 || npopeff < 2)
-    return(list(s1 = 0, s3 = 0, nc = 0))
 
-  nc <- (ntot - ntot2 / ntot) / (npopeff - 1)
-  if (!(ntot > 0 && (ntot - npopeff) > 0 && nc > 0))
-    return(list(s1 = 0, s3 = 0, nc = 0))
-
-  s1 <- 0; s3 <- 0
-  for (a in alleles) {
-    snA <- 0; sAA <- 0; s2A <- 0
-    for (p in pop_data) {
-      ni <- p$ni; nn <- 2 * ni
-      nA <- if (a %in% names(p$nA)) p$nA[[a]] else 0
-      AA <- if (a %in% names(p$AA)) p$AA[[a]] else 0
-      snA <- snA + nA
-      sAA <- sAA + AA
-      if (ni > 0) s2A <- s2A + nA^2 / nn
-    }
-    MSG <- (0.5 * snA - sAA) / ntot
-    MSI <- (0.5 * snA + sAA - s2A) / (ntot - npopeff)
-    MSP <- (s2A - 0.5 * snA^2 / ntot) / (npopeff - 1)
-    s2G <- MSG; s2I <- 0.5 * (MSI - MSG); s2P <- (MSP - MSI) / (2 * nc)
-    s1 <- s1 + s2P
-    s3 <- s3 + s2P + s2I + s2G
-  }
-  list(s1 = s1, s3 = s3, nc = nc)
-}
-
-# Build RAW pop_data entry for one (locus, pop)
-.fr_raw_popdata <- function(parsed) {
-  ni <- parsed$n_valid
-  list(ni = ni, nA = parsed$cnt, AA = parsed$H_ii)
-}
-
-# Build ENA pop_data entry for one (locus, pop), given EM output `em`
-.fr_ena_popdata <- function(em) {
-  ni <- em$N
-  nA <- em$cq * 2 * ni
-  cAA <- stats::setNames(numeric(length(em$alleles)), em$alleles)
-  for (a in em$alleles) {
-    AA <- em$H_ii[a]
-    if (!is.na(AA) && AA > 0) {
-      denom <- em$cq[a] + 2 * em$rd
-      cAA[a] <- if (denom > 0) AA * (em$cq[a] / denom) else 0
-    }
-  }
-  names(nA) <- em$alleles
-  list(ni = ni, nA = nA, AA = cAA)
-}
 
 # ============================================================
 # 4. Cavalli-Sforza & Edwards chord distance — one locus, one pair
 # ============================================================
 
-# freq_i, freq_j: named allele-frequency vectors (RAW genefreq, or ENA cq with
-# an appended null-state entry for INA — see .fr_append_null_state)
-.fr_cs_prod <- function(freq_i, freq_j) {
-  alleles <- union(names(freq_i), names(freq_j))
-  s <- 0
-  for (a in alleles) {
-    pi_ <- if (a %in% names(freq_i)) freq_i[[a]] else 0
-    pj_ <- if (a %in% names(freq_j)) freq_j[[a]] else 0
-    if (pi_ > 0 && pj_ > 0) s <- s + sqrt(pi_ * pj_)
-  }
-  s
-}
 
-# INA: append rd as an extra allele category named "__null__" — NOT renormalised
-.fr_append_null_state <- function(cq, rd) {
-  c(cq, `__null__` = rd)
-}
 
 # ============================================================
 # 5. Per-locus computation for ALL populations + ALL pairs
 # ============================================================
 
-# hap_df    : data.frame, individuals (rows) x loci (cols), genotype strings
-# pop_vector: character vector, population label per individual (row of hap_df)
-# null_code : e.g. "999999"
-#
-# Returns a list with everything needed for global/pairwise Fst & CS distance,
-# observed values AND the precomputed per-locus building blocks needed for the
-# loci-bootstrap (so bootstrap replicates never re-touch genotype data).
-.fr_compute_all <- function(hap_df, pop_vector, null_code = "999999") {
-  pops <- sort(unique(pop_vector))
-  loci <- colnames(hap_df)
-  npop <- length(pops)
-  nloc <- length(loci)
-  efpop <- stats::setNames(as.integer(table(factor(pop_vector, levels = pops))), pops)
-
-  pair_list <- if (npop >= 2L) utils::combn(pops, 2, simplify = FALSE) else list()
-  npairs <- length(pair_list)
-
-  # Per-locus, per-pop caches
-  parsed_cache <- vector("list", nloc); names(parsed_cache) <- loci
-  em_cache     <- vector("list", nloc); names(em_cache)     <- loci
-
-  for (lo in loci) {
-    parsed_cache[[lo]] <- vector("list", npop); names(parsed_cache[[lo]]) <- pops
-    em_cache[[lo]]     <- vector("list", npop); names(em_cache[[lo]])     <- pops
-    for (p in pops) {
-      idx <- which(pop_vector == p)
-      pr  <- .fr_parse_locus_pop(hap_df[[lo]][idx], null_code)
-      parsed_cache[[lo]][[p]] <- pr
-      em_cache[[lo]][[p]]     <- .fr_em_null(pr, efpop[[p]])
-    }
-  }
-
-  # ---- Per-locus GLOBAL Fst components (raw & ena) ----
-  s1l_raw <- s3l_raw <- nc_l_raw <- numeric(nloc)
-  s1l_ena <- s3l_ena <- nc_l_ena <- numeric(nloc)
-
-  for (li in seq_len(nloc)) {
-    lo <- loci[li]
-    alleles_raw <- sort(unique(unlist(lapply(pops, function(p) parsed_cache[[lo]][[p]]$alleles))))
-    alleles_ena <- sort(unique(unlist(lapply(pops, function(p) em_cache[[lo]][[p]]$alleles))))
-
-    pd_raw <- lapply(pops, function(p) .fr_raw_popdata(parsed_cache[[lo]][[p]]))
-    pd_ena <- lapply(pops, function(p) .fr_ena_popdata(em_cache[[lo]][[p]]))
-
-    comp_raw <- .fr_wc84_components(pd_raw, alleles_raw)
-    comp_ena <- .fr_wc84_components(pd_ena, alleles_ena)
-
-    s1l_raw[li] <- comp_raw$s1; s3l_raw[li] <- comp_raw$s3; nc_l_raw[li] <- comp_raw$nc
-    s1l_ena[li] <- comp_ena$s1; s3l_ena[li] <- comp_ena$s3; nc_l_ena[li] <- comp_ena$nc
-  }
-
-  # Weighted (double-nc) per-locus contributions to the GLOBAL multilocus Fst
-  w_s1_raw <- s1l_raw * nc_l_raw; w_s3_raw <- s3l_raw * nc_l_raw
-  w_s1_ena <- s1l_ena * nc_l_ena; w_s3_ena <- s3l_ena * nc_l_ena
-
-  fst_global_raw <- if (sum(w_s3_raw) != 0) sum(w_s1_raw) / sum(w_s3_raw) else NA_real_
-  fst_global_ena <- if (sum(w_s3_ena) != 0) sum(w_s1_ena) / sum(w_s3_ena) else NA_real_
-
-  # ---- Per-locus PAIRWISE Fst + CS distance components ----
-  w_s1_raw_pair <- w_s3_raw_pair <- matrix(0, npairs, nloc)
-  w_s1_ena_pair <- w_s3_ena_pair <- matrix(0, npairs, nloc)
-  dc_raw_pair   <- dc_ena_pair   <- matrix(NA_real_, npairs, nloc)
-
-  for (pidx in seq_len(npairs)) {
-    p1 <- pair_list[[pidx]][1L]; p2 <- pair_list[[pidx]][2L]
-    for (li in seq_len(nloc)) {
-      lo <- loci[li]
-      pr1 <- parsed_cache[[lo]][[p1]]; pr2 <- parsed_cache[[lo]][[p2]]
-      em1 <- em_cache[[lo]][[p1]];     em2 <- em_cache[[lo]][[p2]]
-
-      # Pairwise Fst — raw
-      alleles_pair_raw <- sort(unique(c(pr1$alleles, pr2$alleles)))
-      pd_raw <- list(.fr_raw_popdata(pr1), .fr_raw_popdata(pr2))
-      comp_raw <- .fr_wc84_components(pd_raw, alleles_pair_raw)
-      w_s1_raw_pair[pidx, li] <- comp_raw$s1 * comp_raw$nc
-      w_s3_raw_pair[pidx, li] <- comp_raw$s3 * comp_raw$nc
-
-      # Pairwise Fst — ena
-      alleles_pair_ena <- sort(unique(c(em1$alleles, em2$alleles)))
-      pd_ena <- list(.fr_ena_popdata(em1), .fr_ena_popdata(em2))
-      comp_ena <- .fr_wc84_components(pd_ena, alleles_pair_ena)
-      w_s1_ena_pair[pidx, li] <- comp_ena$s1 * comp_ena$nc
-      w_s3_ena_pair[pidx, li] <- comp_ena$s3 * comp_ena$nc
-
-      # CS distance — raw
-      ni1 <- pr1$n_valid; ni2 <- pr2$n_valid
-      if (ni1 > 0L && ni2 > 0L) {
-        cs <- .fr_cs_prod(pr1$cnt / (2 * ni1), pr2$cnt / (2 * ni2))
-        if (cs <= 1.0) dc_raw_pair[pidx, li] <- (2 / base::pi) * sqrt(2 * (1 - cs))
-      }
-
-      # CS distance — ena (INA: append rd, no renormalisation)
-      Ni1 <- em1$N; Ni2 <- em2$N
-      if (!isTRUE(em1$notappl) && !isTRUE(em2$notappl) && Ni1 > 0L && Ni2 > 0L) {
-        f1 <- .fr_append_null_state(em1$cq, em1$rd)
-        f2 <- .fr_append_null_state(em2$cq, em2$rd)
-        cs_c <- .fr_cs_prod(f1, f2)
-        if (cs_c <= 1.0) dc_ena_pair[pidx, li] <- (2 / base::pi) * sqrt(2 * (1 - cs_c))
-      }
-    }
-  }
-
-  fst_pair_raw <- ifelse(rowSums(w_s3_raw_pair) != 0,
-                         rowSums(w_s1_raw_pair) / rowSums(w_s3_raw_pair), NA_real_)
-  fst_pair_ena <- ifelse(rowSums(w_s3_ena_pair) != 0,
-                         rowSums(w_s1_ena_pair) / rowSums(w_s3_ena_pair), NA_real_)
-  dc_pair_raw  <- rowMeans(dc_raw_pair, na.rm = TRUE)
-  dc_pair_ena  <- rowMeans(dc_ena_pair, na.rm = TRUE)
-
-  pair_df <- data.frame(
-    Pop1 = vapply(pair_list, `[`, character(1), 1L),
-    Pop2 = vapply(pair_list, `[`, character(1), 2L),
-    FST_raw  = fst_pair_raw,  FST_ENA      = fst_pair_ena,
-    DCSE_raw = dc_pair_raw,   DCSE_INA     = dc_pair_ena,
-    stringsAsFactors = FALSE
-  )
-
-  list(
-    pops = pops, loci = loci, npop = npop, nloc = nloc, efpop = efpop,
-    pair_list = pair_list, pair_df = pair_df,
-    fst_global_raw = fst_global_raw, fst_global_ena = fst_global_ena,
-    # per-locus weighted contributions, needed for loci-bootstrap:
-    w_s1_raw = w_s1_raw, w_s3_raw = w_s3_raw,
-    w_s1_ena = w_s1_ena, w_s3_ena = w_s3_ena,
-    w_s1_raw_pair = w_s1_raw_pair, w_s3_raw_pair = w_s3_raw_pair,
-    w_s1_ena_pair = w_s1_ena_pair, w_s3_ena_pair = w_s3_ena_pair,
-    dc_raw_pair = dc_raw_pair, dc_ena_pair = dc_ena_pair,
-    em_cache = em_cache, parsed_cache = parsed_cache
-  )
-}
 
 # ============================================================
 # 6. Loci bootstrap — ONE shared resampled-loci sequence per replicate,
@@ -2686,52 +1987,6 @@ randomized_g_stats <- function(data, loci, n_simulations, calculate_g_stat, incl
 #    Fst and CS distance) exactly as in the Pascal main loop.
 # ============================================================
 
-.fr_bootstrap_loci <- function(res, n_boot = 1000L, conf = 0.95) {
-  nloc <- res$nloc
-  npairs <- nrow(res$pair_df)
-  alpha <- (1 - conf) / 2
-
-  boot_global_raw <- numeric(n_boot)
-  boot_global_ena <- numeric(n_boot)
-  boot_pair_raw <- matrix(NA_real_, n_boot, npairs)
-  boot_pair_ena <- matrix(NA_real_, n_boot, npairs)
-  boot_dc_raw   <- matrix(NA_real_, n_boot, npairs)
-  boot_dc_ena   <- matrix(NA_real_, n_boot, npairs)
-
-  for (b in seq_len(n_boot)) {
-    idx <- sample.int(nloc, nloc, replace = TRUE)   # SAME draw for everything below
-
-    s1g_r <- sum(res$w_s1_raw[idx]); s3g_r <- sum(res$w_s3_raw[idx])
-    s1g_e <- sum(res$w_s1_ena[idx]); s3g_e <- sum(res$w_s3_ena[idx])
-    boot_global_raw[b] <- if (s3g_r != 0) s1g_r / s3g_r else NA_real_
-    boot_global_ena[b] <- if (s3g_e != 0) s1g_e / s3g_e else NA_real_
-
-    for (pidx in seq_len(npairs)) {
-      s1p_r <- sum(res$w_s1_raw_pair[pidx, idx]); s3p_r <- sum(res$w_s3_raw_pair[pidx, idx])
-      s1p_e <- sum(res$w_s1_ena_pair[pidx, idx]); s3p_e <- sum(res$w_s3_ena_pair[pidx, idx])
-      boot_pair_raw[b, pidx] <- if (s3p_r != 0) s1p_r / s3p_r else NA_real_
-      boot_pair_ena[b, pidx] <- if (s3p_e != 0) s1p_e / s3p_e else NA_real_
-
-      boot_dc_raw[b, pidx] <- mean(res$dc_raw_pair[pidx, idx], na.rm = TRUE)
-      boot_dc_ena[b, pidx] <- mean(res$dc_ena_pair[pidx, idx], na.rm = TRUE)
-    }
-  }
-
-  qfun <- function(v) {
-    v <- v[is.finite(v)]
-    if (length(v) < 2L) return(c(NA_real_, NA_real_))
-    unname(stats::quantile(v, c(alpha, 1 - alpha)))
-  }
-
-  list(
-    global_raw_ci = qfun(boot_global_raw), global_ena_ci = qfun(boot_global_ena),
-    pair_raw_ci = t(apply(boot_pair_raw, 2, qfun)),
-    pair_ena_ci = t(apply(boot_pair_ena, 2, qfun)),
-    dc_raw_ci   = t(apply(boot_dc_raw, 2, qfun)),
-    dc_ena_ci   = t(apply(boot_dc_ena, 2, qfun)),
-    n_boot = n_boot, conf = conf
-  )
-}
 # ============================================================================
 # Output-file metadata header (added so that every exported result file is
 # self-describing: which dataset it came from, which subsamples/loci went
@@ -2739,81 +1994,5 @@ randomized_g_stats <- function(data, loci, n_simulations, calculate_g_stat, incl
 # exactly, was permuted/resampled — see project audit, Subdivision module).
 # ============================================================================
 
-#' Build a block of "#"-commented metadata lines for exported CSV/TXT files.
-#'
-#' @param title         Short title of the analysis (e.g. "FST bootstrap over subsamples").
-#' @param dataset_name  Name of the source data file (rv$dataset_filename), or NULL/"" if unknown.
-#' @param subsamples    Character vector of subsample (population) names used.
-#' @param loci          Character vector of locus names used.
-#' @param n_perm        Number of permutations used (or NULL if not applicable).
-#' @param n_boot        Number of bootstrap replicates used (or NULL if not applicable).
-#' @param resampling_unit Character, one short sentence describing exactly what unit is
-#'   permuted or resampled (e.g. "subsamples (populations), resampled as whole blocks"
-#'   or "loci, resampled with replacement across the locus set").
-#' @param extra         Optional named list/character vector of extra "key: value" lines.
-#'
-#' @return A character vector, one metadata line per element, ready to be
-#'   written to file before the data table itself (e.g. with `writeLines()`
-#'   followed by `write.table(..., append = TRUE)`).
-#' @noRd
-spg_export_header <- function(title,
-                               dataset_name     = NULL,
-                               subsamples       = NULL,
-                               loci             = NULL,
-                               n_perm           = NULL,
-                               n_boot           = NULL,
-                               resampling_unit  = NULL,
-                               extra            = NULL) {
 
-  esc <- function(x) paste(as.character(x), collapse = ", ")
 
-  lines <- c(
-    paste0("# ShinyPopGen \u2014 ", title),
-    paste0("# Export date: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S", tz = "")),
-    paste0("# Source data file: ", if (is.null(dataset_name) || !nzchar(dataset_name))
-      "unknown (loaded before this field was recorded, or example dataset)" else dataset_name)
-  )
-
-  if (!is.null(subsamples) && length(subsamples) > 0) {
-    lines <- c(lines,
-      paste0("# Subsamples (populations) analysed (n = ", length(subsamples), "): ", esc(subsamples)))
-  }
-  if (!is.null(loci) && length(loci) > 0) {
-    lines <- c(lines,
-      paste0("# Loci analysed (n = ", length(loci), "): ", esc(loci)))
-  }
-  if (!is.null(n_perm)) {
-    lines <- c(lines, paste0("# Number of permutations: ", format(as.integer(n_perm), big.mark = ",")))
-  }
-  if (!is.null(n_boot)) {
-    lines <- c(lines, paste0("# Number of bootstrap replicates: ", format(as.integer(n_boot), big.mark = ",")))
-  }
-  if (!is.null(resampling_unit) && nzchar(resampling_unit)) {
-    lines <- c(lines, paste0("# What is permuted/resampled: ", resampling_unit))
-  }
-  if (!is.null(extra) && length(extra) > 0) {
-    nm <- names(extra)
-    if (is.null(nm)) nm <- rep("", length(extra))
-    lines <- c(lines, paste0("# ", ifelse(nzchar(nm), paste0(nm, ": "), ""), as.character(extra)))
-  }
-  lines <- c(lines, "#", "# --- Data below ---")
-  lines
-}
-
-#' Write a data.frame to CSV, preceded by a metadata header (see spg_export_header()).
-#' @noRd
-spg_write_csv_with_header <- function(df, file, header_lines, ...) {
-  con <- file(file, open = "wt")
-  on.exit(close(con), add = TRUE)
-  writeLines(header_lines, con)
-  utils::write.csv(df, con, row.names = FALSE, ...)
-}
-
-#' Write a data.frame to a tab-delimited TXT file, preceded by a metadata header.
-#' @noRd
-spg_write_txt_with_header <- function(df, file, header_lines, ...) {
-  con <- file(file, open = "wt")
-  on.exit(close(con), add = TRUE)
-  writeLines(header_lines, con)
-  utils::write.table(df, con, sep = "\t", row.names = FALSE, quote = FALSE, ...)
-}

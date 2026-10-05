@@ -29,20 +29,16 @@ mod_global_panmixia_ui <- function(id) {
                style = "font-weight: 600; color: #2c3e50; margin-bottom: 15px;"),
             fluidRow(
               column(3,
-                valueBoxOutput(ns("global_fit_box"),       width = NULL),
-                valueBoxOutput(ns("fit_ci_width_box"),     width = NULL)
+                valueBoxOutput(ns("global_fit_box"),       width = NULL)
               ),
               column(3,
-                valueBoxOutput(ns("global_fit_pvalue_box"),width = NULL),
-                valueBoxOutput(ns("fit_power_box"),        width = NULL)
+                valueBoxOutput(ns("global_fit_pvalue_box"),width = NULL)
               ),
               column(3,
-                valueBoxOutput(ns("significant_loci_fit_box"),  width = NULL),
-                valueBoxOutput(ns("fit_convergence_box"),       width = NULL)
+                valueBoxOutput(ns("significant_loci_fit_box"),  width = NULL)
               ),
               column(3,
-                valueBoxOutput(ns("analysis_time_fit_box"),width = NULL),
-                valueBoxOutput(ns("fit_quality_box"),      width = NULL)
+                valueBoxOutput(ns("analysis_time_fit_box"),width = NULL)
               )
             ),
             fluidRow(

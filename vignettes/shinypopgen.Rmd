@@ -34,7 +34,7 @@ It covers the full analytical workflow:
 10. Isolation by distance -- Rousset's (1997) regression and a Mantel test
 
 Every module follows the same pattern: set parameters, click **Run**, and a
-`.zip` (or a single `.txt` for one-table modules) downloads automatically
+single `.txt` (Allele Freq, Local/Global Panmixia, Subdivision, Diversities, LD) or a `.zip` of several files (General Stats, Null Alleles, IBD, Mantel) downloads automatically
 with everything you need -- there is nothing to preview or export
 separately first. The exact output file name(s) are always shown just
 above the Run button before you click it.
@@ -129,7 +129,7 @@ locus, packed integers), and is ready for every other module immediately.
 ### 2. Allele frequencies
 
 Set an output name on the *Allele Freq* tab (or leave it auto-filled) and
-click **Run**. A single `.zip` downloads with per-locus, per-population
+click **Run**. A single `.txt` downloads with per-locus, per-population
 allele frequencies plus a population-size-weighted global column -- every
 population and marker is included automatically.
 
@@ -165,9 +165,11 @@ populations, with the same bootstrap/permutation approach.
 
 The *Subdivision* tab estimates FST (Weir & Cockerham 1984) per locus and
 overall, with bootstrap CI (over loci and over sub-samples) and a
-permutation p-value; a separate genotype-reassignment G-test (as in
-FSTAT, Goudet et al. 1996) is also available, reporting two one-sided
-p-values (heterozygote deficit / excess) matching FSTAT's own convention.
+permutation p-value. The same Run also performs the genotype-reassignment
+G-test (as in FSTAT, Goudet et al. 1996), reported in the same output
+file with FSTAT's two p-value columns (`p_ge`: permuted G >= observed G;
+`p_gt`: permuted G > observed G). Heterozygote deficit/excess one-sided
+p-values are reported by the *Local Panmixia* locus x population output.
 
 ### 8. Genetic diversities (HS, HT)
 

@@ -28,7 +28,6 @@ linkage_desequilibrium_UI <- function(id) {
         status = "primary",
         
         h4(icon("sliders"), "Parameters"),
-        checkboxInput(ns("include_missing"), "Include Missing Data", value = TRUE),
         numericInput(ns("n_iterations"), "Number of Permutations:",
                      value = 10000, min = 1000, max = 100000, step = 1000),
         
