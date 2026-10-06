@@ -117,3 +117,28 @@ test_that("table builders give the expected columns and Overall rows", {
   expect_equal(ml$Statistic, c("FIS", "FST", "FIT", "HS", "HT"))                      # FIS, FST, FIT order
   expect_named(ml, c("Statistic", "Observed", "SE_loci", "CI_L_loci", "CI_U_loci", "CI_L_subs", "CI_U_subs"))
 })
+
+
+test_that("tie-aware counting: values equal up to rounding noise are counted as ties", {
+  null <- c(0.5, 1, 1 + 1e-13, 1 - 1e-13, 2)
+  expect_equal(spg_n_ge(null, 1), 4)      # 1, 1+1e-13, 1-1e-13 (tie) and 2
+  expect_equal(spg_n_le(null, 1), 4)      # 0.5, and the three ties
+  expect_equal(spg_n_gt(null, 1), 1)      # only 2 is strictly greater
+  expect_equal(spg_n_abs_ge(c(-1, 1 + 1e-13, 0.2), -1), 2)
+})
+
+test_that("one-sided FIS p-values of a single sample match FSTAT's (ties counted in both tails)", {
+  # C07 in Sarramea (24 individuals): FSTAT gives 0.4274 (deficit) and 0.7430 (excess);
+  # without the tie tolerance the excess p-value used to come out around 0.59.
+  mat <- default_matrix()
+  p <- match("Sarramea", attr(mat, "pop_levels")); j <- match("C07", colnames(mat)[-1])
+  sub <- mat[mat[, 1] == p, , drop = FALSE]; sub[, 1] <- 1L
+  obs  <- fis_wc_cpp(sub, 1000L)$FIS[j]
+  set.seed(1)
+  perm <- batch_permute_wc_fis(dat = sub, pop_col_1based = 1L, base = 1000L, B = 6000L)[, j]
+  def <- (spg_n_ge(perm, obs) + 1) / (length(perm) + 1)
+  exc <- (spg_n_le(perm, obs) + 1) / (length(perm) + 1)
+  expect_equal(def, 0.4274, tolerance = 0.03)
+  expect_equal(exc, 0.7430, tolerance = 0.03)
+  expect_gt(def + exc, 1.1)                # ties are counted on both sides
+})

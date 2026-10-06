@@ -587,7 +587,7 @@ server_general_stats <- function(id, rv) {
           permj <- permj[is.finite(permj)]
           obsj  <- obs_pop[pn]
           if (!is.finite(obsj) || length(permj) == 0) return(NA_real_)
-          ge <- sum(abs(permj) >= abs(obsj))
+          ge <- spg_n_abs_ge(permj, obsj)
           (ge + 1) / (length(permj) + 1)
         }, numeric(1))
         
@@ -614,7 +614,7 @@ server_general_stats <- function(id, rv) {
         perm_overall <- rowMeans(perm_res, na.rm = TRUE)
         perm_overall <- perm_overall[is.finite(perm_overall)]
         if (length(perm_overall) > 0 && is.finite(obs_overall)) {
-          ge <- sum(abs(perm_overall) >= abs(obs_overall))
+          ge <- spg_n_abs_ge(perm_overall, obs_overall)
           overall_p <- (ge + 1) / (length(perm_overall) + 1)
         }
       }
@@ -787,7 +787,7 @@ server_general_stats <- function(id, rv) {
           permj <- permj[is.finite(permj)]
           obsj  <- observed_fis[j]
           if (!is.finite(obsj) || length(permj) == 0) return(NA_real_)
-          ge <- sum(abs(permj) >= abs(obsj))
+          ge <- spg_n_abs_ge(permj, obsj)
           (ge + 1) / (length(permj) + 1)
         }, numeric(1))
 
@@ -796,7 +796,7 @@ server_general_stats <- function(id, rv) {
         perm_overall <- perm_overall[is.finite(perm_overall)]
         
         p_overall <- if (is.finite(fis_obs_overall) && length(perm_overall) > 0) {
-          ge <- sum(abs(perm_overall) >= abs(fis_obs_overall))
+          ge <- spg_n_abs_ge(perm_overall, fis_obs_overall)
           (ge + 1) / (length(perm_overall) + 1)
         } else {
           NA_real_
@@ -1170,15 +1170,15 @@ server_general_stats <- function(id, rv) {
               if (length(permj) == 0L) next
               n_valid <- length(permj)
               # Two-sided (our own convention): |permuted FIS| >= |observed FIS|
-              ge <- sum(abs(permj) >= abs(obs_l))
+              ge <- spg_n_abs_ge(permj, obs_l)
               pval_m[li, pname] <- (ge + 1L) / (n_valid + 1L)
               # Heterozygote DEFICIT (FIS too high/positive): proportion of
               # permuted FIS >= observed FIS.
-              ge_hi <- sum(permj >= obs_l)
+              ge_hi <- spg_n_ge(permj, obs_l)
               pval_deficit_m[li, pname] <- (ge_hi + 1L) / (n_valid + 1L)
               # Heterozygote EXCESS (FIS too low/negative): proportion of
               # permuted FIS <= observed FIS.
-              le_lo <- sum(permj <= obs_l)
+              le_lo <- spg_n_le(permj, obs_l)
               pval_excess_m[li, pname] <- (le_lo + 1L) / (n_valid + 1L)
             }
           }
@@ -1204,6 +1204,7 @@ server_general_stats <- function(id, rv) {
         "  Section 2 (two-sided): p = (b + 1) / (m + 1), b = number of permuted |FIS| >= observed |FIS|.",
         "  Section 3 (heterozygote deficit, one-sided): proportion of permuted FIS >= observed FIS (FSTAT's first table).",
         "  Section 4 (heterozygote excess, one-sided): proportion of permuted FIS <= observed FIS (FSTAT's second table).",
+        "  Ties (a permuted FIS equal to the observed one) count in both one-sided tests, as in FSTAT. The permuted FIS of one sample takes only a few distinct values (it depends on the number of heterozygotes), so the two one-sided p-values add up to more than 1.",
         "No bootstrap is used in this analysis.",
         ""
       )
@@ -2404,8 +2405,8 @@ server_general_stats <- function(id, rv) {
         sprintf("Loci (n = %d): %s", length(loci), paste(loci, collapse = ", ")),
         sprintf("Populations (n = %d): %s", length(pops), paste(pops, collapse = ", ")),
         "",
-        sprintf("FST p-values (Section 1): one-sided permutation test on FST (theta, Weir & Cockerham 1984), %s permutations; individuals reassigned at random among sub-samples (population labels shuffled).", npm),
-        "  p = (b + 1) / (m + 1), b = number of permuted FST >= observed FST, m = number of permutations.",
+        sprintf("P-values of Section 1: one-sided permutation test based on the log-likelihood G statistic (as in FSTAT, Goudet et al. 1996), %s permutations; the individuals typed at a locus are reassigned at random among sub-samples (population labels shuffled).", npm),
+        "  p = (b + 1) / (m + 1), b = number of permuted G >= observed G (ties included), m = number of permutations; the Overall p-value uses G summed over loci.",
         "",
         sprintf("Confidence intervals: %s level, percentile bootstrap, %s replicates for each type of bootstrap:", md$conf_level %||% input$conf_level_fst, nb),
         "  BS/Ss, _subs = bootstrap over SUB-SAMPLES (populations resampled as blocks); NA if fewer than 5 sub-samples.",
@@ -2452,7 +2453,7 @@ server_general_stats <- function(id, rv) {
         on.exit(close(con), add = TRUE)
         .write_fst_params(con, res, gres)
 
-        writeLines(sprintf("Section 1: FST per locus - confidence intervals with %s bootstrap over sub-samples (locus rows and Overall BS/Ss) and over loci (Overall BS/Loci); one-sided permutation p-values on FST (%s permutations)", nb, npm), con = con)
+        writeLines(sprintf("Section 1: FST per locus - confidence intervals with %s bootstrap over sub-samples (locus rows and Overall BS/Ss) and over loci (Overall BS/Loci); one-sided permutation p-values based on the G statistic (%s permutations)", nb, npm), con = con)
         write.table(spg_fst_section(res$final_table, res$locus_boot_table), file = con,
                     sep = "\t", row.names = FALSE, quote = FALSE)
         writeLines("", con = con)
@@ -3010,8 +3011,8 @@ server_general_stats <- function(id, rv) {
           null <- null[is.finite(null)]
           if (!is.finite(obs) || length(null) == 0L) return(c(NA_real_, NA_real_))
           c(
-            (sum(null >= obs) + 1) / (length(null) + 1),
-            (sum(null >  obs) + 1) / (length(null) + 1)
+            (spg_n_ge(null, obs) + 1) / (length(null) + 1),
+            (spg_n_gt(null, obs) + 1) / (length(null) + 1)
           )
         }
 

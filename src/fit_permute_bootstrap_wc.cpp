@@ -49,6 +49,13 @@
 
 using namespace Rcpp;
 
+// Tolerance used when a permuted statistic is compared with the observed one. A
+// permutation p-value counts the randomised statistics LARGER OR EQUAL to the observed
+// one (ties included, FSTAT manual); the same mathematical value can however come out
+// of two computations differing by ~1e-16, and a plain `>=` then loses a random part of
+// the ties and understates the p-values (see utils_stats.R, SPG_TIE_TOL).
+static const double TIE_TOL = 1e-9;
+
 
 
 // ---------------------- OPTIMIZED RNG & UTILITIES --------------------------
@@ -1505,7 +1512,7 @@ Rcpp::List batch_permute_fit_global(
       const double v = out_fit(b, j);
       if (!std::isfinite(v)) continue;
       ++n_ok;
-      if (std::abs(v) >= obs_v) ++ge;
+      if (std::abs(v) >= obs_v - TIE_TOL) ++ge;
     }
     p_fit[j] = (n_ok > 0) ? ((double)(ge + 1) / (double)(n_ok + 1)) : NA_REAL;
   }
@@ -1519,7 +1526,7 @@ Rcpp::List batch_permute_fit_global(
       const double v = out_fit_overall[b];
       if (!std::isfinite(v)) continue;
       ++n_ok;
-      if (std::abs(v) >= obs_abs) ++ge;
+      if (std::abs(v) >= obs_abs - TIE_TOL) ++ge;
     }
     if (n_ok > 0) p_fit_overall = (double)(ge + 1) / (double)(n_ok + 1);
   }

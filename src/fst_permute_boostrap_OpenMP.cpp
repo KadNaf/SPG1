@@ -83,6 +83,13 @@
 
 using namespace Rcpp;
 
+// Tolerance used when a permuted statistic is compared with the observed one. A
+// permutation p-value counts the randomised statistics LARGER OR EQUAL to the observed
+// one (ties included, FSTAT manual); the same mathematical value can however come out
+// of two computations differing by ~1e-16, and a plain `>=` then loses a random part of
+// the ties and understates the p-values (see utils_stats.R, SPG_TIE_TOL).
+static const double TIE_TOL = 1e-9;
+
 // ============================================================================
 // Structs
 // ============================================================================
@@ -1389,11 +1396,11 @@ List batch_permute_wc84_fst_parallel(const IntegerMatrix& dat,
       valid++;
 
       if (pval_method == "greater") {
-        if (v >= obs) count++;
+        if (v >= obs - TIE_TOL) count++;
       } else if (pval_method == "less") {
-        if (v <= obs) count++;
+        if (v <= obs + TIE_TOL) count++;
       } else {
-        if (std::fabs(v) >= std::fabs(obs)) count++;
+        if (std::fabs(v) >= std::fabs(obs) - TIE_TOL) count++;
       }
     }
     if (valid > 0) p_fst[ell] = (1.0 + count) / ((double)valid + 1.0);
@@ -1415,7 +1422,7 @@ List batch_permute_wc84_fst_parallel(const IntegerMatrix& dat,
       const double v = g_perm(b, ell);
       if (NumericVector::is_na(v) || !std::isfinite(v)) continue;
       ++valid;
-      if (v >= obs_g) ++count;
+      if (v >= obs_g - TIE_TOL) ++count;
     }
     if (valid > 0) p_G[ell] = (1.0 + count) / ((double)valid + 1.0);
   }
@@ -1428,7 +1435,7 @@ List batch_permute_wc84_fst_parallel(const IntegerMatrix& dat,
       const double v = g_overall_buf[(size_t)b];
       if (!std::isfinite(v)) continue;
       ++valid;
-      if (v >= g_overall_obs) ++count;  // one-sided: G_perm >= G_obs
+      if (v >= g_overall_obs - TIE_TOL) ++count;  // one-sided: G_perm >= G_obs (ties included)
     }
     if (valid > 0) p_fst_overall = (1.0 + count) / ((double)valid + 1.0);
   }

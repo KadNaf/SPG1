@@ -13,6 +13,17 @@
 #endif
 using namespace Rcpp;
 
+// TIE TOLERANCE for the permutation p-values.
+// The statistic is sum(x*log(x)) over the cells of a genotype x genotype table of a
+// few dozen individuals: it takes very few distinct values, so a permuted table very
+// often gives EXACTLY the observed statistic (a "tie"). FSTAT defines the p-value as
+// the proportion of randomised statistics LARGER OR EQUAL to the observed one, ties
+// included (manual, section 8.2). The same value can however come out of two
+// different summation orders differing by ~1e-13, which made the comparison
+// `perm >= obs` lose a random part of the ties and understate the p-values (found by
+// comparing with FSTAT). Genuinely different statistics differ by far more than this.
+static const double TIE_TOL = 1e-9;
+
 // ============================================================================
 // ld_pvalues.cpp — pairwise linkage disequilibrium, used by the LD module.
 //
@@ -238,9 +249,10 @@ DataFrame ld_pvalues_cpp(const StringVector  &Population,
             T[ row_ids[p][k]*C + sh[k] ]++;
           double Gp = g_stat_from_counts(T, R, C);
           s_all += Gp;
-          if (Gp >= Gob[p]) ge_pop[p]++;
+          // Ties count as "larger or equal" (FSTAT): compare with a tolerance, see TIE_TOL.
+          if (Gp >= Gob[p] - TIE_TOL) ge_pop[p]++;
         }
-        if (s_all >= Gall_obs) ge_all++;
+        if (s_all >= Gall_obs - TIE_TOL) ge_all++;
       }
       for (int p=0; p<P; p++)
         RES[r][p] = valid[p] ? ((double)ge_pop[p] + 1.0) / (double)nbperms : NA_REAL;

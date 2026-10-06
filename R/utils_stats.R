@@ -395,3 +395,26 @@ spg_write_replicates <- function(con, title, mat) {
   writeLines("", con = con)
   invisible(NULL)
 }
+
+
+# ============================================================================
+# Counting of permuted statistics that are "larger or equal" to the observed one
+# ============================================================================
+# A permutation p-value is the proportion of randomised statistics LARGER OR EQUAL to
+# the observed one: ties count (FSTAT manual, sections 7 and 8.2). Ties are frequent
+# for discrete statistics (e.g. the FIS of one sample under allele permutation only
+# depends on the number of heterozygotes, so it takes 15-25 distinct values), but the
+# same mathematical value can come out of two computations differing by ~1e-16, and a
+# plain `perm >= obs` then loses a random part of the ties: the one-sided p-values of a
+# locus in one sample were off by up to 0.15 and their sum was ~1 instead of ~1.17.
+# All comparisons therefore use this tolerance.
+SPG_TIE_TOL <- 1e-9
+
+# number of permuted values >= observed (ties included)
+spg_n_ge <- function(null, obs, tol = SPG_TIE_TOL) sum(null >= obs - tol)
+# number of permuted values <= observed (ties included)
+spg_n_le <- function(null, obs, tol = SPG_TIE_TOL) sum(null <= obs + tol)
+# number of permuted values strictly greater than the observed one (ties excluded)
+spg_n_gt <- function(null, obs, tol = SPG_TIE_TOL) sum(null > obs + tol)
+# two-sided: number of permuted |values| >= |observed| (ties included)
+spg_n_abs_ge <- function(null, obs, tol = SPG_TIE_TOL) sum(abs(null) >= abs(obs) - tol)

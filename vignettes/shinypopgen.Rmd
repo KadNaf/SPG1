@@ -182,7 +182,7 @@ sub-samples, and two Overall rows, `Overall (BS/Ss)` (sub-samples) and
 
 The *Subdivision* tab writes **one `.txt` file**: (1) FST per locus
 (Weir & Cockerham 1984) with the bootstrap confidence interval over
-sub-samples and a one-sided permutation p-value on FST, followed by two
+sub-samples and a one-sided permutation p-value based on the G statistic (as in FSTAT), followed by two
 Overall rows (bootstrap over sub-samples, bootstrap over loci); (2) FIS, FST,
 FIT, HS and HT at the multilocus level with confidence intervals from the
 bootstrap over loci and over sub-samples; (3) the genotype-reassignment
