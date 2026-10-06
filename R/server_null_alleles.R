@@ -1596,10 +1596,11 @@ server_null_alleles <- function(id, rv) {
       writeLines(d6$methods, con = con6, useBytes = TRUE)
       writeLines("", con = con6)
       writeLines("General parameters:", con = con6)
-      write.table(d6$params, file = con6, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+      # No "Parameter / Value" header line: the two columns are self-explanatory.
+      write.table(d6$params, file = con6, sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
       writeLines("", con = con6)
       writeLines("Missing genotype coding per locus:", con = con6)
-      write.table(d6$loci, file = con6, sep = "\t", row.names = FALSE, quote = FALSE, append = TRUE)
+      write.table(d6$loci, file = con6, sep = "\t", row.names = FALSE, quote = FALSE)
       close(con6)
 
       all_files <- c(p1a, p1b, p2, p4, p5, p6)

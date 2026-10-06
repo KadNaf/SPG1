@@ -381,7 +381,7 @@ server_LD <- function(id, rv) {
         con <- file(file, open = "w", encoding = "UTF-8")
         on.exit(close(con), add = TRUE)
         .write_ld_params(con, pv)
-        writeLines("Linkage disequilibrium p-values (all locus pairs)", con = con)
+        writeLines(sprintf("Linkage disequilibrium p-values (all locus pairs), %s permutations; column All = all populations combined", input$n_iterations), con = con)
         write.table(pv, file = con, sep = "\t", row.names = FALSE, quote = FALSE)
       }
     )

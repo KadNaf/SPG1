@@ -865,10 +865,10 @@ server_isolation_by_distance <- function(id, rv) {
         )
       }))
       # \uXXXX escapes aren't allowed inside backtick-quoted names in R
-      # source code, so the "R\u00b2"/"p+"/"p-" column names are set here,
+      # source code, so the "R2"/"p+"/"p-" column names are set here,
       # as plain string literals, rather than at construction time above.
       names(d) <- c("Statistic", "X", "Y", "Observed", "Slope", "Intercept",
-                     "R\u00b2", "p+", "p-", "p_2sided")
+                     "R2", "p+", "p-", "p_2sided")   # plain ASCII: R-squared shown as "R2"
       d
     }
 

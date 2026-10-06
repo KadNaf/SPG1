@@ -938,11 +938,11 @@ app_ui <- function() {
             style = "font-size:14px; line-height:2.0;",
             shiny::tags$li(shiny::HTML("<strong>Import Data</strong> &mdash; load the file, assign Population/Latitude/Longitude, set the loci range (auto-suggested), and click Apply.")),
             shiny::tags$li(shiny::HTML("<strong>Allele Freq</strong> &mdash; check allele frequencies and missing-data rates per locus and population.")),
-            shiny::tags$li(shiny::HTML("<strong>General Stats</strong> &mdash; obtain Ho, Hs, Ht and FIT/FIS/FST (Weir & Cockerham) per locus, plus per-population and per-allele detail.")),
+            shiny::tags$li(shiny::HTML("<strong>General Stats</strong> &mdash; obtain Ho, Hs, Ht and FIS/FST/FIT (Weir &amp; Cockerham) per locus, plus per-population (Ho and Hs weighted by the number of individuals typed at each locus, as in Genepop) and per-allele detail.")),
             shiny::tags$li(shiny::HTML("<strong>Null Alleles</strong> &mdash; if a high Ho/Hs ratio is suspected, estimate null allele frequencies and get the ENA-corrected FST.")),
-            shiny::tags$li(shiny::HTML("<strong>Local Panmixia</strong> &mdash; test for HWE within each population (FIS).")),
-            shiny::tags$li(shiny::HTML("<strong>Subdivision</strong> &mdash; estimate FST; evaluate global differentiation and run the G-test.")),
-            shiny::tags$li(shiny::HTML("<strong>Diversities</strong> &mdash; obtain HS/HT and bootstrap CI (individuals, sub-samples, or loci).")),
+            shiny::tags$li(shiny::HTML("<strong>Local Panmixia</strong> &mdash; test for HWE (FIS) by locus and by population, with bootstrap over individuals, sub-samples and loci; one file.")),
+            shiny::tags$li(shiny::HTML("<strong>Subdivision</strong> &mdash; estimate FST (bootstrap over sub-samples and over loci, permutation p-values) and the G-based test, in one file.")),
+            shiny::tags$li(shiny::HTML("<strong>Diversities</strong> &mdash; obtain HS/HT confidence intervals (bootstrap over individuals, sub-samples and loci) in one file.")),
             shiny::tags$li(shiny::HTML("<strong>LD</strong> &mdash; test pairwise linkage disequilibrium across loci.")),
             shiny::tags$li(shiny::HTML("<strong>IBD</strong> &mdash; test isolation by distance: Rousset's (1997) regression and an independent Mantel test (requires GPS data for the automatic geographic distance)."))
           )
@@ -971,7 +971,7 @@ app_ui <- function() {
                 shiny::tags$p(style = "font-size:13px; margin:6px 0 0; line-height:1.7;",
                   "HS (within-population gene diversity) and HT (total gene diversity) use the ",
                   shiny::tags$strong("unbiased small-sample estimator of Nei & Chesser (1983)"),
-                  " (Hs = n/(n\u22121) \u00d7 [1 \u2212 \u03a3p\u00b2 \u2212 Ho/(2n)]), not the simpler biased 1\u2212\u03a3p\u00b2 form. Per-locus and multilocus estimates are reported, with bootstrap CI derived by resampling over individuals, sub-samples, or loci."),
+                  " (Hs = n/(n\u22121) \u00d7 [1 \u2212 \u03a3p\u00b2 \u2212 Ho/(2n)]), not the simpler biased 1\u2212\u03a3p\u00b2 form. Per-locus and multilocus estimates are reported, with bootstrap CI derived by resampling over individuals, sub-samples, or loci. Resampling individuals lowers HS by about HS/(2n), so those intervals are shifted by (observed HS \u2212 bootstrap mean); HS per population is averaged over loci weighted by the number of individuals typed (as in Genepop)."),
                 shiny::tags$p(style = "font-size:12px; margin:4px 0 0; color:#777;",
                   "Nei M, Chesser RK. 1983. Estimation of fixation indices and gene diversities. Ann Hum Genet 47:253-259.")
               ),

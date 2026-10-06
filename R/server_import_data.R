@@ -306,54 +306,7 @@ server_import_data <- function(id, rv) {
     rv$con <- con
     rv$db_ready <- TRUE
 
-    # base map render 
-    output$download_csv_transformed <- shiny::downloadHandler(
-      filename = function() sprintf("ShinyPopGen_%s.csv", Sys.Date()),
-      content = function(file) {
-        shiny::req(rv$con)
-        
-        tbl <- if (DBI::dbExistsTable(rv$con, rv$tbl_formatted)) {
-          rv$tbl_formatted
-        } else if (DBI::dbExistsTable(rv$con, rv$tbl_formatted_preview)) {
-          rv$tbl_formatted_preview
-        } else {
-          rv$tbl_raw
-        }
-        
-        DBI::dbExecute(
-          rv$con,
-          sprintf(
-            "COPY (SELECT * FROM %s) TO %s (HEADER, DELIMITER ',');",
-            .sql_ident(tbl),
-            DBI::dbQuoteString(rv$con, file)
-          )
-        )
-      }
-    )
     
-    output$download_txt_transformed <- shiny::downloadHandler(
-      filename = function() sprintf("ShinyPopGen_%s.txt", Sys.Date()),
-      content = function(file) {
-        shiny::req(rv$con)
-        
-        tbl <- if (DBI::dbExistsTable(rv$con, rv$tbl_formatted)) {
-          rv$tbl_formatted
-        } else if (DBI::dbExistsTable(rv$con, rv$tbl_formatted_preview)) {
-          rv$tbl_formatted_preview
-        } else {
-          rv$tbl_raw
-        }
-        
-        DBI::dbExecute(
-          rv$con,
-          sprintf(
-            "COPY (SELECT * FROM %s) TO %s (HEADER, DELIMITER '\t');",
-            .sql_ident(tbl),
-            DBI::dbQuoteString(rv$con, file)
-          )
-        )
-      }
-    )
     
     session$onSessionEnded(function() {
       try(DBI::dbDisconnect(rv$con, shutdown = TRUE), silent = TRUE)

@@ -135,11 +135,17 @@ population and marker is included automatically.
 
 ### 3. General statistics
 
-The *General Stats* tab reports, per locus: Ho, Hs, Ht, and FIT/FIS/FST
-(Weir & Cockerham 1984), plus any of the optional indices you tick
-(Fst-max, Fst', GST, GST''). The same Run also produces a per-population
-summary, per-locus detail for every population, and per-allele
-F-statistics -- all in one zip.
+The *General Stats* tab reports, per locus: Ho, Hs, Ht, and FIS/FST/FIT
+(Weir & Cockerham 1984, in that order), plus any of the optional indices you
+tick (Fst-max, Fst', GST, GST''). The same Run also produces a
+per-population summary, the observed heterozygosity of every population at
+every locus, and per-allele F-statistics -- all in one zip.
+
+In the per-population summary, Ho and Hs are averaged over loci **weighted by
+the number of individuals typed at each locus** (loci with at least two typed
+individuals), which is the convention of Genepop; an unweighted mean differs
+from it by up to about 0.005 when loci have different amounts of missing
+data. The Weir & Cockerham FIS of a population is the multilocus ratio of sums.
 
 ### 4. Null alleles
 
@@ -150,41 +156,66 @@ ENA-corrected FST/DCSE reported, and a full pairwise table.
 
 ### 5. Local panmixia (FIS)
 
-The *Local Panmixia* tab reports FIS (Weir & Cockerham 1984) both **by
-locus** and **by population** in the same output -- no need to choose one
-view, both are always computed. Each comes with a bootstrap confidence
-interval and a permutation p-value. Sub-sample or individual counts below
-5 are reported as `NA` rather than an unreliable estimate.
+The *Local Panmixia* tab writes **one `.txt` file** with FIS (Weir & Cockerham
+1984) **by locus** and **by population**; both are always computed. A header
+states the number of permutations, the type of every bootstrap and its number
+of replicates:
+
+- `_indiv`: bootstrap over individuals (resampled within each sample);
+- `_subs`: bootstrap over sub-samples (populations resampled as blocks), by
+  locus;
+- `_loci`: bootstrap over loci, for the Overall row and for each population.
+
+P-values are two-sided permutation p-values. Fewer than 5 sub-samples or
+individuals gives `NA` rather than an unreliable interval. A second output,
+FIS per locus and population, gives the one-sided heterozygote deficit and
+excess p-values in the way FSTAT reports them.
 
 ### 6. Global panmixia (FIT)
 
-The *Global Panmixia* tab reports the multilocus FIT across all
-populations, with the same bootstrap/permutation approach.
+The *Global Panmixia* tab writes one `.txt` file with the multilocus FIT
+across all populations: per-locus confidence intervals from the bootstrap over
+sub-samples, and two Overall rows, `Overall (BS/Ss)` (sub-samples) and
+`Overall (BS/Loci)` (loci), with two-sided permutation p-values.
 
 ### 7. Subdivision (FST)
 
-The *Subdivision* tab estimates FST (Weir & Cockerham 1984) per locus and
-overall, with bootstrap CI (over loci and over sub-samples) and a
-permutation p-value. The same Run also performs the genotype-reassignment
-G-test (as in FSTAT, Goudet et al. 1996), reported in the same output
-file with FSTAT's two p-value columns (`p_ge`: permuted G >= observed G;
-`p_gt`: permuted G > observed G). Heterozygote deficit/excess one-sided
-p-values are reported by the *Local Panmixia* locus x population output.
+The *Subdivision* tab writes **one `.txt` file**: (1) FST per locus
+(Weir & Cockerham 1984) with the bootstrap confidence interval over
+sub-samples and a one-sided permutation p-value on FST, followed by two
+Overall rows (bootstrap over sub-samples, bootstrap over loci); (2) FIS, FST,
+FIT, HS and HT at the multilocus level with confidence intervals from the
+bootstrap over loci and over sub-samples; (3) the genotype-reassignment
+G-test of FSTAT (Goudet et al. 1996), with its two p-value columns (`p_>=`:
+permuted G >= observed G; `p_>`: permuted G > observed G) and the number of
+complete multilocus genotypes per sample. The number of permutations of the
+tab is used for both tests. An option appends the bootstrap replicate values
+at the end of the file so that their distributions can be inspected.
 
 ### 8. Genetic diversities (HS, HT)
 
-The *Diversities* tab reports HS (within-population) and HT (total) gene
-diversity -- using the **unbiased small-sample estimator of Nei & Chesser
-(1983)**, not the simpler biased form -- per locus and as multilocus
-estimates, with confidence intervals from resampling over individuals,
-sub-samples, or loci.
+The *Diversities* tab writes one file,
+`Diversities_confidence_intervals_<date>.txt`, with HS (within-population) and
+HT (total) gene diversity -- using the **unbiased small-sample estimator of
+Nei & Chesser (1983)**, not the simpler biased form: HS per locus (bootstrap
+over individuals and over sub-samples), HS per population (over individuals
+and over loci), HT per locus, and the multilocus estimators (over loci and
+over sub-samples).
+
+Resampling individuals makes every replicate slightly less diverse than the
+sample (the bootstrap mean is about HS/(2n) below the observed HS), so a plain
+percentile interval hugs the observed value. The intervals from the bootstrap
+over individuals are therefore shifted by (observed HS - bootstrap mean); the
+bootstrap over sub-samples shows no such bias and is left as is.
 
 ### 9. Linkage disequilibrium
 
-The *LD* tab tests every locus pair, per population and combined ("All"),
-using a permutation-based log-likelihood-ratio (G) test. One locus's
-genotypes are permuted among individuals within each population
-(10,000 permutations by default) and compared to the observed G statistic.
+The *LD* tab writes one `.txt` file. It tests every locus pair, per
+population and combined ("All"), using a permutation-based
+log-likelihood-ratio (G) test. One locus's genotypes are permuted among
+individuals within each population (10,000 permutations by default) and
+compared to the observed G statistic. Loci, locus pairs and populations are
+listed in the order of the data file.
 
 ```{r ld-note, eval=FALSE}
 # G = 2 * sum(observed * log(observed / expected)), under independence

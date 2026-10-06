@@ -170,33 +170,6 @@ server_allele_frequencies <- function(id, rv) {
 
     fstat_shown_r <- reactiveVal(FALSE)
 
-    # ── Missing data (value box only) ──────────────────────────────────────
-    missing_by_pop_locus_r <- reactive({
-      db_ready(); con <- con_r(); hs <- hf_schema_r(); ms <- meta_schema_r()
-      hf_q <- sql_id(con,tbl_hf_r()); meta_q <- sql_id(con,tbl_meta_r())
-      hi_q <- sql_id(con,hs$ind_col); hl_q <- sql_id(con,hs$locus_col)
-      hg_q <- sql_id(con,hs$gt_col);  mi_q <- sql_id(con,ms$ind_col)
-      pop_q <- sql_id(con,ms$pop_col)
-      db_try(DBI::dbGetQuery(con, sprintf("
-        WITH %s,
-        base AS (
-          SELECT CAST(m.%s AS VARCHAR) AS Population,
-                 CAST(h.%s AS VARCHAR) AS Marker,
-            COUNT(*) AS Sample_Size,
-            SUM(CASE WHEN h.%s IS NULL OR h.%s<=0 THEN 1 ELSE 0 END) AS Missing_Data,
-            SUM(CASE WHEN h.%s IS NOT NULL AND h.%s>0 THEN 1 ELSE 0 END) AS Genotyped_Data,
-            SUM(CASE WHEN h.%s IS NULL OR h.%s<=0 THEN 1 ELSE 0 END)*1.0/COUNT(*)
-              AS Missing_Proportion
-          FROM %s h INNER JOIN %s m
-            ON CAST(h.%s AS VARCHAR)=CAST(m.%s AS VARCHAR)
-          WHERE m.%s IS NOT NULL GROUP BY m.%s, h.%s)
-        SELECT b.* FROM base b
-        LEFT JOIN locus_order lo ON b.Marker=lo._lo_marker
-        ORDER BY b.Population, lo._lo_rank ASC",
-        locus_order_cte(con,hf_q,hl_q),
-        pop_q,hl_q, hg_q,hg_q, hg_q,hg_q, hg_q,hg_q,
-        hf_q,meta_q, hi_q,mi_q, pop_q,pop_q,hl_q)), "le calcul des donnees manquantes")
-    })
 
     # ── Fstat long reactive ────────────────────────────────────────────────
     fstat_long_r <- reactive({
@@ -354,21 +327,7 @@ ORDER BY lo._lo_rank ASC, f.Population, f.Allele",
     })
 
 
-    # ── Value boxes ────────────────────────────────────────────────────────
-    n_individuals_r <- reactive({
-      db_ready(); con <- con_r(); ms <- meta_schema_r()
-      db_try(DBI::dbGetQuery(con, sprintf(
-        "SELECT COUNT(DISTINCT CAST(%s AS VARCHAR)) AS n FROM %s WHERE %s IS NOT NULL",
-        sql_id(con,ms$ind_col), sql_id(con,tbl_meta_r()),
-        sql_id(con,ms$ind_col))), "le comptage des individus")$n[[1]]
-    })
-    n_populations_r <- reactive({ length(pops_r()) })
-    n_markers_r     <- reactive({ length(markers_r()) })
 
-    summary_trigger_r <- eventReactive(input$generate_summary, {
-      list(md=missing_by_pop_locus_r(),
-           n_ind=n_individuals_r(), n_pop=n_populations_r(), n_mark=n_markers_r())
-    }, ignoreInit=TRUE)
 
     # ── One button, one click, one action: clicking "Run" IS the download
     #    request itself — the allele-frequency query runs inside this same
