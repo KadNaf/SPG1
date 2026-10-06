@@ -142,3 +142,12 @@ test_that("one-sided FIS p-values of a single sample match FSTAT's (ties counted
   expect_equal(exc, 0.7430, tolerance = 0.03)
   expect_gt(def + exc, 1.1)                # ties are counted on both sides
 })
+
+test_that("sub-sample bootstrap is reproducible: same result whatever the number of threads", {
+  mat <- default_matrix()
+  a <- boot_wc84_stats_popblock_cpp(mat, 1L, 0L, 1000L, 500L, 0.95, 1L, 1L)
+  b <- boot_wc84_stats_popblock_cpp(mat, 1L, 0L, 1000L, 500L, 0.95, 1L, 2L)
+  c <- boot_wc84_stats_popblock_cpp(mat, 1L, 0L, 1000L, 500L, 0.95, 1L, 2L)
+  expect_identical(a$FIT_boot, b$FIT_boot)    # used to differ: the stream depended on the thread number
+  expect_identical(b$FIT_boot, c$FIT_boot)
+})

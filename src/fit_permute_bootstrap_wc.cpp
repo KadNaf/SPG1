@@ -366,11 +366,11 @@ Rcpp::List boot_wc84_fit_popblock_raw_cpp(const Rcpp::IntegerMatrix mat_int,
 #endif
   for (int b = 0; b < B; ++b) {
     
-#ifdef _OPENMP
-    FastRng rng((uint64_t)seed + (uint64_t)omp_get_thread_num() * (uint64_t)B + (uint64_t)b);
-#else
-    FastRng rng((uint64_t)seed + (uint64_t)b);
-#endif
+    // One random stream per REPLICATE, derived from the seed and the replicate index only.
+    // It used to depend on the thread number as well (seed + thread * B + b) with a dynamic
+    // schedule: which thread ran which replicate changed from one run to the next, so the
+    // confidence intervals were not reproducible (and depended on the number of cores).
+    FastRng rng((uint64_t)seed + 0x9e3779b97f4a7c15ULL * (uint64_t)(b + 1));
     
     // Pop-block resampling
     times.assign((size_t)R, 0);

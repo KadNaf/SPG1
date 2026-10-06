@@ -528,6 +528,9 @@ server_general_stats <- function(id, rv) {
       names(obs_pop) <- unname(pop_lookup[obs_codes])
       
       # 3) Bootstrap individuals within populations (C++)
+      # This routine draws from R's global random number generator: without a seed its
+      # result depended on everything run earlier in the session (not reproducible).
+      set.seed(as.integer(.seed()))
       boot_mat <- boot_indiv_wc_fis_by_pop(
         mat     = mat,
         pop_col = 0L,
@@ -565,6 +568,7 @@ server_general_stats <- function(id, rv) {
       names(pvals) <- pop_names
       
       if (!is.null(n_perm) && n_perm > 0) {
+        set.seed(as.integer(.seed()))     # same reason as above (R's global generator)
         perm_res <- batch_permute_wc_fis_by_pop(
           dat            = mat,
           pop_col_1based = 1L,
