@@ -26,17 +26,6 @@ gs_head <- function() {
     .status-indicator { transition: all 0.3s ease; }
     .status-indicator:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
     .small-box h3, .small-box p { color: #000000 !important; }
-    div.dataTables_length { margin-bottom: 10px; }
-    div.dt-buttons { margin-top: 6px; margin-bottom: 8px; }
-    table.dataTable th, table.dataTable td { white-space: nowrap; }
-  ")),
-    tags$script(HTML("
-    $(document).on('shown.bs.tab', 'a[data-toggle=\"tab\"]', function () {
-      $($.fn.dataTable.tables(true)).DataTable().columns.adjust();
-    });
-    $(window).on('resize', function () {
-      $($.fn.dataTable.tables(true)).DataTable().columns.adjust();
-    });
   "))
   )
 }
@@ -44,16 +33,16 @@ gs_head <- function() {
 # Compact gradient banner replacing h2 section-title in each module
 module_banner <- function(icon_name, title, subtitle, accent = "#6B64EF") {
   # Unique gradient ID per call: avoids cross-SVG id collision in the DOM
-  gid <- paste0("spg-g", format(Sys.time(), "%H%M%S"), sample.int(9999, 1))
+  gid <- paste0("pga-g", format(Sys.time(), "%H%M%S"), sample.int(9999, 1))
   shiny::div(
-    class = "spg-module-banner",
+    class = "pga-module-banner",
     style = paste0("border-bottom-color:", accent, ";"),
     # Left: module icon + text
-    shiny::div(class = "spg-banner-icon", shiny::icon(icon_name)),
+    shiny::div(class = "pga-banner-icon", shiny::icon(icon_name)),
     shiny::div(
       style = "flex:1; min-width:0;",
-      shiny::tags$h2(title, class = "spg-banner-title"),
-      shiny::tags$p(subtitle, class = "spg-banner-subtitle")
+      shiny::tags$h2(title, class = "pga-banner-title"),
+      shiny::tags$p(subtitle, class = "pga-banner-subtitle")
     ),
     # Right: PGA-cmdr brand SVG text + circular logo
     shiny::div(
@@ -74,7 +63,7 @@ module_banner <- function(icon_name, title, subtitle, accent = "#6B64EF") {
         '</svg>'
       )),
       shiny::tags$img(
-        src   = "spg_www/LogoPGAcmdr.png",
+        src   = "pga_www/LogoPGAcmdr.png",
         height = "72px",
         alt   = "PGA-cmdr",
         style = "opacity:0.88; filter:drop-shadow(0 2px 10px rgba(0,0,0,0.5));"
@@ -1305,11 +1294,6 @@ boot_popblock_wc84_fst_auto <- function(mat,
   FST_wc <- as.numeric(st$FST)
   FIT_wc <- as.numeric(st$FIT)
   FIS_wc <- as.numeric(st$FIS)
-
-  # WC84's own HS and HT — n_i-weighted, consistent with the WC84 F-statistic estimators.
-  # These are used exclusively for Fst' (W&C) = FST_WC / FST_max_WC (Meirmans 2006).
-  Hs_wc <- as.numeric(st$HS)   # n_i-weighted HS
-  Ht_wc <- as.numeric(st$HT)   # pooled-count HT
 
   # --- Nei heterozygosity estimators (Ho / Hs / Ht, Nei 1977/1987) ---
   # These use the unweighted (equal-population) convention and are kept

@@ -21,9 +21,9 @@ All dependencies install automatically:
 ```r
 install.packages("remotes")
 
-remotes::install_github("KadNaf/SPG1")
+remotes::install_github("KadNaf/PGA1")
 
-shinypopgen::run_app()
+pgacmdr::run_app()
 ```
 
 ### macOS prerequisites (compile from source)
@@ -52,8 +52,8 @@ CPPFLAGS += -I/opt/homebrew/opt/libomp/include -Xclang -fopenmp
 ## Docker
 
 ```bash
-git clone https://github.com/KadNaf/SPG1.git
-cd SPG1
+git clone https://github.com/KadNaf/PGA1.git
+cd PGA1
 docker compose up
 # open http://localhost:3838
 ```
@@ -85,7 +85,7 @@ See the package vignette for a full worked example on the bundled
 *Boophilus* tick dataset:
 
 ```r
-vignette("shinypopgen", package = "shinypopgen")
+vignette("pgacmdr", package = "pgacmdr")
 ```
 
 ## Statistical methods
@@ -93,8 +93,8 @@ vignette("shinypopgen", package = "shinypopgen")
 F-statistics follow the unbiased moment estimators of **Weir & Cockerham
 (1984)**. Gene diversity (Hs, Ht) follows the unbiased estimator of **Nei
 & Chesser (1983)**. Confidence intervals are obtained by non-parametric
-bootstrap and p-values by Monte Carlo permutation (5,000 replicates by
-default; 10,000 for linkage disequilibrium and Mantel tests), parallelised
+bootstrap and p-values by Monte Carlo permutation (10,000 replicates by
+default in every module, except 5,000 bootstrap replicates in Null Alleles), parallelised
 in C++ via Rcpp and OpenMP. See the in-app **Help** tab for full
 references.
 
@@ -116,4 +116,4 @@ MIT — see [LICENSE.md](LICENSE.md).
 
 ## Bugs & support
 
-<https://github.com/KadNaf/SPG1/issues>
+<https://github.com/KadNaf/PGA1/issues>

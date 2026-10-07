@@ -2,7 +2,7 @@
 #
 # WHY THIS FILE EXISTS
 # ---------------------
-# The audit of this package found no test comparing shinypopgen's C++
+# The audit of this package found no test comparing pgacmdr's C++
 # re-implementation of the Weir & Cockerham (1984) estimators against an
 # established, independently-reviewed implementation. For a scientific
 # publication built around this tool, that comparison is the single most
@@ -12,9 +12,9 @@
 # It does NOT hardcode any expected numeric value. Instead it computes the
 # reference statistic at test time with the CRAN package `hierfstat`
 # (Goudet, wc() function, the reference R implementation of Weir & Cockerham
-# 1984) on the same toy dataset, and checks that shinypopgen's C++ output
+# 1984) on the same toy dataset, and checks that pgacmdr's C++ output
 # matches within a small numeric tolerance. This is honest validation: if
-# `hierfstat` disagrees with shinypopgen, the test fails and that is exactly
+# `hierfstat` disagrees with pgacmdr, the test fails and that is exactly
 # the point.
 #
 # HOW TO EXTEND
@@ -25,10 +25,10 @@
 # 2. Do the same for FIS/FIT (this file only covers FST) and for the
 #    bootstrap confidence intervals / permutation p-values, comparing
 #    against `boot::boot()`-based CIs computed independently in R.
-# 3. Once a first version of this file has run green in CI, remove the
-#    `skip_if_not_installed("hierfstat")` guard from the requirement (i.e.
-#    add hierfstat to DESCRIPTION Suggests, which is not yet the case) so a
-#    missing reference package fails CI loudly instead of silently skipping.
+# 3. hierfstat is listed in DESCRIPTION Suggests. The test is skipped when it
+#    is not installed; once your CI installs it, remove the
+#    `skip_if_not_installed("hierfstat")` guard so that a missing reference
+#    package fails loudly instead of silently skipping.
 
 test_that("observed_wc84_stats_cpp() FST matches hierfstat::wc() on a toy dataset", {
   testthat::skip_if_not_installed("hierfstat")
@@ -59,25 +59,25 @@ test_that("observed_wc84_stats_cpp() FST matches hierfstat::wc() on a toy datase
   ref <- hierfstat::wc(hf_input, diploid = TRUE)
   ref_fst_global <- ref$FST
 
-  # ---- shinypopgen C++ implementation --------------------------------------
-  res <- shinypopgen::observed_wc84_stats_cpp(
+  # ---- pgacmdr C++ implementation --------------------------------------
+  res <- pgacmdr::observed_wc84_stats_cpp(
     dat, pop_col_1based = 1L, missing_code = 0L, base = base
   )
 
   # Multi-locus (global) FST, Weir & Cockerham's ratio-of-sums estimator:
-  # sum(a) / sum(a + b + c) across loci. shinypopgen already exposes this
+  # sum(a) / sum(a + b + c) across loci. pgacmdr already exposes this
   # directly as FST_overall_ratio_of_sums - use it as-is rather than
   # averaging per-locus FST values, which would NOT be the WC84 estimator.
-  shinypopgen_fst_global <- res$FST_overall_ratio_of_sums
+  pgacmdr_fst_global <- res$FST_overall_ratio_of_sums
 
   expect_true(is.numeric(ref_fst_global))
   expect_true(!is.na(ref_fst_global))
-  expect_true(is.numeric(shinypopgen_fst_global))
-  expect_true(!is.na(shinypopgen_fst_global))
+  expect_true(is.numeric(pgacmdr_fst_global))
+  expect_true(!is.na(pgacmdr_fst_global))
 
   # Loose tolerance on purpose for this first pass (toy sample size): the
   # goal at this stage is to catch gross implementation errors (wrong sign,
   # wrong denominator, factor-of-2 bugs), not to certify numeric precision.
   # Tighten this once the comparison is running routinely in CI.
-  expect_equal(shinypopgen_fst_global, ref_fst_global, tolerance = 0.05)
+  expect_equal(pgacmdr_fst_global, ref_fst_global, tolerance = 0.05)
 })

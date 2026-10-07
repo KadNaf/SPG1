@@ -1,11 +1,11 @@
 # ── Dockerfile ───────────────────────────────────────────────────────────
-# ShinyPopGen - production container
-# Build:  docker build -t shinypopgen:latest .
-# Run:    docker run --rm -p 3838:3838 shinypopgen:latest
+# PGA-cmdr - production container
+# Build:  docker build -t pgacmdr:latest .
+# Run:    docker run --rm -p 3838:3838 pgacmdr:latest
 
 FROM rocker/shiny:latest
 
-LABEL org.opencontainers.image.source="https://github.com/KadNaf/SPG1"
+LABEL org.opencontainers.image.source="https://github.com/KadNaf/PGA1"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Disable renv and any user .Rprofile for all R commands in this image
@@ -44,10 +44,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN R -e "install.packages('pak', repos = 'https://cloud.r-project.org')" && \
     R -e "pak::pkg_install(c( \
       'shiny', 'bslib', 'shinydashboard', 'shinyWidgets', 'shinyalert', \
-      'DT', 'dplyr', 'tidyr', 'ggplot2', 'kableExtra', \
-      'Rcpp', 'leaflet', 'tibble', 'waiter', \
-      'duckdb', 'DBI', 'jsonlite', 'htmltools', 'htmlwidgets', \
-      'webshot2', 'gridExtra', 'plotly', 'magrittr', 'golem', \
+      'dplyr', 'tidyr', 'kableExtra', 'zip', \
+      'Rcpp', 'tibble', 'waiter', \
+      'duckdb', 'DBI', 'jsonlite', 'htmltools', 'magrittr', \
       'knitr', 'rmarkdown', 'testthat', 'digest' \
     ), ask = FALSE)"
 
@@ -64,10 +63,10 @@ RUN R CMD INSTALL --preclean .
 # reuse it here so the app never runs as root inside the container. Give it
 # ownership of the DuckDB working directory / tmp so writes at runtime don't
 # fail once we've dropped root.
-RUN mkdir -p /home/shiny/spg-data && chown -R shiny:shiny /home/shiny/spg-data
+RUN mkdir -p /home/shiny/pga-data && chown -R shiny:shiny /home/shiny/pga-data
 USER shiny
 WORKDIR /home/shiny
 
 # ── Entry point ───────────────────────────────────────────────────────────
 EXPOSE 3838
-CMD ["R", "-e", "options(shiny.host='0.0.0.0', shiny.port=3838); shinypopgen::run_app()"]
+CMD ["R", "-e", "options(shiny.host='0.0.0.0', shiny.port=3838); pgacmdr::run_app()"]

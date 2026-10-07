@@ -6,4 +6,4 @@ renv/
 *.Rhistory
 .git/
 dev/
-shinypopgen.Rcheck/
+pgacmdr.Rcheck/

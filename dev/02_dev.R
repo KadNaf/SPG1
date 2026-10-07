@@ -14,4 +14,4 @@ devtools::document()
 devtools::check()
 
 # Launch the app locally
-SPG1::run_app()
+pgacmdr::run_app()

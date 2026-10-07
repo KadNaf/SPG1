@@ -1,5 +1,5 @@
 services:
-  shinypopgen:
+  pgacmdr:
     build: .
     ports:
       - "3838:3838"

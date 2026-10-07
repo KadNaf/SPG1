@@ -5,12 +5,7 @@ server_null_alleles <- function(id, rv) {
 
     # ── Helpers ────────────────────────────────────────────────────────────────
     `%||%` <- function(a, b) if (!is.null(a)) a else b
-    safe_choice <- function(x, default = "all") {
-      if (is.null(x) || length(x) == 0L || identical(x, "") || all(is.na(x))) default
-      else as.character(x[[1]])
-    }
     sql_id   <- function(con, x) as.character(DBI::dbQuoteIdentifier(con, x))
-    sql_str  <- function(con, x) as.character(DBI::dbQuoteString(con, x))
     treat_id <- function(loc) paste0("coding_", gsub("[^A-Za-z0-9]", "_", loc))
 
     ci_bounds <- function(alpha) {
@@ -164,17 +159,6 @@ server_null_alleles <- function(id, rv) {
         if (!is.null(suggested) && loc %in% names(suggested)) suggested[[loc]] else "absent"
       })
       stats::setNames(treats, markers)
-    })
-
-    # Single-digit code reported in the "Miss" column (999 or 0), mirroring
-    # FreeNA's own report — follows the user's chosen coding.
-    locus_recoded_blanks_r <- reactive({
-      base      <- as.integer(base_r())
-      null_code <- 999L  # per supervisor: only 999/999999 supported, never 99
-      treats    <- locus_treatments_r()
-      stats::setNames(
-        ifelse(treats == "null_homo", null_code, 0L),
-        names(treats))
     })
 
     # ── Per-locus coding UI — radio buttons, pre-selected from auto-detection ──
@@ -1047,9 +1031,8 @@ server_null_alleles <- function(id, rv) {
         #  N_blanks     = n_absent + n_null_homo (missing genotypes, whichever coding
         #                 convention — 000000 or 999999 — this locus uses)
         #  Miss reflects the user's chosen coding per locus (see
-        #  locus_treatments_r() / locus_recoded_blanks_r() above)
+        #  locus_treatments_r() above)
         # ══════════════════════════════════════════════════════════════════════
-        recoded_blanks <- locus_recoded_blanks_r()
 
         t1_rows <- list()
         for (loc in markers) {
@@ -1156,12 +1139,11 @@ server_null_alleles <- function(id, rv) {
 
     out_root_r <- reactive({
       r <- trimws(input$out_root %||% "")
-      if (nzchar(r)) r else if (nzchar(last_auto_root())) last_auto_root() else "SPG_"
+      if (nzchar(r)) r else if (nzchar(last_auto_root())) last_auto_root() else "PGA_"
     })
-    out_suffix_r <- reactive({ trimws(input$out_suffix %||% "") })
 
     out_filename <- function(desc) {
-      paste0(out_root_r(), out_suffix_r(), desc, ".txt")
+      paste0(out_root_r(), desc, ".txt")
     }
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -1470,7 +1452,7 @@ server_null_alleles <- function(id, rv) {
 
     output$ui_file7_card <- renderUI({
       if (!isTRUE(include_pairwise_r())) return(NULL)
-      tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
+      tags$div(class = "pga-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
         # tags$div(class = "card-icon", icon("route")),
         h5("Full pairwise table"),
         p("FST, FST-ENA, DCSE, DCSE-INA, F", tags$sub("R"), ", D_geo and ln(D_geo) \u2014 one row per pair."),
@@ -1620,11 +1602,11 @@ server_null_alleles <- function(id, rv) {
     #    streamed back. No JS auto-click, no server round-trip in between:
     #    a real, single, native browser download click.
     output$run_all <- downloadHandler(
-      filename = function() paste0(out_root_r(), out_suffix_r(), "SPG_null_alleles_export_", Sys.Date(), ".zip"),
+      filename = function() paste0(out_root_r(), "PGA_null_alleles_export_", Sys.Date(), ".zip"),
       content  = function(file) {
         r <- .run_computation()
         results_store(r)
-        tmpdir <- tempfile("spg_export_"); dir.create(tmpdir)
+        tmpdir <- tempfile("pga_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
         all_files <- .build_export_files(tmpdir)
         zip::zip(zipfile = file, files = basename(all_files), root = tmpdir)

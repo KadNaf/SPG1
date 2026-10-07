@@ -1,22 +1,21 @@
 // ============================================================================
-//fit_fst_hi_hs.cpp
+// src/fit_permute_bootstrap_wc.cpp
 // Optimized version with better memory management and performance
 // ============================================================================
 //
 // FUNCTIONS IN THIS FILE (in order of appearance) — multilocus FIT
 // (Weir & Cockerham 1984), used by the Global Panmixia module.
 //
-//   boot_wc84_fit_popblock_raw_cpp()   Low-level population-block bootstrap
-//                                       kernel for FIT (raw variance
-//                                       components per replicate).
+//   boot_wc84_fit_popblock_raw_cpp()   (internal, not exported) low-level
+//                                       population-block bootstrap kernel for
+//                                       FIT (raw variance components per
+//                                       replicate).
 //   boot_wc84_stats_popblock_cpp()     Bootstrap over SUB-SAMPLES
 //                                       (populations) for the FIT CI — needs
 //                                       >=5 populations to be meaningful
 //                                       (see the N<5 guard at the R call
 //                                       site in server_general_stats.R).
 //   batch_permute_wc84_stats()         Permutation test for FIT.
-//   simulate_fit_permutation_base()    Builds one permuted genotype matrix
-//                                       (helper for the permutation test).
 //   batch_permute_fit_global()         Batched permutation driver, all loci
 //                                       combined into the multilocus FIT.
 //
@@ -53,7 +52,7 @@ using namespace Rcpp;
 // permutation p-value counts the randomised statistics LARGER OR EQUAL to the observed
 // one (ties included, FSTAT manual); the same mathematical value can however come out
 // of two computations differing by ~1e-16, and a plain `>=` then loses a random part of
-// the ties and understates the p-values (see utils_stats.R, SPG_TIE_TOL).
+// the ties and understates the p-values (see utils_stats.R, PGA_TIE_TOL).
 static const double TIE_TOL = 1e-9;
 
 
@@ -301,7 +300,7 @@ static Rcpp::List wc84_fst_fit_hi_hs_per_locus_from_matrix(
 
 
 // --------------------------------------------------------------------------
-// [[Rcpp::export]]
+// (internal: not exported to R; called by boot_wc84_fit_popblock_cpp below)
 Rcpp::List boot_wc84_fit_popblock_raw_cpp(const Rcpp::IntegerMatrix mat_int,
                                           const int pop_col,
                                           const int missing_code,
@@ -628,7 +627,12 @@ Rcpp::List boot_wc84_stats_popblock_cpp(
   Rcpp::CharacterVector cn = Rcpp::colnames(mat_int);
   Rcpp::CharacterVector loc_names(L);
   int k = 0;
-  for (int j = 0; j < P; ++j) if (j != pop_col) loc_names[k++] = (cn.size()==P ? cn[j] : Rcpp::String("L" + std::to_string(k)));
+  for (int j = 0; j < P; ++j) {
+    if (j == pop_col) continue;
+    // fallback label "L<k>" (1-based) when the matrix has no column names
+    loc_names[k] = (cn.size()==P ? cn[j] : Rcpp::String("L" + std::to_string(k + 1)));
+    ++k;
+  }
   
   fst_obs.names() = fit_obs.names() = hi_obs.names() = hs_obs.names() = loc_names;
   
@@ -1256,19 +1260,6 @@ Rcpp::List batch_permute_wc84_stats(
 
 
 
-// [[Rcpp::export]]
-IntegerMatrix simulate_fit_permutation_base(
-    const IntegerMatrix dat,
-    const int pop_col_1based,
-    const int missing_code,
-    const int base
-) {
-  const int pop_col = pop_col_1based - 1;
-  IntegerMatrix pm = clone(dat);
-  permute_within_pops_once_base(pm, pop_col, missing_code, base);
-  return pm;
-}
-
 // ============================================================================
 // Global allele shuffle (across ALL individuals, ignoring population).
 // This is FSTAT's "Randomising alleles overall samples" — the correct null
@@ -1454,7 +1445,8 @@ Rcpp::List batch_permute_fit_global(
   int kk = 0;
   for (int j = 0; j < P; ++j) {
     if (j == pop_col) continue;
-    loc_names[kk++] = (cn.size() == P) ? cn[j] : Rcpp::String("L" + std::to_string(kk));
+    loc_names[kk] = (cn.size() == P) ? cn[j] : Rcpp::String("L" + std::to_string(kk + 1));
+    ++kk;
   }
 
   // observed (Rcpp calls outside parallel block)

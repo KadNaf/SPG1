@@ -18,9 +18,6 @@
 //   wc84_locus_components_cpp()     Same variance components (a, b, c),
 //                                    returned per-locus for downstream
 //                                    multilocus ratio-of-sums aggregation.
-//   locus_bootstrap_wc84_cpp()      Bootstrap over LOCI: resample loci with
-//                                    replacement, recompute multilocus
-//                                    FST/FIT/FIS each time, for a CI.
 //   batch_permute_wc84_fst_parallel()  Permutation test for FST: shuffle
 //                                    individuals across populations.
 //   boot_popblock_wc84_parallel()   Bootstrap over SUB-SAMPLES (populations):
@@ -87,7 +84,7 @@ using namespace Rcpp;
 // permutation p-value counts the randomised statistics LARGER OR EQUAL to the observed
 // one (ties included, FSTAT manual); the same mathematical value can however come out
 // of two computations differing by ~1e-16, and a plain `>=` then loses a random part of
-// the ties and understates the p-values (see utils_stats.R, SPG_TIE_TOL).
+// the ties and understates the p-values (see utils_stats.R, PGA_TIE_TOL).
 static const double TIE_TOL = 1e-9;
 
 // ============================================================================
@@ -729,9 +726,10 @@ Rcpp::List nei_het_stats_cpp(const Rcpp::IntegerMatrix& dat,
       {
         int k_eff = 0;
         
-        for (int pi = 0; pi < r; ++pi)
+        for (int pi = 0; pi < r; ++pi) {
           if (n_i[pi] > 0) k_eff++;
-          
+        }
+
           if (k_eff <= 0) {
             
             Ht[out_col] = NA_REAL;
@@ -1135,172 +1133,6 @@ static inline uint64_t seed0_from_double(double seed) {
   return s + 0x9e3779b97f4a7c15ULL;
 }
 
-// ============================================================================
-// Locus bootstrap for global WC84 estimators (OpenMP).
-// Input: per-locus WC84 variance components (A, B, C) and gene diversities
-//        (HS, HT), already computed by wc84_locus_components_cpp().
-// Each replicate resamples L loci with replacement and recomputes the
-// ratio-of-sums: FST = ΣA/Σ(A+B+C), FIT = Σ(A+B)/Σ(A+B+C),
-// FIS = ΣB/Σ(B+C), HS = mean(HS_l), HT = mean(HT_l).
-// Returns a 5-row summary DataFrame (one row per statistic).
-// ============================================================================
-// [[Rcpp::export]]
-Rcpp::DataFrame locus_bootstrap_wc84_cpp(
-    const Rcpp::NumericVector& A,
-    const Rcpp::NumericVector& Bv,
-    const Rcpp::NumericVector& C,
-    const Rcpp::NumericVector& HS,
-    const Rcpp::NumericVector& HT,
-    int    B_reps     = 1000,
-    double conf_level = 0.95,
-    double seed       = 1.0,
-    int    n_threads  = 1
-) {
-  const int L_all = A.size();
-  if (L_all == 0) stop("Empty component vectors.");
-  if (Bv.size() != L_all || C.size() != L_all ||
-      HS.size() != L_all || HT.size() != L_all)
-    stop("All component vectors must have the same length.");
-  if (B_reps <= 0)                          stop("B_reps must be positive.");
-  if (conf_level <= 0.0 || conf_level >= 1.0)
-    stop("conf_level must be in (0, 1).");
-
-  // Filter to loci with all five components finite
-  std::vector<double> a_v, b_v, c_v, hs_v, ht_v;
-  a_v.reserve((size_t)L_all); b_v.reserve((size_t)L_all);
-  c_v.reserve((size_t)L_all); hs_v.reserve((size_t)L_all);
-  ht_v.reserve((size_t)L_all);
-  for (int i = 0; i < L_all; ++i) {
-    if (std::isfinite(A[i])  && std::isfinite(Bv[i]) &&
-        std::isfinite(C[i])  && std::isfinite(HS[i]) &&
-        std::isfinite(HT[i])) {
-      a_v.push_back(A[i]);  b_v.push_back(Bv[i]); c_v.push_back(C[i]);
-      hs_v.push_back(HS[i]); ht_v.push_back(HT[i]);
-    }
-  }
-  const int L = (int)a_v.size();
-  if (L < 2) stop("Need at least 2 valid loci for locus bootstrap.");
-
-  // Observed ratio-of-sums from the full valid locus set
-  double sum_a = 0.0, sum_b = 0.0, sum_c = 0.0,
-         sum_hs = 0.0, sum_ht = 0.0;
-  for (int i = 0; i < L; ++i) {
-    sum_a  += a_v[(size_t)i];  sum_b  += b_v[(size_t)i];
-    sum_c  += c_v[(size_t)i];  sum_hs += hs_v[(size_t)i];
-    sum_ht += ht_v[(size_t)i];
-  }
-  const double dABC   = sum_a + sum_b + sum_c;
-  const double dBC    = sum_b + sum_c;
-  const double Ld     = (double)L;
-  const double obs_fst = (dABC > 0.0) ? sum_a / dABC        : NA_REAL;
-  const double obs_fit = (dABC > 0.0) ? (sum_a+sum_b)/dABC  : NA_REAL;
-  const double obs_fis = (dBC  > 0.0) ? sum_b / dBC         : NA_REAL;
-  const double obs_hs  = sum_hs / Ld;
-  const double obs_ht  = sum_ht / Ld;
-
-  // Bootstrap storage (one value per replicate, per statistic)
-  std::vector<double> boot_fst((size_t)B_reps, NA_REAL);
-  std::vector<double> boot_fit((size_t)B_reps, NA_REAL);
-  std::vector<double> boot_fis((size_t)B_reps, NA_REAL);
-  std::vector<double> boot_hs ((size_t)B_reps, NA_REAL);
-  std::vector<double> boot_ht ((size_t)B_reps, NA_REAL);
-
-  const uint64_t seed0 = seed0_from_double(seed);
-
-  int T = std::max(1, n_threads);
-#ifdef _OPENMP
-  omp_set_num_threads(T);
-#else
-  T = 1;
-#endif
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  {
-#ifdef _OPENMP
-#pragma omp for schedule(static)
-#endif
-    for (int b = 0; b < B_reps; ++b) {
-      // Per-replicate RNG — same seeding pattern as the rest of this file
-      const uint64_t sb = seed0 + 0x9e3779b97f4a7c15ULL * (uint64_t)(b + 1);
-      std::mt19937_64 rng(sb);
-      std::uniform_int_distribution<int> U(0, L - 1);
-
-      double sa = 0.0, sb2 = 0.0, sc = 0.0, shs = 0.0, sht = 0.0;
-      for (int k = 0; k < L; ++k) {
-        const int idx = U(rng);
-        sa  += a_v[(size_t)idx];
-        sb2 += b_v[(size_t)idx];
-        sc  += c_v[(size_t)idx];
-        shs += hs_v[(size_t)idx];
-        sht += ht_v[(size_t)idx];
-      }
-      const double dabc = sa + sb2 + sc;
-      const double dbc  = sb2 + sc;
-      boot_fst[(size_t)b] = (dabc > 0.0) ? sa / dabc          : NA_REAL;
-      boot_fit[(size_t)b] = (dabc > 0.0) ? (sa+sb2) / dabc    : NA_REAL;
-      boot_fis[(size_t)b] = (dbc  > 0.0) ? sb2 / dbc          : NA_REAL;
-      boot_hs [(size_t)b] = shs / Ld;
-      boot_ht [(size_t)b] = sht / Ld;
-    }
-  }
-
-  // Summarise bootstrap distribution -> Observed, Boot_Mean, SE, CI_L, CI_U
-  const double alpha = (1.0 - conf_level) / 2.0;
-
-  auto summarise = [&](const std::vector<double>& x, double obs)
-      -> std::array<double, 5> {
-    std::vector<double> v;
-    v.reserve(x.size());
-    for (double xi : x) if (std::isfinite(xi)) v.push_back(xi);
-    if ((int)v.size() < 2) return {obs, NA_REAL, NA_REAL, NA_REAL, NA_REAL};
-    double s = 0.0, s2 = 0.0;
-    for (double xi : v) { s += xi; s2 += xi * xi; }
-    const double mn = s / (double)v.size();
-    const double var = s2/(double)v.size() - mn*mn;
-    const double se = std::sqrt(var > 0.0
-      ? var * (double)v.size() / (double)(v.size() - 1) : 0.0);
-    std::sort(v.begin(), v.end());
-    const int nv = (int)v.size();
-    auto q = [&](double p) -> double {
-      const double fi = p * (double)(nv - 1);
-      const int i0 = (int)std::floor(fi);
-      const int i1 = std::min(i0 + 1, nv - 1);
-      return v[(size_t)i0] * (1.0 - (fi - (double)i0))
-           + v[(size_t)i1] * (fi - (double)i0);
-    };
-    return {obs, mn, se, q(alpha), q(1.0 - alpha)};
-  };
-
-  auto r_fst = summarise(boot_fst, obs_fst);
-  auto r_fit = summarise(boot_fit, obs_fit);
-  auto r_fis = summarise(boot_fis, obs_fis);
-  auto r_hs  = summarise(boot_hs,  obs_hs);
-  auto r_ht  = summarise(boot_ht,  obs_ht);
-
-  CharacterVector stat_names = {"FST", "FIT", "FIS", "HS", "HT"};
-  NumericVector obs_v(5), mean_v(5), se_v(5), ci_l_v(5), ci_u_v(5);
-  const std::vector<std::array<double,5>> rows =
-    {r_fst, r_fit, r_fis, r_hs, r_ht};
-  for (int i = 0; i < 5; ++i) {
-    obs_v[i]  = rows[(size_t)i][0];
-    mean_v[i] = rows[(size_t)i][1];
-    se_v[i]   = rows[(size_t)i][2];
-    ci_l_v[i] = rows[(size_t)i][3];
-    ci_u_v[i] = rows[(size_t)i][4];
-  }
-
-  return DataFrame::create(
-    _["Statistic"] = stat_names,
-    _["Observed"]  = obs_v,
-    _["Boot_Mean"] = mean_v,
-    _["SE"]        = se_v,
-    _["CI_L"]      = ci_l_v,
-    _["CI_U"]      = ci_u_v
-  );
-}
-
 // [[Rcpp::export]]
 List batch_permute_wc84_fst_parallel(const IntegerMatrix& dat,
                                            int pop_col_1based,
@@ -1589,7 +1421,7 @@ List boot_popblock_wc84_parallel(const IntegerMatrix& mat,
 // ============================================================================
 // Individual bootstrap for HS: resample individuals within each population
 // Returns HS_boot (B x L) and HS_overall_boot (B) — loci with replacement
-// would give locus-level CI, handled separately via locus_bootstrap_wc84_cpp.
+// would give locus-level CI, handled separately in R (pga_boot_over_loci() in utils_stats.R).
 // ============================================================================
 // [[Rcpp::export]]
 List boot_indiv_hs_cpp(

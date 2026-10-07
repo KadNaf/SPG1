@@ -1,4 +1,4 @@
-Package: shinypopgen
+Package: pgacmdr
 Title: Interactive Shiny Application for Population Genetics
 Version: 0.1.0
 Authors@R: c(
@@ -14,10 +14,10 @@ Authors@R: c(
     person("INTERTRYP, IRD, CIRAD",
            role = "cph")
     )
-BugReports: https://github.com/KadNaf/SPG1/issues
-URL: https://github.com/KadNaf/SPG1
+BugReports: https://github.com/KadNaf/PGA1/issues
+URL: https://github.com/KadNaf/PGA1
 Description:
-    ShinyPopGen is an interactive Shiny application for population genetics
+    PGA-cmdr is an interactive Shiny application for population genetics
     analyses based on multilocus individual genotype datasets. It provides
     tools for data import and formatting, allele frequency and missing-data
     exploration, general statistics (Na, Ne, Ho, He), local and global
@@ -42,7 +42,6 @@ Imports:
     shinydashboard,
     shinyWidgets,
     shinyalert,
-    DT,
     dplyr,
     tidyr,
     kableExtra,
@@ -50,6 +49,10 @@ Imports:
     Rcpp (>= 1.0.0),
     tibble,
     waiter,
+    parallel,
+    stats,
+    utils,
+    graphics,
     duckdb,
     DBI,
     jsonlite,

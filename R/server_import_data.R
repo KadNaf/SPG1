@@ -16,7 +16,6 @@ server_import_data <- function(id, rv) {
                                      col_ranges_data,
                                      metadata_ranges,
                                      missing_code,
-                                     ploidy,
                                      latitude_data,
                                      longitude_data,
                                      selected_levels = character(0),
@@ -28,7 +27,6 @@ server_import_data <- function(id, rv) {
       # Missing handling in duckDB
       # -------------------------#
       miss_info   <- normalize_missing_code(missing_code)
-      missing_gt  <- miss_info$miss_gt
       missing_set <- miss_info$miss_set
       
       # -------------------------#
@@ -177,7 +175,6 @@ server_import_data <- function(id, rv) {
       # -------------------------#
       # PREVIEW ONLY (NO DECODING)
       # -------------------------#
-      .preview_start <- Sys.time()
       
       meta_part <- .time_it("preview: extract meta part (R)", {
         new_df[, setdiff(names(new_df), marker_preview_ok), drop = FALSE]
@@ -246,7 +243,6 @@ server_import_data <- function(id, rv) {
           is_preview       = 1L,
           preview_n        = as.integer(preview_n),
           pop_col_raw      = pop_data,
-          ploidy           = as.integer(ploidy),
           missing_code_raw = as.character(missing_code),
           missing_gt       = 0L,
           missing_set      = paste(sort(unique(missing_set)), collapse = ","),
@@ -323,7 +319,7 @@ server_import_data <- function(id, rv) {
       
       reset_downstream_state(rv)
       
-      default_path <- system.file("extdata", "default_dataset.csv", package = "shinypopgen")
+      default_path <- system.file("extdata", "default_dataset.csv", package = "pgacmdr")
       if (!nzchar(default_path) || !file.exists(default_path)) {
         shinyalert::shinyalert("Error", "Default dataset not found in package (inst/extdata/default_dataset.csv).", type = "error")
         return()
@@ -409,7 +405,6 @@ server_import_data <- function(id, rv) {
           col_ranges_data = det$marker_range,
           metadata_ranges = meta_ranges,
           missing_code    = input$missing_code,
-          ploidy          = as.numeric(input$ploidy),
           latitude_data   = det$latitude %|||% "",
           longitude_data  = det$longitude %|||% "",
           selected_levels = character(0),
@@ -749,7 +744,6 @@ server_import_data <- function(id, rv) {
         col_ranges_data = col_ranges_data,
         metadata_ranges = meta_ranges,
         missing_code    = input$missing_code,
-        ploidy          = as.numeric(input$ploidy),
         latitude_data   = input$latitude_data,
         longitude_data  = input$longitude_data,
         make_map        = FALSE,

@@ -1,10 +1,8 @@
-// www/fis_permute_bootstrap_wc.cpp
+// src/fis_permute_bootstrap_wc.cpp
 //
 // FUNCTIONS IN THIS FILE (in order of appearance) — within-population FIS
 // (Weir & Cockerham 1984), used by the Local Panmixia module.
 //
-//   wc_fis_by_pop()                 Per-population FIS from a simple
-//                                    Hs/Ho-style ratio (legacy/simple path).
 //   boot_indiv_wc_fis_by_pop()      Bootstrap over INDIVIDUALS within one
 //                                    population, for that population's FIS CI
 //                                    (matrix output: rows = replicates).
@@ -156,98 +154,6 @@ inline bool decode_gt_base(int gt, int& a1, int& a2, int base) {
   a1 = gt / base;
   a2 = gt % base;
   return (a1 > 0 && a2 > 0);
-}
-
-// -----------------------------------------------------------------------------
-// Population-level FIS across loci
-// FIS_p = 1 - mean(Ho_p,l) / mean(Hs_p,l)
-// -----------------------------------------------------------------------------
-// [[Rcpp::export]]
-Rcpp::NumericVector wc_fis_by_pop(const Rcpp::IntegerMatrix& dat,
-                                  const int pop_col = 0,
-                                  const int base = 1000)
-{
-  const int N = dat.nrow();
-  const int Pcols = dat.ncol();
-  
-  // genotype columns = all columns except pop_col
-  std::vector<int> loci_cols;
-  loci_cols.reserve(Pcols - 1);
-  for (int j = 0; j < Pcols; ++j) if (j != pop_col) loci_cols.push_back(j);
-  const int L = (int)loci_cols.size();
-  
-  // populations
-  Rcpp::IntegerVector pop = dat(_, pop_col);
-  Rcpp::IntegerVector pops = Rcpp::sort_unique(pop);
-  const int np = pops.size();
-  
-  std::unordered_map<int,int> pop_index;
-  pop_index.reserve((size_t)np);
-  for (int i = 0; i < np; ++i) pop_index[pops[i]] = i;
-  
-  std::vector<double> sumHo(np, 0.0);
-  std::vector<double> sumHs(np, 0.0);
-  std::vector<int>    loci_count(np, 0);
-  
-  for (int li = 0; li < L; ++li) {
-    const int col = loci_cols[li];
-    
-    std::vector<int> n(np, 0);
-    std::vector<int> het(np, 0);
-    std::vector< std::unordered_map<int,int> > allele_counts(np);
-    
-    for (int i = 0; i < N; ++i) {
-      int gt = dat(i, col);
-      int a1, a2;
-      if (!decode_gt_base(gt, a1, a2, base)) continue;
-      
-      int pop_code = dat(i, pop_col);
-      auto it = pop_index.find(pop_code);
-      if (it == pop_index.end()) continue;
-      const int pidx = it->second;
-      
-      n[pidx]++;
-      if (a1 != a2) het[pidx]++;
-      
-      allele_counts[pidx][a1]++;
-      allele_counts[pidx][a2]++;
-    }
-    
-    for (int p = 0; p < np; ++p) {
-      if (n[p] == 0) continue;
-      
-      const double Ho = (double)het[p] / (double)n[p];
-      
-      double Hs = 1.0;
-      const double denom = 2.0 * n[p];
-      for (auto& kv : allele_counts[p]) {
-        const double f = kv.second / denom;
-        Hs -= f * f;
-      }
-      
-      if (Hs <= 0.0) continue;   // monomorphic -> skip
-      
-      sumHo[p] += Ho;
-      sumHs[p] += Hs;
-      loci_count[p]++;
-    }
-  }
-  
-  Rcpp::NumericVector FIS(np);
-  for (int p = 0; p < np; ++p) {
-    if (loci_count[p] == 0) {
-      FIS[p] = NA_REAL;
-    } else {
-      const double meanHo = sumHo[p] / loci_count[p];
-      const double meanHs = sumHs[p] / loci_count[p];
-      FIS[p] = (meanHs <= 0.0) ? NA_REAL : (1.0 - meanHo / meanHs);
-    }
-  }
-  
-  Rcpp::CharacterVector pop_names(np);
-  for (int p = 0; p < np; ++p) pop_names[p] = std::to_string((int)pops[p]);
-  FIS.attr("names") = pop_names;
-  return FIS;
 }
 
 // forward declaration — implemented after wc_fis_locus_ptr

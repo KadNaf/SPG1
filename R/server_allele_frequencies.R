@@ -30,7 +30,7 @@ server_allele_frequencies <- function(id, rv) {
 
     fstat_out_root_r <- reactive({
       r <- trimws(input$fstat_out_root %||% "")
-      if (nzchar(r)) r else if (nzchar(last_auto_root_af())) last_auto_root_af() else "SPG_"
+      if (nzchar(r)) r else if (nzchar(last_auto_root_af())) last_auto_root_af() else "PGA_"
     })
     # Single result file -> plain .txt download (no zip wrapper needed).
     fstat_out_filename <- function() paste0(fstat_out_root_r(), "-allele_freq_by_locus.txt")

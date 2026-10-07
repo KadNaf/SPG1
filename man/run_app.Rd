@@ -2,7 +2,7 @@
 % Please edit documentation in R/run_app.R
 \name{run_app}
 \alias{run_app}
-\title{Run the ShinyPopGen application}
+\title{Run the PGA-cmdr application}
 \usage{
 run_app(...)
 }
@@ -13,7 +13,7 @@ run_app(...)
 A \code{shiny.appobj} (invisibly).
 }
 \description{
-Run the ShinyPopGen application
+Run the PGA-cmdr application
 }
 \examples{
 \dontrun{

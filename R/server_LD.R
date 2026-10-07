@@ -275,7 +275,7 @@ server_LD <- function(id, rv) {
       }
       
       min_pvals <- min_pvals_by_pair(pv)
-      alpha <- input$alpha_level %||% 0.05
+      alpha <- 0.05   # significance threshold used for the summary box
       sig_count <- sum(min_pvals < alpha, na.rm = TRUE)
       pct <- round(100 * sig_count / length(min_pvals), 1)
       

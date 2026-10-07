@@ -6,8 +6,8 @@ app_ui <- function() {
 
   # -- Resource paths --------------------------------------------------------
   shiny::addResourcePath(
-    "spg_www",
-    system.file("app/www", package = "shinypopgen")
+    "pga_www",
+    system.file("app/www", package = "pgacmdr")
   )
   shiny::addResourcePath(
     "sdb",
@@ -15,7 +15,7 @@ app_ui <- function() {
   )
 
   # -- Footer logos (bundled in package, served as base64 data URIs) ---------
-  logos <- spg_logo_uris()
+  logos <- pga_logo_uris()
 
   # -- Example data for Welcome tab ------------------------------------------
 
@@ -46,7 +46,7 @@ app_ui <- function() {
   #  Zissou1:       #3B9AB2 #78B7C5 #EBCC2A #E1AF00 #F21A00 (significance gradient)
   #  Moonrise2:     #798E87 #C27D38 #CCC591 #29211F
   #  GrandBudapest2: #C6CDF7 (dark-mode links)
-  spg_theme <- bslib::bs_theme(
+  pga_theme <- bslib::bs_theme(
     version   = 5,
     bg        = "#f5f7fa",   # light grey page background
     fg        = "#333a43",   # dark grey
@@ -73,8 +73,7 @@ app_ui <- function() {
       background-color: #f5f7fa;
     }
     p, label, .form-label, .shiny-input-container label,
-    .selectize-input, .form-control, .form-select,
-    .dataTables_wrapper, .dt-container {
+    .selectize-input, .form-control, .form-select {
       font-size: 15px;
       color: #333a43;
     }
@@ -91,7 +90,7 @@ app_ui <- function() {
     /* Welcome page is now short (module grid/help/citation removed) —
        don't force it to fill the viewport, or a big empty gap appears
        above the partner-logos footer. */
-    body.spg-welcome-mode .bslib-page-navbar > .tab-content {
+    body.pga-welcome-mode .bslib-page-navbar > .tab-content {
       min-height: auto;
     }
 
@@ -249,8 +248,6 @@ app_ui <- function() {
     [data-bs-theme='dark'] .well {
       background: #39312F; border-color: #8D8680; color: #D9D0D3;
     }
-    [data-bs-theme='dark'] table.dataTable { color: #EAD3BF; }
-    [data-bs-theme='dark'] .dataTables_wrapper { color: #D9D0D3; }
 
     /* ===== BUTTONS ===== */
     /* Action/compute — dark grey, white text */
@@ -293,7 +290,7 @@ app_ui <- function() {
     }
 
     /* ===== WELCOME PAGE ===== */
-    .spg-hero {
+    .pga-hero {
       background: linear-gradient(145deg, #1a2035 0%, #26306B 55%, #333a43 100%);
       padding: 35px 40px 35px;
       display: flex;
@@ -301,22 +298,22 @@ app_ui <- function() {
       justify-content: space-between;
       margin: -20px -20px 0px -20px;
     }
-    .spg-hero-text {
+    .pga-hero-text {
       flex: 1;
       text-align: left;
       padding-right: 32px;
     }
-    .spg-hero-logo {
+    .pga-hero-logo {
       flex-shrink: 0;
       display: flex;
       align-items: center;
     }
-    .spg-hero h1 {
+    .pga-hero h1 {
       color: #FFFFFF !important;
       margin: 0 0 8px 0 !important;
       border: none !important;
     }
-    .spg-cta {
+    .pga-cta {
       display: inline-block;
       background: #A9F0D8 !important;
       color: #1a2035 !important;
@@ -329,20 +326,20 @@ app_ui <- function() {
       text-decoration: none !important;
       transition: background 0.18s, transform 0.12s;
     }
-    .spg-cta:hover {
+    .pga-cta:hover {
       background: #FFFFFF !important;
       transform: translateY(-1px);
     }
-    .spg-module-grid {
+    .pga-module-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 14px;
       margin: 0 0 24px 0;
     }
     @media (max-width: 768px) {
-      .spg-module-grid { grid-template-columns: 1fr 1fr; }
+      .pga-module-grid { grid-template-columns: 1fr 1fr; }
     }
-    .spg-module-card {
+    .pga-module-card {
       background: #FFFFFF;
       border-radius: 5px;
       padding: 18px 16px 14px;
@@ -350,34 +347,34 @@ app_ui <- function() {
       box-shadow: 0 1px 5px rgba(51,58,67,0.08);
       transition: box-shadow 0.18s, transform 0.12s;
     }
-    .spg-module-card:hover {
+    .pga-module-card:hover {
       box-shadow: 0 4px 14px rgba(51,58,67,0.14);
       transform: translateY(-2px);
     }
-    .spg-module-card .card-icon {
+    .pga-module-card .card-icon {
       font-size: 1.5rem;
       margin-bottom: 8px;
       color: #6B64EF;
     }
-    .spg-module-card h5 {
+    .pga-module-card h5 {
       font-size: 0.88rem !important;
       font-weight: 700 !important;
       color: #333a43 !important;
       margin: 0 0 5px 0 !important;
     }
-    .spg-module-card p {
+    .pga-module-card p {
       font-size: 0.80rem !important;
       color: #666 !important;
       margin: 0 !important;
       line-height: 1.4 !important;
     }
-    .spg-steps {
+    .pga-steps {
       counter-reset: step-counter;
       list-style: none;
       padding: 0;
       margin: 0;
     }
-    .spg-steps li {
+    .pga-steps li {
       counter-increment: step-counter;
       display: flex;
       align-items: flex-start;
@@ -385,7 +382,7 @@ app_ui <- function() {
       margin-bottom: 12px;
       font-size: 14px;
     }
-    .spg-steps li::before {
+    .pga-steps li::before {
       content: counter(step-counter);
       min-width: 26px; height: 26px;
       background: #333a43;
@@ -395,10 +392,10 @@ app_ui <- function() {
       font-size: 0.8rem; font-weight: 700;
     }
     /* ===== HELP PAGE ===== */
-    .spg-help-section {
+    .pga-help-section {
       margin-bottom: 28px;
     }
-    .spg-help-section h3 {
+    .pga-help-section h3 {
       font-size: 1rem !important;
       font-weight: 700 !important;
       color: #333a43 !important;
@@ -406,7 +403,7 @@ app_ui <- function() {
       padding-bottom: 6px !important;
       margin-bottom: 14px !important;
     }
-    .spg-format-note {
+    .pga-format-note {
       background: #f5f7fa;
       border-left: 4px solid #6B64EF;
       border-radius: 3px;
@@ -414,7 +411,7 @@ app_ui <- function() {
       font-size: 13px;
       margin-bottom: 14px;
     }
-    .spg-tip {
+    .pga-tip {
       background: #f5f7fa;
       border-left: 4px solid #2CBF9F;
       border-radius: 3px;
@@ -424,7 +421,7 @@ app_ui <- function() {
     }
 
     /* Module banner (replaces h2 section-title in each tab) */
-    .spg-module-banner {
+    .pga-module-banner {
       background: linear-gradient(135deg, #1a2035 0%, #26306B 60%, #333a43 100%);
       padding: 22px 40px 18px;
       display: flex;
@@ -433,12 +430,12 @@ app_ui <- function() {
       margin: -20px -20px 28px -20px;
       border-bottom: 4px solid #6B64EF;
     }
-    .spg-banner-icon {
+    .pga-banner-icon {
       font-size: 2.8rem;
       color: rgba(255,255,255,0.18);
       flex-shrink: 0;
     }
-    .spg-banner-title {
+    .pga-banner-title {
       color: #FFFFFF !important;
       font-size: 1.75rem !important;
       font-weight: 800 !important;
@@ -446,13 +443,13 @@ app_ui <- function() {
       border: none !important;
       letter-spacing: -0.2px;
     }
-    .spg-banner-subtitle {
+    .pga-banner-subtitle {
       color: #A9F0D8;
       font-size: 0.95rem;
       margin: 0 0 10px 0;
     }
     /* Method note: styled description below banner */
-    .spg-method-note {
+    .pga-method-note {
       background: #f8f9fb;
       border-left: 4px solid #6B64EF;
       border-radius: 4px;
@@ -474,7 +471,7 @@ app_ui <- function() {
     .bslib-page-navbar > nav.navbar { display: none !important; }
 
     /* ── Left sidebar mode: embedded flex layout ─────────────────────────── */
-    body.spg-sidebar-mode.bslib-page-navbar {
+    body.pga-sidebar-mode.bslib-page-navbar {
       display: flex !important;
       flex-direction: row !important;
       align-items: stretch !important;
@@ -483,7 +480,7 @@ app_ui <- function() {
       padding: 0 !important;
       margin: 0 !important;
     }
-    body.spg-sidebar-mode.bslib-page-navbar > nav.navbar {
+    body.pga-sidebar-mode.bslib-page-navbar > nav.navbar {
       display: flex !important;
       flex: 0 0 210px !important;
       width: 210px !important;
@@ -504,24 +501,24 @@ app_ui <- function() {
       margin: 0 !important;
     }
     /* Chrome/Safari: hide sidebar scrollbar */
-    body.spg-sidebar-mode.bslib-page-navbar > nav.navbar::-webkit-scrollbar {
+    body.pga-sidebar-mode.bslib-page-navbar > nav.navbar::-webkit-scrollbar {
       display: none !important;
     }
-    /* Hide brand - ShinyPopGen label is now inside the banner */
-    body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .navbar-brand { display: none !important; }
+    /* Hide brand - PGA-cmdr label is now inside the banner */
+    body.pga-sidebar-mode.bslib-page-navbar > nav.navbar .navbar-brand { display: none !important; }
     /* Collapse wrapper - full-width column */
-    body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .navbar-collapse {
+    body.pga-sidebar-mode.bslib-page-navbar > nav.navbar .navbar-collapse {
       display: flex !important;
       flex-direction: column !important;
       width: 100% !important;
       height: 100% !important;
       padding: 6px 0 !important;
     }
-    body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .navbar-nav {
+    body.pga-sidebar-mode.bslib-page-navbar > nav.navbar .navbar-nav {
       flex-direction: column !important;
       width: 100% !important;
     }
-    body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .nav-link {
+    body.pga-sidebar-mode.bslib-page-navbar > nav.navbar .nav-link {
       padding: 9px 16px !important;
       text-align: left !important;
       border-radius: 0 !important;
@@ -530,32 +527,32 @@ app_ui <- function() {
       color: rgba(255,255,255,0.82) !important;
       border-left: 3px solid transparent !important;
     }
-    body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .nav-link:hover {
+    body.pga-sidebar-mode.bslib-page-navbar > nav.navbar .nav-link:hover {
       background: rgba(255,255,255,0.08) !important;
       color: #FFFFFF !important;
       border-left-color: #A9F0D8 !important;
     }
-    body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .nav-link.active {
+    body.pga-sidebar-mode.bslib-page-navbar > nav.navbar .nav-link.active {
       background: rgba(107,100,239,0.25) !important;
       color: #FFFFFF !important;
       border-left-color: #6B64EF !important;
     }
     /* Dark mode toggle pushed to bottom of sidebar */
-    body.spg-sidebar-mode.bslib-page-navbar > nav.navbar .navbar-nav.ms-auto {
+    body.pga-sidebar-mode.bslib-page-navbar > nav.navbar .navbar-nav.ms-auto {
       margin-top: auto !important;
       border-top: 1px solid rgba(255,255,255,0.1) !important;
       padding: 8px 0 !important;
     }
     /* Body locked to exactly viewport height; all scrolling happens inside
        the content column (.container-fluid > .tab-content). */
-    body.spg-sidebar-mode {
+    body.pga-sidebar-mode {
       overflow: hidden !important;
       height: 100vh !important;
     }
     /* .container-fluid is the actual direct child of body (bslib wraps
        .tab-content inside it). Make it the flex child that takes the
        remaining width and clip its own overflow so the body never grows. */
-    body.spg-sidebar-mode.bslib-page-navbar > .container-fluid {
+    body.pga-sidebar-mode.bslib-page-navbar > .container-fluid {
       flex: 1 1 0 !important;
       min-width: 0 !important;
       padding: 0 !important;
@@ -565,7 +562,7 @@ app_ui <- function() {
     }
     /* tab-content is the scroll container; height is constrained so
        overflow-y:auto triggers a visible scrollbar when content overflows. */
-    body.spg-sidebar-mode.bslib-page-navbar > .container-fluid > .tab-content {
+    body.pga-sidebar-mode.bslib-page-navbar > .container-fluid > .tab-content {
       height: 100vh !important;
       overflow-y: auto !important;
       overflow-x: auto !important;
@@ -573,26 +570,26 @@ app_ui <- function() {
     }
     /* Welcome page: thin overlay scrollbar — visible only while scrolling,
        never reserves a permanent gutter on Linux/Windows. */
-    body.spg-welcome-mode {
+    body.pga-welcome-mode {
       scrollbar-width: thin !important;
     }
-    body.spg-welcome-mode::-webkit-scrollbar { width: 6px; }
-    body.spg-welcome-mode::-webkit-scrollbar-track { background: transparent; }
-    body.spg-welcome-mode::-webkit-scrollbar-thumb {
+    body.pga-welcome-mode::-webkit-scrollbar { width: 6px; }
+    body.pga-welcome-mode::-webkit-scrollbar-track { background: transparent; }
+    body.pga-welcome-mode::-webkit-scrollbar-thumb {
       background-color: rgba(51,58,67,0.20);
       border-radius: 3px;
     }
-    body.spg-welcome-mode::-webkit-scrollbar-thumb:hover {
+    body.pga-welcome-mode::-webkit-scrollbar-thumb:hover {
       background-color: rgba(51,58,67,0.50);
     }
 
     /* Tab pane: no top padding so banner is flush */
-    body.spg-sidebar-mode.bslib-page-navbar .tab-content > .tab-pane {
+    body.pga-sidebar-mode.bslib-page-navbar .tab-content > .tab-pane {
       padding-top: 0 !important;
       margin-top: 0 !important;
     }
     /* Banner: sticky at top of its scroll container (.tab-content) */
-    body.spg-sidebar-mode .spg-module-banner {
+    body.pga-sidebar-mode .pga-module-banner {
       position: sticky !important;
       top: 0 !important;
       z-index: 100 !important;
@@ -601,7 +598,7 @@ app_ui <- function() {
       margin-right: -20px !important;
     }
     /* Welcome footer logos */
-    .spg-footer {
+    .pga-footer {
       background: #FFFFFF;
       margin: 0px -20px 0px -20px;
       padding: 12px 40px 10px;
@@ -610,21 +607,21 @@ app_ui <- function() {
       align-items: center;
       gap: 20px;
     }
-    .spg-footer-logos {
+    .pga-footer-logos {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 44px;
       flex-wrap: wrap;
     }
-    .spg-footer-sep {
+    .pga-footer-sep {
       width: 1px;
       align-self: stretch;
       background: #d8dceb;
       margin: 0 6px;
     }
-    .spg-footer img { max-height: 100px; }
-    .spg-footer-caption {
+    .pga-footer img { max-height: 100px; }
+    .pga-footer-caption {
       color: #6b7280;
       font-size: 17px;
       letter-spacing: 0.3px;
@@ -639,10 +636,10 @@ app_ui <- function() {
 
     # ── Hero ──────────────────────────────────────────────────────────────────
     shiny::div(
-      class = "spg-hero",
+      class = "pga-hero",
       # Left: text + CTA
       shiny::div(
-        class = "spg-hero-text",
+        class = "pga-hero-text",
         shiny::tags$h1(
           style = "font-size: 5.2rem; font-weight: 300; color: #F4F6FF; margin: 0 0 6px 0; letter-spacing: -1.5px; line-height: 1.05;",
           "PGA-commander V1"
@@ -653,7 +650,7 @@ app_ui <- function() {
         ),
         #
         shiny::div(
-          class = "spg-credits",
+          class = "pga-credits",
           style = "margin: 10px 0 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08);",
           shiny::tags$p(
             style = "color: #A9F0D8; font-size: 25px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
@@ -663,7 +660,7 @@ app_ui <- function() {
         ),
         #
         shiny::div(
-          class = "spg-credits",
+          class = "pga-credits",
           style = "margin: 10px 0 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08);",
           shiny::tags$p(
             style = "color: #a0a8c0; font-size: 25px; font-family: Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 0; line-height: 1.5;",
@@ -675,16 +672,16 @@ app_ui <- function() {
           )
         ),
         shiny::tags$button(
-          class   = "spg-cta",
+          class   = "pga-cta",
           onclick = "document.querySelector('[data-value=\"import\"]').click();",
           shiny::icon("upload"), " Launch "
         )
       ),
       # Right: big logo — reduced ~2.7x from its previous size
       shiny::div(
-        class = "spg-hero-logo",
+        class = "pga-hero-logo",
         shiny::tags$img(
-          src   = "spg_www/LogoPGAcmdr.png",
+          src   = "pga_www/LogoPGAcmdr.png",
           height = "200px",
           alt   = "PGA-cmdr logo",
           style = "filter: drop-shadow(0 8px 32px rgba(0,0,0,0.55));"
@@ -694,9 +691,9 @@ app_ui <- function() {
 
     # ── Partner logos footer ──────────────────────────────────────────────────
     shiny::div(
-      class = "spg-footer",
+      class = "pga-footer",
       shiny::div(
-        class = "spg-footer-logos",
+        class = "pga-footer-logos",
         # INTERTRYP
         shiny::tags$a(
           href = "https://umr-intertryp.cirad.fr/en", target = "_blank",
@@ -754,7 +751,7 @@ app_ui <- function() {
         )
       ),
       shiny::tags$div(
-        class = "spg-footer-caption",
+        class = "pga-footer-caption",
         "Intertryp, Univ Montpellier, Cirad, IRD, Montpellier, France"
       )
     )
@@ -775,10 +772,10 @@ app_ui <- function() {
 
         # Format overview
         shiny::div(
-          class = "spg-help-section",
+          class = "pga-help-section",
           shiny::tags$h3(shiny::icon("table"), " Accepted file formats"),
           shiny::div(
-            class = "spg-format-note",
+            class = "pga-format-note",
             shiny::icon("info-circle"),
             shiny::HTML(" <strong>PGA-cmdr accepts CSV and tabulation-delimited TXT files.</strong>
               The file must contain at least one <em>population</em> column and one or more
@@ -801,12 +798,12 @@ app_ui <- function() {
 
         # Table examples
         shiny::div(
-          class = "spg-help-section",
+          class = "pga-help-section",
           shiny::tags$h3(shiny::icon("columns"), " Encoding formats"),
           shiny::fluidRow(
             shiny::column(6,
               shiny::div(
-                class = "spg-format-note",
+                class = "pga-format-note",
                 shiny::icon("compress-alt"),
                 shiny::HTML(" <strong>Single-column</strong> &mdash; both alleles in one cell, separated by <code>/</code>, <code>-</code> or <code>_</code>. Each locus uses <strong>1</strong> raw column.")
               ),
@@ -821,7 +818,7 @@ app_ui <- function() {
             ),
             shiny::column(6,
               shiny::div(
-                class = "spg-format-note",
+                class = "pga-format-note",
                 shiny::icon("expand-alt"),
                 shiny::HTML(" <strong>Paired-column</strong> &mdash; each allele in its own column. The first allele column carries the locus name (e.g. <code>B12</code>); the second must be named <code>B12_1</code> (or <code>B12.1</code>) and sit immediately next to it. Each locus uses <strong>2</strong> raw columns.")
               ),
@@ -841,7 +838,7 @@ app_ui <- function() {
 
           # --- Column assignment on Import Data
           shiny::div(
-            class = "spg-format-note",
+            class = "pga-format-note",
             style = "background:#f0f4ff; border-left:4px solid #6B64EF; padding:10px 14px; border-radius:4px; font-size:13px; line-height:1.7;",
             shiny::tags$p(
               style = "margin-top:0; font-weight:600;",
@@ -877,21 +874,21 @@ app_ui <- function() {
 
         # Tips
         shiny::div(
-          class = "spg-help-section",
+          class = "pga-help-section",
           shiny::tags$h3(shiny::icon("lightbulb"), " Tips & common pitfalls"),
-          shiny::div(class = "spg-tip", shiny::icon("check-circle"),
+          shiny::div(class = "pga-tip", shiny::icon("check-circle"),
             shiny::HTML(" <strong>Use the default dataset</strong> to familiarise yourself with the expected format before uploading your own data.")),
-          shiny::div(class = "spg-tip", shiny::icon("check-circle"),
+          shiny::div(class = "pga-tip", shiny::icon("check-circle"),
             shiny::HTML(" <strong>Check the Column reference table</strong> on the Import Data page whenever you're unsure which column number corresponds to which field \u2014 it's always visible once a file is loaded.")),
-          shiny::div(class = "spg-tip", shiny::icon("check-circle"),
+          shiny::div(class = "pga-tip", shiny::icon("check-circle"),
             shiny::HTML(" <strong>Null alleles (FreeNA)</strong> use the standard missing-data code you set on import (e.g. <code>0/0</code>); the Null Alleles module handles the EM estimation from there.")),
-          shiny::div(class = "spg-tip", shiny::icon("check-circle"),
+          shiny::div(class = "pga-tip", shiny::icon("check-circle"),
             shiny::HTML(" <strong>Every module downloads one plain .txt file (Allele Freq, Local/Global Panmixia, Subdivision, Diversities, LD) or a zip of several files (General Stats, Null Alleles, IBD, Mantel)</strong> as soon as you click Run \u2014 there is nothing to view or export separately beforehand; the exact output file name(s) are always shown just above the Run button.")),
-          shiny::div(class = "spg-tip", shiny::icon("exclamation-triangle"),
+          shiny::div(class = "pga-tip", shiny::icon("exclamation-triangle"),
             shiny::HTML(" <strong>All locus columns must use the same encoding</strong> (single- or paired-column) within a file. Mixed encoding is not supported.")),
-          shiny::div(class = "spg-tip", shiny::icon("exclamation-triangle"),
+          shiny::div(class = "pga-tip", shiny::icon("exclamation-triangle"),
             shiny::HTML(" <strong>Population codes must be consistent</strong> across rows &mdash; trailing spaces or capitalisation differences will create duplicate populations.")),
-          shiny::div(class = "spg-tip", shiny::icon("exclamation-triangle"),
+          shiny::div(class = "pga-tip", shiny::icon("exclamation-triangle"),
             shiny::HTML(" <strong>Bootstrap over sub-samples (or over individuals for within-population FIS) needs at least 5 units</strong> to be meaningful; below that threshold the app reports <code>NA</code> instead of an unreliable confidence interval, in Null Alleles, Local/Global Panmixia, Subdivision, and Diversities."))
         ),
 
@@ -899,10 +896,10 @@ app_ui <- function() {
 
         # Mac installation note
         shiny::div(
-          class = "spg-help-section",
+          class = "pga-help-section",
           shiny::tags$h3(shiny::icon("apple"), " macOS: prerequisites for installation"),
           shiny::div(
-            class = "spg-format-note",
+            class = "pga-format-note",
             shiny::icon("exclamation-triangle"),
             shiny::HTML(" <strong>macOS users only.</strong> PGA-cmdr contains C++ code compiled with OpenMP.
               Apple's default clang does <em>not</em> include OpenMP or gfortran.
@@ -932,7 +929,7 @@ app_ui <- function() {
 
         # Workflow
         shiny::div(
-          class = "spg-help-section",
+          class = "pga-help-section",
           shiny::tags$h3(shiny::icon("route"), " Recommended workflow"),
           shiny::tags$ol(
             style = "font-size:14px; line-height:2.0;",
@@ -952,7 +949,7 @@ app_ui <- function() {
 
         # Statistical methods & references
         shiny::div(
-          class = "spg-help-section",
+          class = "pga-help-section",
           shiny::tags$h3(shiny::icon("book-open"), " Statistical methods & key references"),
           shiny::fluidRow(
             shiny::column(6,
@@ -1023,7 +1020,7 @@ app_ui <- function() {
   bslib::page_navbar(
     id    = "main_nav",
     title = "PGA-cmdr",
-    theme          = spg_theme,
+    theme          = pga_theme,
     window_title   = "PGA-cmdr",
     navbar_options = bslib::navbar_options(collapsible = TRUE),
     fillable       = FALSE,
@@ -1069,12 +1066,12 @@ app_ui <- function() {
     var pane = document.querySelector('.tab-pane.active');
     if (!pane || pane === lastPane) return;
     lastPane = pane;
-    if (pane.querySelector('.spg-hero')) {
-      document.body.classList.remove('spg-sidebar-mode');
-      document.body.classList.add('spg-welcome-mode');
+    if (pane.querySelector('.pga-hero')) {
+      document.body.classList.remove('pga-sidebar-mode');
+      document.body.classList.add('pga-welcome-mode');
     } else {
-      document.body.classList.remove('spg-welcome-mode');
-      document.body.classList.add('spg-sidebar-mode');
+      document.body.classList.remove('pga-welcome-mode');
+      document.body.classList.add('pga-sidebar-mode');
     }
   }
 

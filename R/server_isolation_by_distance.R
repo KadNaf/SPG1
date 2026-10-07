@@ -67,12 +67,10 @@ server_isolation_by_distance <- function(id, rv) {
 
     ibd_out_root_r   <- reactive({
       r <- trimws(input$ibd_out_root %||% "")
-      if (nzchar(r)) r else if (nzchar(last_auto_root_ibd())) last_auto_root_ibd() else "SPG_"
+      if (nzchar(r)) r else if (nzchar(last_auto_root_ibd())) last_auto_root_ibd() else "PGA_"
     })
-    ibd_out_suffix_r <- reactive({ trimws(input$ibd_out_suffix %||% "") })
     ibd_out_filename <- function(desc) {
-      suf <- ibd_out_suffix_r()
-      paste0(ibd_out_root_r(), "-", desc, if (nzchar(suf)) paste0("-", suf) else "", ".txt")
+      paste0(ibd_out_root_r(), "-", desc, ".txt")
     }
 
     # ── Same auto-fill-from-dataset-name mechanism, for the Mantel Test
@@ -93,7 +91,7 @@ server_isolation_by_distance <- function(id, rv) {
 
     mt_out_root_r <- reactive({
       r <- trimws(input$mt_out_root %||% "")
-      if (nzchar(r)) r else if (nzchar(last_auto_root_mt())) last_auto_root_mt() else "SPG_"
+      if (nzchar(r)) r else if (nzchar(last_auto_root_mt())) last_auto_root_mt() else "PGA_"
     })
 
     # ── Population GPS centroids (needed for D_geo; IBD-specific) ───────────
@@ -403,7 +401,7 @@ server_isolation_by_distance <- function(id, rv) {
       content  = function(file) {
         r <- .run_ibd_computation()
         ibd_results_store(r)
-        tmpdir <- tempfile("spg_ibd_export_"); dir.create(tmpdir)
+        tmpdir <- tempfile("pga_ibd_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
 
         p1 <- file.path(tmpdir, ibd_out_filename("IBD"))
@@ -697,18 +695,6 @@ server_isolation_by_distance <- function(id, rv) {
         )
       }
 
-      if (nzchar(trimws(input$mt_exclude %||% ""))) {
-        excl <- trimws(strsplit(input$mt_exclude, ",")[[1L]]); excl <- excl[nzchar(excl)]
-        if (length(excl)) {
-          key <- function(a,b){a<-trimws(as.character(a));b<-trimws(as.character(b));ifelse(a<=b,paste(a,b,sep="__"),paste(b,a,sep="__"))}
-          key_df <- key(df[[p1c]], df[[p2c]])
-          key_excl <- vapply(excl, function(s) {
-            ids <- trimws(strsplit(s, "-")[[1L]]); if (length(ids) == 2L) key(ids[1], ids[2]) else NA_character_
-          }, character(1L))
-          df <- df[!(key_df %in% key_excl), , drop = FALSE]
-        }
-      }
-
       all_labels <- sort(unique(trimws(c(as.character(df[[p1c]]), as.character(df[[p2c]])))))
       p1v <- trimws(as.character(df[[p1c]])); p2v <- trimws(as.character(df[[p2c]]))
 
@@ -883,7 +869,7 @@ server_isolation_by_distance <- function(id, rv) {
         mantel_results_store(r)
         d <- .mantel_summary_df(r)
 
-        tmpdir <- tempfile("spg_mantel_export_"); dir.create(tmpdir)
+        tmpdir <- tempfile("pga_mantel_export_"); dir.create(tmpdir)
         on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
 
         p1 <- file.path(tmpdir, paste0(mt_out_root_r(), "-Mantel-Res.txt"))

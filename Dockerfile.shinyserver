@@ -1,11 +1,11 @@
 # ── Dockerfile.shinyserver ───────────────────────────────────────────────
-# ShinyPopGen - Shiny Server variant
-# Build:  docker build -f Dockerfile.shinyserver -t shinypopgen:shinyserver .
-# Run:    docker run --rm -p 3838:3838 shinypopgen:shinyserver
+# PGA-cmdr - Shiny Server variant
+# Build:  docker build -f Dockerfile.shinyserver -t pgacmdr:shinyserver .
+# Run:    docker run --rm -p 3838:3838 pgacmdr:shinyserver
 
 FROM rocker/shiny:latest
 
-LABEL org.opencontainers.image.source="https://github.com/KadNaf/SPG1"
+LABEL org.opencontainers.image.source="https://github.com/KadNaf/PGA1"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Disable renv and any user .Rprofile for all R commands in this image
@@ -37,10 +37,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN R -e "install.packages('pak', repos = 'https://cloud.r-project.org')" && \
     R -e "pak::pkg_install(c( \
       'shiny', 'bslib', 'shinydashboard', 'shinyWidgets', 'shinyalert', \
-      'DT', 'dplyr', 'tidyr', 'ggplot2', 'kableExtra', \
-      'Rcpp', 'leaflet', 'tibble', 'waiter', \
-      'duckdb', 'DBI', 'jsonlite', 'htmltools', 'htmlwidgets', \
-      'webshot2', 'gridExtra', 'plotly', 'magrittr', 'golem', \
+      'dplyr', 'tidyr', 'kableExtra', 'zip', \
+      'Rcpp', 'tibble', 'waiter', \
+      'duckdb', 'DBI', 'jsonlite', 'htmltools', 'magrittr', \
       'knitr', 'rmarkdown', 'testthat', 'digest' \
     ), ask = FALSE)"
 

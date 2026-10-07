@@ -1,4 +1,4 @@
-#' Run the ShinyPopGen application
+#' Run the PGA-cmdr application
 #'
 #' @param ... Arguments passed to \code{\link[shiny]{shinyApp}}.
 #' @return A \code{shiny.appobj} (invisibly).

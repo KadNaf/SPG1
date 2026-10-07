@@ -51,8 +51,6 @@ null_alleles_UI <- function(id) {
     .na-filecard .fname { margin-top:8px; font-size:11px; word-break:break-all; color:#666; }
   "))
 
-  box_title_style <- "background-color: #FFFFFF; padding: 10px; color: #333a43; font-weight: 600;"
-
   fluidPage(
     tags$head(gs_head()),
     supplemental_css,
@@ -150,31 +148,31 @@ null_alleles_UI <- function(id) {
         width = 12,
         title = uiOutput(ns("ui_output_files_title"), inline = TRUE),
         solidHeader = TRUE, status = "primary",
-        tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
+        tags$div(class = "pga-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
           h5("p_nulls / locus"),
           p("Null allele frequencies per locus and subsamples, and averaged over subsamples."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_1"), inline = TRUE)),
           uiOutput(ns("ui_dl_file1"))
         ),
-        tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
+        tags$div(class = "pga-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
           h5("FST / FST-ENA"),
           p("Global FST per locus and over all, corrected or not for null alleles, with CI of bootstrap over subsamples and loci."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_2"), inline = TRUE)),
           uiOutput(ns("ui_dl_file2"))
         ),
-        tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
+        tags$div(class = "pga-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
           h5("Per-locus half-matrices"),
           p("Paired genetic distances in half left matrices, for use by other software."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_4"), inline = TRUE)),
           uiOutput(ns("ui_dl_file4"))
         ),
-        tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
+        tags$div(class = "pga-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
           h5("Bootstrap distributions"),
           p("Detailed bootstrap distribution for global FST's."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_5"), inline = TRUE)),
           uiOutput(ns("ui_dl_file5"))
         ),
-        tags$div(class = "spg-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
+        tags$div(class = "pga-module-card na-filecard", style = "margin-bottom:14px; max-width:400px;",
           h5("Run parameters"),
           p("List of parameters you chose to use."),
           tags$div(class = "fname", uiOutput(ns("ui_filename_6"), inline = TRUE)),

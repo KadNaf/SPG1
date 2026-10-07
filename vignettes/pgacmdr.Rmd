@@ -42,7 +42,7 @@ above the Run button before you click it.
 ## Launch the application
 
 ```{r launch}
-library(shinypopgen)
+library(pgacmdr)
 run_app()
 ```
 

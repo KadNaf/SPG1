@@ -17,7 +17,7 @@
 
 # Percentile confidence interval (type-7 quantiles, the R default) of the finite
 # values of `x`. Returns c(lo, hi), NA when fewer than 2 finite values.
-spg_ci <- function(x, conf_level = 0.95) {
+pga_ci <- function(x, conf_level = 0.95) {
   x <- x[is.finite(x)]
   if (length(x) < 2L) return(c(lo = NA_real_, hi = NA_real_))
   a <- (1 - conf_level) / 2
@@ -36,10 +36,10 @@ spg_ci <- function(x, conf_level = 0.95) {
 # hugging, or even excluding, the observed value (e.g. upper bound = observed HS).
 # The CI is shifted by (observed - bootstrap mean) so that it is centred like the
 # estimator; its width (the sampling variability) is unchanged.
-spg_ci_bias_shift <- function(obs, reps, conf_level = 0.95) {
+pga_ci_bias_shift <- function(obs, reps, conf_level = 0.95) {
   reps <- reps[is.finite(reps)]
   if (!is.finite(obs) || length(reps) < 2L) return(c(lo = NA_real_, hi = NA_real_))
-  ci <- spg_ci(reps, conf_level)
+  ci <- pga_ci(reps, conf_level)
   shift <- obs - mean(reps)
   c(lo = ci[["lo"]] + shift, hi = ci[["hi"]] + shift)
 }
@@ -54,7 +54,7 @@ spg_ci_bias_shift <- function(obs, reps, conf_level = 0.95) {
 #              reps  = matrix n_boot x 5 with columns FST, FIT, FIS, HS, HT).
 # SE is the standard deviation of the bootstrap replicates (bootstrap standard
 # error).
-spg_boot_over_loci <- function(A, B, C, HS, HT, n_boot = 1000L, conf_level = 0.95, seed = 1) {
+pga_boot_over_loci <- function(A, B, C, HS, HT, n_boot = 1000L, conf_level = 0.95, seed = 1) {
   nm <- c("FST", "FIT", "FIS", "HS", "HT")
   ok <- is.finite(A) & is.finite(B) & is.finite(C) & is.finite(HS) & is.finite(HT)
   A <- A[ok]; B <- B[ok]; C <- C[ok]; HS <- HS[ok]; HT <- HT[ok]
@@ -84,7 +84,7 @@ spg_boot_over_loci <- function(A, B, C, HS, HT, n_boot = 1000L, conf_level = 0.9
     HT  = rs(HT) / L
   )
   tab <- do.call(rbind, lapply(nm, function(s) {
-    ci <- spg_ci(reps[, s], conf_level)
+    ci <- pga_ci(reps[, s], conf_level)
     data.frame(Statistic = s, Observed = obs[[s]],
                SE = stats::sd(reps[, s], na.rm = TRUE),
                CI_L = ci[["lo"]], CI_U = ci[["hi"]], stringsAsFactors = FALSE)
@@ -99,7 +99,7 @@ spg_boot_over_loci <- function(A, B, C, HS, HT, n_boot = 1000L, conf_level = 0.9
 # Loci are returned in the column order of `mat` (= order of the data file) and
 # populations in the order of their code.
 # Returns data.frame(Population, Locus, N, Ho, Hs); Hs is NA when N < 2.
-spg_pop_locus_stats <- function(mat, base = 1000L, missing_code = 0L) {
+pga_pop_locus_stats <- function(mat, base = 1000L, missing_code = 0L) {
   pop    <- as.integer(mat[, 1L])
   levels <- attr(mat, "pop_levels")
   loci   <- colnames(mat)[-1L]
@@ -134,9 +134,9 @@ spg_pop_locus_stats <- function(mat, base = 1000L, missing_code = 0L) {
 # sample over all loci with at least two individuals typed"); an unweighted mean
 # over loci differs from it by up to ~0.005 when loci have different amounts of
 # missing data.
-# `long` = output of spg_pop_locus_stats(). Returns data.frame(Population, Ho, Hs)
+# `long` = output of pga_pop_locus_stats(). Returns data.frame(Population, Ho, Hs)
 # in the order of first appearance of the populations in `long`.
-spg_pop_weighted_means <- function(long) {
+pga_pop_weighted_means <- function(long) {
   pops <- unique(long$Population)
   do.call(rbind, lapply(pops, function(p) {
     d <- long[long$Population == p & is.finite(long$Hs) & long$N >= 2L, , drop = FALSE]
@@ -150,12 +150,12 @@ spg_pop_weighted_means <- function(long) {
 
 # HS per population with its two bootstrap confidence intervals.
 #   Observed HS  = weighted mean over loci of the per-locus unbiased Hs
-#                  (see spg_pop_weighted_means).
+#                  (see pga_pop_weighted_means).
 #   BS INDIVIDUALS: individuals of the population are resampled with replacement
 #                  (the same resampled individuals are used at every locus); the
 #                  percentile CI is shifted by (observed - bootstrap mean) to
 #                  remove the known downward bias of this resampling (see
-#                  spg_ci_bias_shift).
+#                  pga_ci_bias_shift).
 #   BS LOCI      : the loci are resampled with replacement.
 # Resampling individuals is done with multinomial weights (equivalent to drawing n
 # individuals with replacement) so that allele counts of all replicates come from
@@ -163,7 +163,7 @@ spg_pop_weighted_means <- function(long) {
 # Returns list(table, reps_indiv, reps_loci); the replicate matrices are
 # n_boot x (number of populations) and let the user inspect the bootstrap
 # distributions.
-spg_hs_per_population <- function(mat, base = 1000L, n_boot = 1000L, conf_level = 0.95,
+pga_hs_per_population <- function(mat, base = 1000L, n_boot = 1000L, conf_level = 0.95,
                                   seed = 1, missing_code = 0L) {
   n_boot <- as.integer(n_boot)
   pop    <- as.integer(mat[, 1L])
@@ -229,8 +229,8 @@ spg_hs_per_population <- function(mat, base = 1000L, n_boot = 1000L, conf_level 
     wv  <- ifelse(use, obs_n, 0); hv <- ifelse(use, obs_hs, 0)
     rl  <- rowSums(matrix(wv[li] * hv[li], nrow = n_boot)) / rowSums(matrix(wv[li], nrow = n_boot))
 
-    ci_i <- spg_ci_bias_shift(obs, ri, conf_level)
-    ci_l <- spg_ci(rl, conf_level)
+    ci_i <- pga_ci_bias_shift(obs, ri, conf_level)
+    ci_l <- pga_ci(rl, conf_level)
     reps_i[, ip] <- ri; reps_l[, ip] <- rl
     rows[[ip]] <- data.frame(
       Population  = pnames[ip],
@@ -254,7 +254,7 @@ spg_hs_per_population <- function(mat, base = 1000L, n_boot = 1000L, conf_level 
 # in the By Population output).
 # Returns list(table = data.frame(Population, Observed_FIS, CI_L_loci, CI_U_loci)
 #              incl. an "Overall" row, reps = n_boot x (pops + 1)).
-spg_fis_pop_loci_boot <- function(mat, base = 1000L, n_boot = 1000L, conf_level = 0.95, seed = 1) {
+pga_fis_pop_loci_boot <- function(mat, base = 1000L, n_boot = 1000L, conf_level = 0.95, seed = 1) {
   n_boot <- as.integer(n_boot)
   pop    <- as.integer(mat[, 1L])
   levels <- attr(mat, "pop_levels")
@@ -285,7 +285,7 @@ spg_fis_pop_loci_boot <- function(mat, base = 1000L, n_boot = 1000L, conf_level 
 
   all_obs <- c(obs, mean(obs, na.rm = TRUE))
   tab <- do.call(rbind, lapply(seq_len(ncol(reps)), function(k) {
-    ci <- spg_ci(reps[, k], conf_level)
+    ci <- pga_ci(reps[, k], conf_level)
     data.frame(Population = colnames(reps)[k], Observed_FIS = all_obs[k],
                CI_L_loci = ci[["lo"]], CI_U_loci = ci[["hi"]], stringsAsFactors = FALSE)
   }))
@@ -298,7 +298,7 @@ spg_fis_pop_loci_boot <- function(mat, base = 1000L, n_boot = 1000L, conf_level 
 # FIT and FIS, for which the C++ routines only return per-locus replicates.
 #   FIT_boot, FST_boot : n_boot x L matrices of per-locus replicates.
 # FIS is derived per locus and per replicate from  (1 - FIT) = (1 - FIS) (1 - FST).
-spg_overall_from_locus_reps <- function(FIT_boot, FST_boot) {
+pga_overall_from_locus_reps <- function(FIT_boot, FST_boot) {
   fis <- 1 - (1 - FIT_boot) / (1 - FST_boot)
   list(FIT = rowMeans(FIT_boot, na.rm = TRUE),
        FIS = rowMeans(fis,      na.rm = TRUE))
@@ -308,13 +308,13 @@ spg_overall_from_locus_reps <- function(FIT_boot, FST_boot) {
 # Table written in overall_by_population (General Stats):
 #   overall : one row per population, Ho and Hs averaged over loci WEIGHTED by the
 #             number of individuals typed at each locus (GENEPOP convention, see
-#             spg_pop_weighted_means), and the Weir & Cockerham (1984) multilocus
+#             pga_pop_weighted_means), and the Weir & Cockerham (1984) multilocus
 #             FIS of that population.
 #   detail  : observed heterozygosity per population and locus, loci in the order
 #             of the data file (the per-locus Hs is given by gene_diversity_hs_by_pop).
-spg_overall_by_population <- function(mat, base = 1000L, missing_code = 0L) {
-  long  <- spg_pop_locus_stats(mat, base, missing_code)
-  w     <- spg_pop_weighted_means(long)
+pga_overall_by_population <- function(mat, base = 1000L, missing_code = 0L) {
+  long  <- pga_pop_locus_stats(mat, base, missing_code)
+  w     <- pga_pop_weighted_means(long)
   codes <- sort(unique(as.integer(mat[, 1L])))
   codes <- codes[is.finite(codes) & codes > 0L]
   fis   <- wc_fis_by_pop_wc84(dat = mat, pop_col = 0L, base = as.integer(base))
@@ -333,7 +333,7 @@ spg_overall_by_population <- function(mat, base = 1000L, missing_code = 0L) {
 # permutation p-value, then two Overall rows: one per type of bootstrap.
 #   final_table      : ID, Observed_FST, P_value, CI_L, CI_U (+ other columns), Overall last
 #   locus_boot_table : Statistic, Observed, SE, CI_L, CI_U (bootstrap over loci)
-spg_fst_section <- function(final_table, locus_boot_table) {
+pga_fst_section <- function(final_table, locus_boot_table) {
   ft  <- final_table
   n   <- nrow(ft)
   out <- ft[, c("ID", "Observed_FST", "P_value", "CI_L", "CI_U"), drop = FALSE]
@@ -349,7 +349,7 @@ spg_fst_section <- function(final_table, locus_boot_table) {
 # Multilocus estimators (FIS, FST, FIT, HS, HT): observed value, bootstrap standard
 # error and CI from the bootstrap over LOCI, and CI from the bootstrap over
 # SUB-SAMPLES (NA when fewer than 5 sub-samples).
-spg_multilocus_section <- function(locus_boot_table, subs_overall) {
+pga_multilocus_section <- function(locus_boot_table, subs_overall) {
   ord <- c("FIS", "FST", "FIT", "HS", "HT")
   lb  <- locus_boot_table[match(ord, locus_boot_table$Statistic), , drop = FALSE]
   sb  <- subs_overall[match(ord, subs_overall$Statistic), , drop = FALSE]
@@ -361,7 +361,7 @@ spg_multilocus_section <- function(locus_boot_table, subs_overall) {
 
 # A per-locus HS / HT table as written in the files: standard error instead of the
 # bootstrap mean (which has no use for the reader).
-spg_diversity_section <- function(tbl, obs_col) {
+pga_diversity_section <- function(tbl, obs_col) {
   out <- data.frame(ID = tbl$ID, tbl[[obs_col]], SE = tbl$Boot_SE, CI_L = tbl$CI_L, CI_U = tbl$CI_U,
                     stringsAsFactors = FALSE)
   names(out)[2] <- obs_col
@@ -370,9 +370,9 @@ spg_diversity_section <- function(tbl, obs_col) {
 
 # HS per population: one row per population (bootstrap over individuals and over
 # loci) and an Overall row that carries the same two types of bootstrap.
-#   hs_per_pop : table of spg_hs_per_population()
+#   hs_per_pop : table of pga_hs_per_population()
 #   hs_indiv_tbl, locus_boot_table : tables of run_bootstrap_fst_analysis()
-spg_hs_pop_section <- function(hs_per_pop, hs_indiv_tbl, locus_boot_table) {
+pga_hs_pop_section <- function(hs_per_pop, hs_indiv_tbl, locus_boot_table) {
   ov_i <- hs_indiv_tbl[hs_indiv_tbl$ID == "Overall", , drop = FALSE]
   ov_l <- locus_boot_table[locus_boot_table$Statistic == "HS", , drop = FALSE]
   tab  <- hs_per_pop
@@ -387,7 +387,7 @@ spg_hs_pop_section <- function(hs_per_pop, hs_indiv_tbl, locus_boot_table) {
 }
 
 # Writes a titled block of bootstrap replicate values (one row per replicate).
-spg_write_replicates <- function(con, title, mat) {
+pga_write_replicates <- function(con, title, mat) {
   if (is.null(mat) || !length(mat)) return(invisible(NULL))
   writeLines(title, con = con, useBytes = TRUE)
   utils::write.table(data.frame(Replicate = seq_len(nrow(mat)), mat, check.names = FALSE),
@@ -408,13 +408,13 @@ spg_write_replicates <- function(con, title, mat) {
 # plain `perm >= obs` then loses a random part of the ties: the one-sided p-values of a
 # locus in one sample were off by up to 0.15 and their sum was ~1 instead of ~1.17.
 # All comparisons therefore use this tolerance.
-SPG_TIE_TOL <- 1e-9
+PGA_TIE_TOL <- 1e-9
 
 # number of permuted values >= observed (ties included)
-spg_n_ge <- function(null, obs, tol = SPG_TIE_TOL) sum(null >= obs - tol)
+pga_n_ge <- function(null, obs, tol = PGA_TIE_TOL) sum(null >= obs - tol)
 # number of permuted values <= observed (ties included)
-spg_n_le <- function(null, obs, tol = SPG_TIE_TOL) sum(null <= obs + tol)
+pga_n_le <- function(null, obs, tol = PGA_TIE_TOL) sum(null <= obs + tol)
 # number of permuted values strictly greater than the observed one (ties excluded)
-spg_n_gt <- function(null, obs, tol = SPG_TIE_TOL) sum(null > obs + tol)
+pga_n_gt <- function(null, obs, tol = PGA_TIE_TOL) sum(null > obs + tol)
 # two-sided: number of permuted |values| >= |observed| (ties included)
-spg_n_abs_ge <- function(null, obs, tol = SPG_TIE_TOL) sum(abs(null) >= abs(obs) - tol)
+pga_n_abs_ge <- function(null, obs, tol = PGA_TIE_TOL) sum(abs(null) >= abs(obs) - tol)
